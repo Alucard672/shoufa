@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "新建发料单",
+  "usingComponents": {
+    "search-select": "/components/search-select/search-select"
+  }
+}
+
+
+
+

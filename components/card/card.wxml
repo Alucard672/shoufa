@@ -1,0 +1,8 @@
+<!--components/card/card.wxml-->
+<view class="card {{type === 'gradient' ? 'card-gradient' : ''}}" style="{{gradient ? 'background: ' + gradient + ';' : ''}}">
+  <slot></slot>
+</view>
+
+
+
+

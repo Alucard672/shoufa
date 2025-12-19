@@ -1,0 +1,159 @@
+/* pages/mine/index.wxss */
+.container {
+  padding: 16px;
+}
+
+/* 公司信息卡片 */
+.profile-card {
+  padding: 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(90deg, rgba(43, 127, 255, 1) 0%, rgba(152, 16, 250, 1) 100%);
+  border-radius: 14px;
+  color: #FFFFFF;
+}
+
+.profile-content {
+  display: flex;
+  gap: 12px;
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatar-text {
+  font-size: 24px;
+  font-weight: 500;
+  color: #FFFFFF;
+}
+
+.profile-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.company-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.profile-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-text {
+  font-size: 14px;
+  color: #FFFFFF;
+  opacity: 0.9;
+}
+
+/* 基础管理 */
+.section {
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6A7282;
+  display: block;
+  margin-bottom: 12px;
+  padding-left: 4px;
+}
+
+.menu-card {
+  padding: 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-icon-wrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.menu-icon {
+  width: 20px;
+  height: 20px;
+  color: #101828;
+}
+
+.menu-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 0;
+}
+
+.menu-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #101828;
+}
+
+.menu-desc {
+  font-size: 12px;
+  color: #6A7282;
+}
+
+.menu-arrow {
+  font-size: 20px;
+  color: #99A1AF;
+  font-weight: 300;
+}
+
+/* 版本信息 */
+.version-info {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.version-info text {
+  font-size: 12px;
+  color: #99A1AF;
+}
+

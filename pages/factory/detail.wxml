@@ -1,0 +1,56 @@
+<!--pages/factory/detail.wxml-->
+<view class="container" wx:if="{{factory}}">
+  <view class="factory-info card">
+    <text class="factory-name">{{factory.name}}</text>
+    <text class="factory-contact" wx:if="{{factory.contact}}">联系人：{{factory.contact}}</text>
+    <text class="factory-phone" wx:if="{{factory.phone}}">联系方式：{{factory.phone}}</text>
+    <text class="factory-price">加工单价：¥{{factory.defaultPrice}}/件</text>
+    <text class="factory-settlement">结算方式：{{factory.settlementMethod}}</text>
+  </view>
+
+  <view class="stats-section">
+    <view class="stat-card card">
+      <text class="stat-label">累计发料</text>
+      <text class="stat-value">{{totalIssueWeightFormatted}} kg</text>
+    </view>
+    <view class="stat-card card">
+      <text class="stat-label">累计用纱</text>
+      <text class="stat-value">{{totalUsedYarnFormatted}} kg</text>
+    </view>
+    <view class="stat-card card">
+      <text class="stat-label">未结账款</text>
+      <text class="stat-value fee">¥{{unpaidFeeFormatted}}</text>
+    </view>
+  </view>
+
+  <!-- 结算按钮 -->
+  <view class="settlement-section" wx:if="{{unpaidFee > 0}}">
+    <view class="btn btn-primary btn-settlement-full" bindtap="navigateToSettlement">
+      <text>去结算</text>
+    </view>
+  </view>
+
+  <view class="section">
+    <text class="section-title">发料记录</text>
+    <view class="record-list">
+      <view class="record-item" wx:for="{{issueOrders}}" wx:key="_id">
+        <text class="record-text">{{item.styleName}} · {{item.issueWeight}}kg · {{item.issueDateFormatted}}</text>
+      </view>
+      <view class="empty-tip" wx:if="{{issueOrders.length === 0}}">
+        <text>暂无发料记录</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <text class="section-title">回货记录</text>
+    <view class="record-list">
+      <view class="record-item" wx:for="{{returnOrders}}" wx:key="_id">
+        <text class="record-text">{{item.styleName}} · {{item.returnQuantity}}打 · ¥{{item.processingFeeFormatted}} · {{item.returnDateFormatted}}</text>
+      </view>
+      <view class="empty-tip" wx:if="{{returnOrders.length === 0}}">
+        <text>暂无回货记录</text>
+      </view>
+    </view>
+  </view>
+</view>

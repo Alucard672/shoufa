@@ -1,0 +1,85 @@
+<!--pages/settings/color.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-left">
+      <text class="page-title">颜色字典</text>
+      <text class="page-subtitle">管理颜色选项</text>
+    </view>
+    <view class="btn btn-primary" bindtap="onAddColor">
+      <text>新增</text>
+    </view>
+  </view>
+
+  <!-- 搜索框 -->
+  <view class="search-container">
+    <search-box 
+      placeholder="搜索颜色名称..."
+      bindsearch="onSearch"
+    />
+  </view>
+
+  <!-- 颜色列表 -->
+  <view class="list-container">
+    <view class="list-item card" wx:for="{{colors}}" wx:key="_id">
+      <view class="item-content">
+        <view class="item-main">
+          <text class="item-name">{{item.name}}</text>
+          <text class="item-code" wx:if="{{item.code}}">{{item.code}}</text>
+        </view>
+        <view class="item-actions">
+          <view class="btn-icon" bindtap="onEditColor" data-color="{{item}}">
+            <text>编辑</text>
+          </view>
+          <view class="btn-icon btn-danger" bindtap="onDelete" data-color="{{item}}">
+            <text>删除</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <view class="empty-tip" wx:if="{{colors.length === 0}}">
+      <text>暂无颜色数据</text>
+    </view>
+  </view>
+
+  <!-- 新增/编辑模态框 -->
+  <view class="modal-overlay" wx:if="{{showAddModal}}" bindtap="onCloseModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">{{editColor ? '编辑颜色' : '新增颜色'}}</text>
+        <view class="close-btn" bindtap="onCloseModal">
+          <image class="icon-close" src="/images/icons/close.svg" mode="aspectFit"></image>
+        </view>
+      </view>
+
+      <view class="modal-body">
+        <view class="form-item">
+          <text class="form-label">颜色名称 *</text>
+          <input 
+            class="form-input" 
+            placeholder="例：白色"
+            value="{{colorName}}"
+            bindinput="onColorNameInput"
+          />
+        </view>
+
+        <view class="form-item">
+          <text class="form-label">颜色编码</text>
+          <input 
+            class="form-input" 
+            placeholder="例：WHITE（可选）"
+            value="{{colorCode}}"
+            bindinput="onColorCodeInput"
+          />
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <view class="btn btn-cancel" bindtap="onCloseModal">取消</view>
+        <view class="btn btn-submit" bindtap="onSave">保存</view>
+      </view>
+    </view>
+  </view>
+</view>
+

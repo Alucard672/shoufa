@@ -1,0 +1,10 @@
+{
+  "name": "cleanupInvalidColorsAndSizes",
+  "version": "1.0.0",
+  "description": "清理款号中不在字典中的颜色和尺码",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
+

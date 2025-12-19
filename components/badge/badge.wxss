@@ -1,0 +1,33 @@
+/* components/badge/badge.wxss */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.33;
+}
+
+.badge-warning {
+  background: #FFEDD4;
+  color: #CA3500;
+  border: 1px solid rgba(0, 0, 0, 0);
+}
+
+.badge-info {
+  background: #DBEAFE;
+  color: #1447E6;
+  border: 1px solid rgba(0, 0, 0, 0);
+}
+
+.badge-success {
+  background: #DCFCE7;
+  color: #008236;
+  border: 1px solid rgba(0, 0, 0, 0);
+}
+
+
+
+

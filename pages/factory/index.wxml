@@ -1,0 +1,92 @@
+<!--pages/factory/index.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-left">
+      <text class="page-title">加工厂管理</text>
+      <text class="page-subtitle">管理加工厂信息和账款</text>
+    </view>
+    <view class="btn btn-primary" bindtap="navigateToCreate">
+      <text>新增</text>
+    </view>
+  </view>
+
+  <!-- 统计卡片 -->
+  <view class="stats-cards">
+    <view class="stats-card card-blue">
+      <view class="stats-content">
+        <text class="stats-label">合作工厂</text>
+        <text class="stats-value">{{factoryCount}}</text>
+        <text class="stats-unit">家</text>
+      </view>
+    </view>
+
+    <view class="stats-card card-green">
+      <view class="stats-content">
+        <text class="stats-label">未结账款</text>
+        <text class="stats-value">{{unpaidAmountFormatted}}</text>
+        <text class="stats-unit">待结算</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 搜索框 -->
+  <view class="search-container">
+    <search-box 
+      placeholder="搜索工厂名称、联系人或电话..."
+      bindsearch="onSearch"
+    />
+  </view>
+
+  <!-- 工厂列表 -->
+  <view class="factory-list">
+    <view 
+      class="factory-card card" 
+      wx:for="{{factories}}" 
+      wx:key="_id"
+      bindtap="navigateToDetail"
+      data-id="{{item._id}}"
+    >
+      <view class="factory-header">
+        <view class="factory-info">
+          <text class="factory-name">{{item.name}}</text>
+          <text class="factory-contact">{{item.contact}} · {{item.phone}}</text>
+        </view>
+        <view class="factory-actions">
+          <view class="btn-settlement" bindtap="navigateToSettlement" data-id="{{item._id}}" catchtap="stopPropagation" wx:if="{{item.unpaidFee > 0}}">结算</view>
+          <view class="btn-edit" bindtap="onEditFactory" data-id="{{item._id}}" catchtap="stopPropagation">编辑</view>
+          <text class="factory-arrow" bindtap="navigateToDetail" data-id="{{item._id}}">›</text>
+        </view>
+      </view>
+      
+      <view class="factory-details">
+        <view class="detail-row">
+          <text class="detail-label">加工单价</text>
+          <view class="detail-value-group">
+            <text class="detail-value">¥{{item.defaultPrice}}</text>
+            <text class="detail-unit">/件</text>
+          </view>
+        </view>
+        <view class="detail-row">
+          <text class="detail-label">未结账款</text>
+          <text class="detail-value fee">{{item.unpaidFeeFormatted}}</text>
+        </view>
+      </view>
+      
+      <view class="factory-stats">
+        <view class="stat-item">
+          <text class="stat-text">累计发料 {{item.totalIssueWeightFormatted}}</text>
+        </view>
+        <text class="stat-separator">|</text>
+        <view class="stat-item">
+          <text class="stat-text">累计用纱 {{item.totalUsedYarnFormatted}}</text>
+        </view>
+      </view>
+    </view>
+    
+    <view class="empty-tip" wx:if="{{factories.length === 0}}">
+      <text>暂无加工厂数据</text>
+    </view>
+  </view>
+</view>
+

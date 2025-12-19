@@ -1,0 +1,272 @@
+/* components/search-select/search-select.wxss */
+.search-select {
+  width: 100%;
+}
+
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx;
+  background: #fff;
+  border-radius: 8rpx;
+  border: 1px solid #e5e5e5;
+  min-height: 88rpx;
+}
+
+.selected-items {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 1;
+  gap: 12rpx;
+}
+
+.selected-item {
+  display: flex;
+  align-items: center;
+  padding: 8rpx 16rpx;
+  background: #f0f7ff;
+  border-radius: 4rpx;
+  font-size: 28rpx;
+  color: #2b7fff;
+}
+
+.remove-btn {
+  margin-left: 8rpx;
+  width: 24rpx;
+  height: 24rpx;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.placeholder {
+  color: #999;
+  font-size: 28rpx;
+}
+
+.arrow {
+  color: #999;
+  font-size: 32rpx;
+  margin-left: 16rpx;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+}
+
+.modal-content {
+  width: 100%;
+  height: 65vh;
+  max-height: 65vh;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.close-btn {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-close {
+  width: 32rpx;
+  height: 32rpx;
+  color: #999;
+}
+
+.search-box {
+  padding: 24rpx 32rpx;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.search-input {
+  width: 100%;
+  padding: 16rpx 24rpx;
+  background: #f5f5f5;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+}
+
+.options-list {
+  flex: 1;
+  height: 0;
+  overflow: hidden;
+}
+
+.options-grid {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 16rpx;
+  gap: 12rpx;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16rpx 24rpx;
+  background: #f5f5f5;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  color: #333;
+  border: 1px solid #e5e5e5;
+  min-width: 120rpx;
+  flex: 0 0 auto;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.option-item.selected {
+  background: #f0f7ff;
+  color: #2b7fff;
+  border-color: #2b7fff;
+}
+
+.option-text {
+  flex: 1;
+  text-align: center;
+}
+
+.check-icon {
+  position: absolute;
+  top: 4rpx;
+  right: 4rpx;
+  width: 32rpx;
+  height: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2b7fff;
+  border-radius: 50%;
+  color: #fff;
+}
+
+.empty-tip {
+  padding: 80rpx 32rpx;
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+}
+
+.modal-footer {
+  padding: 24rpx 32rpx;
+  border-top: 1px solid #e5e5e5;
+}
+
+.btn {
+  width: 100%;
+  padding: 24rpx;
+  text-align: center;
+  border-radius: 8rpx;
+  font-size: 32rpx;
+}
+
+.btn-primary {
+  background: #2b7fff;
+  color: #fff;
+}
+
+.add-tip {
+  padding: 24rpx 32rpx;
+  text-align: center;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.add-tip-text {
+  font-size: 28rpx;
+  color: #999;
+}
+
+.add-tip-link {
+  font-size: 28rpx;
+  color: #2b7fff;
+}
+
+.add-form {
+  padding: 24rpx 32rpx;
+  border-bottom: 1px solid #f5f5f5;
+  background: #f9f9f9;
+}
+
+.add-form-header {
+  margin-bottom: 16rpx;
+}
+
+.add-form-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #333;
+}
+
+.add-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.add-form-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.add-form-input {
+  width: 100%;
+  padding: 16rpx 24rpx;
+  background: #fff;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  color: #333;
+  border: 1px solid #e5e5e5;
+}
+
+.add-form-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 8rpx;
+}
+
+.add-btn-cancel,
+.add-btn-submit {
+  flex: 1;
+  padding: 16rpx;
+  text-align: center;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+}
+
+.add-btn-cancel {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.add-btn-submit {
+  background: #2b7fff;
+  color: #fff;
+}
+

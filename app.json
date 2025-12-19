@@ -1,0 +1,75 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/index/activities",
+    "pages/issue/index",
+    "pages/issue/all",
+    "pages/return/index",
+    "pages/statistics/index",
+    "pages/mine/index",
+    "pages/issue/create",
+    "pages/return/create",
+    "pages/factory/index",
+    "pages/factory/detail",
+    "pages/factory/create",
+    "pages/factory/settlement",
+    "pages/style/index",
+    "pages/style/create",
+    "pages/yarn/index",
+    "pages/yarn/create",
+    "pages/settings/index",
+    "pages/settings/color",
+    "pages/settings/size"
+  ],
+  "window": {
+    "navigationBarTitleText": "纱线收发加工",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F9FAFB",
+    "backgroundTextStyle": "light",
+    "enablePullDownRefresh": false
+  },
+  "tabBar": {
+    "color": "#6A7282",
+    "selectedColor": "#155DFC",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "images/tab/home.png",
+        "selectedIconPath": "images/tab/home-active.png"
+      },
+      {
+        "pagePath": "pages/issue/index",
+        "text": "发料",
+        "iconPath": "images/tab/issue.png",
+        "selectedIconPath": "images/tab/issue-active.png"
+      },
+      {
+        "pagePath": "pages/return/index",
+        "text": "回货",
+        "iconPath": "images/tab/return.png",
+        "selectedIconPath": "images/tab/return-active.png"
+      },
+      {
+        "pagePath": "pages/statistics/index",
+        "text": "统计",
+        "iconPath": "images/tab/statistics.png",
+        "selectedIconPath": "images/tab/statistics-active.png"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的",
+        "iconPath": "images/tab/mine.png",
+        "selectedIconPath": "images/tab/mine-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents",
+  "cloud": true
+}
+

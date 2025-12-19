@@ -1,0 +1,52 @@
+// components/search-select/search-select.wxs
+var isSelected = function(item, selectedValues, valueKey, multiple) {
+  if (!selectedValues || selectedValues.length === 0) {
+    return false
+  }
+  
+  var itemValue = item[valueKey] || item
+  
+  if (multiple) {
+    for (var i = 0; i < selectedValues.length; i++) {
+      var v = selectedValues[i]
+      var vValue = typeof v === 'object' ? (v[valueKey] || v) : v
+      if (vValue === itemValue) {
+        return true
+      }
+    }
+    return false
+  } else {
+    var selected = selectedValues[0]
+    var selectedValue = typeof selected === 'object' ? (selected[valueKey] || selected) : selected
+    return selectedValue === itemValue
+  }
+}
+
+var formatDisplay = function(item, displayKey, formatType) {
+  if (!item || typeof item !== 'object') {
+    return item || ''
+  }
+  
+  // 如果指定了格式化类型
+  if (formatType === 'style') {
+    // 款号格式：款号编号 + 款号名称
+    var styleCode = item.styleCode || ''
+    var styleName = item.styleName || item.name || ''
+    if (styleCode && styleName) {
+      return styleCode + ' ' + styleName
+    } else if (styleCode) {
+      return styleCode
+    } else if (styleName) {
+      return styleName
+    }
+  }
+  
+  // 默认使用 displayKey
+  return item[displayKey] || item.name || item || ''
+}
+
+module.exports = {
+  isSelected: isSelected,
+  formatDisplay: formatDisplay
+}
+

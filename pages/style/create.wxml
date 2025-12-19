@@ -1,0 +1,171 @@
+<!--pages/style/create.wxml-->
+<view class="modal-overlay">
+  <view class="modal-content">
+    <view class="modal-header">
+      <text class="modal-title">{{isEdit ? '编辑款号' : '新增款号'}}</text>
+      <view class="close-btn" bindtap="onCancel">
+        <image class="icon-close" src="/images/icons/close.svg" mode="aspectFit"></image>
+      </view>
+    </view>
+
+    <view class="form-container">
+      <view class="form-item">
+        <text class="form-label">款式图片</text>
+        <view class="image-upload-container">
+          <view class="image-preview" wx:if="{{imageUrl}}">
+            <image class="preview-image" src="{{imageUrl}}" mode="aspectFill"></image>
+            <view class="image-delete" bindtap="onDeleteImage">
+              <image class="icon-remove" src="/images/icons/remove.svg" mode="aspectFit"></image>
+            </view>
+          </view>
+          <view class="image-placeholder" wx:else>
+            <text class="placeholder-text">暂无图片</text>
+          </view>
+          <view class="image-upload-buttons">
+            <view class="btn-upload" bindtap="onChooseImage">
+              <image class="btn-icon" src="/images/icons/folder.svg" mode="aspectFit"></image>
+              <text>选择图片</text>
+            </view>
+            <view class="btn-upload" bindtap="onTakePhoto">
+              <image class="btn-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+              <text>拍照</text>
+            </view>
+          </view>
+          <text class="image-hint">图片大小不超过5MB，支持JPG、PNG等格式</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">款号编号 *</text>
+        <input 
+          class="form-input" 
+          placeholder="例：YS001"
+          value="{{styleCode}}"
+          bindinput="onStyleCodeInput"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">款式名称 *</text>
+        <input 
+          class="form-input" 
+          placeholder="例：经典圆领T恤"
+          value="{{styleName}}"
+          bindinput="onStyleNameInput"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">类别</text>
+        <input 
+          class="form-input" 
+          placeholder="例：针织类"
+          value="{{category}}"
+          bindinput="onCategoryInput"
+        />
+      </view>
+
+      <view class="form-row">
+        <view class="form-item form-item-half">
+          <text class="form-label">单件用纱量（克）*</text>
+          <input 
+            class="form-input" 
+            type="digit"
+            placeholder="例：250"
+            value="{{yarnUsagePerPiece}}"
+            bindinput="onYarnUsageInput"
+          />
+        </view>
+        <view class="form-item form-item-half">
+          <text class="form-label">损耗率（%）</text>
+          <input 
+            class="form-input" 
+            type="digit"
+            placeholder="例：5"
+            value="{{lossRate}}"
+            bindinput="onLossRateInput"
+          />
+        </view>
+      </view>
+
+      <view class="form-hint">
+        <text>系统将根据用纱量和损耗率自动计算实际用量</text>
+      </view>
+
+      <view class="form-item" wx:if="{{actualUsage}}">
+        <view class="form-label-row">
+          <text class="form-label">实际用量（含损耗）</text>
+          <text class="form-value">{{actualUsage}} kg/件</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">可选颜色</text>
+        <search-select 
+          placeholder="请选择颜色（可多选）"
+          options="{{colorOptions}}"
+          display-key="name"
+          value-key="_id"
+          selected-values="{{selectedColors}}"
+          multiple="{{true}}"
+          allow-add="{{true}}"
+          add-type="color"
+          bindchange="onColorsChange"
+          bindadd="onAddColor"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">可选尺码</text>
+        <search-select 
+          placeholder="请选择尺码（可多选）"
+          options="{{sizeOptions}}"
+          display-key="name"
+          value-key="_id"
+          selected-values="{{selectedSizes}}"
+          multiple="{{true}}"
+          allow-add="{{true}}"
+          add-type="size"
+          bindchange="onSizesChange"
+          bindadd="onAddSize"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">关联纱线</text>
+        <search-select 
+          placeholder="请选择纱线（可多选，发料时自动扣减库存）"
+          options="{{yarnOptions}}"
+          display-key="yarnName"
+          value-key="_id"
+          selected-values="{{selectedYarns}}"
+          multiple="{{true}}"
+          bindchange="onYarnsChange"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">备注说明</text>
+        <textarea 
+          class="form-textarea" 
+          placeholder="填写款式的详细说明..."
+          value="{{remark}}"
+          bindinput="onRemarkInput"
+        />
+      </view>
+
+      <view class="form-actions">
+        <view class="btn btn-cancel" bindtap="onCancel">
+          <text>取消</text>
+        </view>
+        <view class="btn btn-submit" bindtap="onSubmit">
+          <text>保存</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+
+
+
+

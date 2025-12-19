@@ -1,0 +1,94 @@
+<!--components/search-select/search-select.wxml-->
+<wxs module="helper" src="./search-select.wxs"></wxs>
+<view class="search-select">
+  <view class="select-trigger" bindtap="onOpenModal">
+    <view class="selected-items" wx:if="{{internalSelectedValues.length > 0}}">
+      <view class="selected-item" wx:for="{{internalSelectedValues}}" wx:key="index" wx:for-item="item" wx:for-index="idx">
+        <text>{{helper.formatDisplay(item, displayKey, formatDisplay)}}</text>
+        <image class="remove-btn" wx:if="{{multiple}}" src="/images/icons/remove.svg" mode="aspectFit" bindtap="onRemoveSelected" data-index="{{idx}}" catchtap="stopPropagation"></image>
+      </view>
+    </view>
+    <text class="placeholder" wx:else>{{placeholder}}</text>
+    <text class="arrow">›</text>
+  </view>
+
+  <view class="modal-overlay" wx:if="{{showModal}}" bindtap="onCloseModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">{{placeholder}}</text>
+        <view class="close-btn" bindtap="onCloseModal">
+          <image class="icon-close" src="/images/icons/close.svg" mode="aspectFit"></image>
+        </view>
+      </view>
+      
+      <view class="search-box">
+        <input 
+          class="search-input" 
+          type="text" 
+          placeholder="搜索..."
+          value="{{searchKeyword}}"
+          bindinput="onSearchInput"
+          confirm-type="search"
+        />
+      </view>
+      
+      <!-- 快速新增表单 -->
+      <view class="add-form" wx:if="{{showAddForm && allowAdd}}">
+        <view class="add-form-header">
+          <text class="add-form-title">快速新增</text>
+        </view>
+        <view class="add-form-body">
+          <view class="add-form-item">
+            <input 
+              class="add-form-input" 
+              placeholder="名称 *"
+              value="{{newItemName}}"
+              bindinput="onNewItemNameInput"
+            />
+          </view>
+          <view class="add-form-item" wx:if="{{addType === 'size'}}">
+            <input 
+              class="add-form-input" 
+              type="number"
+              placeholder="排序（可选）"
+              value="{{newItemCode}}"
+              bindinput="onNewItemCodeInput"
+            />
+          </view>
+          <view class="add-form-actions">
+            <view class="add-btn-cancel" bindtap="onCloseAddForm">取消</view>
+            <view class="add-btn-submit" bindtap="onAddNewItem">添加</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 显示快速新增提示 -->
+      <view class="add-tip" wx:if="{{allowAdd && searchKeyword && filteredOptions.length === 0 && !showAddForm}}">
+        <text class="add-tip-text">未找到"{{searchKeyword}}"，</text>
+        <text class="add-tip-link" bindtap="onShowAddForm">点击快速新增</text>
+      </view>
+      
+      <scroll-view class="options-list" scroll-y>
+        <view class="options-grid">
+          <view 
+            class="option-item {{helper.isSelected(item, internalSelectedValues, valueKey, multiple) ? 'selected' : ''}}"
+            wx:for="{{filteredOptions}}" 
+            wx:key="index"
+            catchtap="onSelectOption"
+            data-index="{{index}}"
+          >
+            <text class="option-text">{{helper.formatDisplay(item, displayKey, formatDisplay)}}</text>
+            <image class="check-icon" wx:if="{{helper.isSelected(item, internalSelectedValues, valueKey, multiple)}}" src="/images/icons/check.svg" mode="aspectFit"></image>
+          </view>
+        </view>
+        <view class="empty-tip" wx:if="{{filteredOptions.length === 0 && !showAddForm && (!allowAdd || !searchKeyword)}}">
+          <text>暂无数据</text>
+        </view>
+      </scroll-view>
+      
+      <view class="modal-footer" wx:if="{{multiple}}">
+        <view class="btn btn-primary" bindtap="onConfirm">确定</view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,15 @@
+<!--components/list-pagination/list-pagination.wxml-->
+<view class="list-pagination">
+  <slot name="list"></slot>
+  
+  <view class="load-more" wx:if="{{showMore && showMoreButton}}">
+    <view class="load-more-btn" bindtap="onLoadMore">
+      <text>加载更多（{{displayCount}}/{{list.length}}）</text>
+    </view>
+  </view>
+  
+  <view class="list-end" wx:if="{{!showMore && list.length > 0}}">
+    <text>已显示全部 {{list.length}} 条数据</text>
+  </view>
+</view>
+

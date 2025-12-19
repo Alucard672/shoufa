@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "新增款号",
+  "usingComponents": {
+    "search-select": "/components/search-select/search-select"
+  }
+}
+
+
+
+

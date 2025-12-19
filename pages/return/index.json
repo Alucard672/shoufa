@@ -1,0 +1,12 @@
+{
+  "usingComponents": {
+    "search-box": "/components/search-box/search-box",
+    "badge": "/components/badge/badge",
+    "card": "/components/card/card"
+  },
+  "enablePullDownRefresh": true
+}
+
+
+
+

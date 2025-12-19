@@ -1,0 +1,145 @@
+<!--pages/issue/all.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-left">
+      <text class="page-title">发料单</text>
+      <text class="page-subtitle">全部发料记录</text>
+    </view>
+  </view>
+
+  <!-- 统计卡片 -->
+  <view class="stats-card card-gradient" style="background: linear-gradient(90deg, rgba(43, 127, 255, 1) 0%, rgba(21, 93, 252, 1) 100%);">
+    <view class="stats-content">
+      <view class="stats-item">
+        <text class="stats-label">累计发料</text>
+        <text class="stats-value">{{totalIssueWeightFormatted}} kg</text>
+      </view>
+      <view class="stats-divider"></view>
+      <view class="stats-item">
+        <text class="stats-label">发料单数</text>
+        <text class="stats-value">{{totalIssueCount}} 笔</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 时间筛选 -->
+  <filter-tabs 
+    options="{{['全部时间', '今天', '本周', '本月']}}"
+    current="{{timeFilterIndex}}"
+    bindchange="onTimeFilterChange"
+  />
+
+  <!-- 状态筛选 -->
+  <filter-tabs 
+    options="{{['全部 (' + totalIssueCount + ')', '未回货', '部分回货', '已回货', '已完成']}}"
+    current="{{statusFilterIndex}}"
+    bindchange="onStatusFilterChange"
+  />
+
+  <!-- 基础筛选条件 -->
+  <view class="filter-section">
+    <search-box 
+      placeholder="搜索发料单号或工厂名称"
+      bindsearch="onSearch"
+    />
+  </view>
+
+  <!-- 发料单列表 -->
+  <view class="order-list">
+    <view class="order-card card" wx:for="{{filteredOrders}}" wx:key="_id">
+      <!-- 单号（第一行最左边） -->
+      <view class="order-header">
+        <text class="order-no">{{item.issueNo}}</text>
+        <text class="factory-name">{{item.factoryName}}</text>
+      </view>
+      
+      <!-- 图片和款号信息 -->
+      <view class="order-content-row">
+        <!-- 图片（可点击放大） -->
+        <view class="order-image-section">
+          <view class="style-image-container" bindtap="onPreviewImage" data-url="{{item.styleImageUrl}}" wx:if="{{item.styleImageUrl}}">
+            <image class="style-image" src="{{item.styleImageUrl}}" mode="aspectFill"></image>
+          </view>
+          <view class="style-image-placeholder" wx:else>
+            <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+          </view>
+        </view>
+        
+        <!-- 款号名称和颜色尺码 -->
+        <view class="order-style-section">
+          <view class="style-name-row">
+            <text class="style-name">{{item.styleName || '未知款号'}}</text>
+            <text class="style-code" wx:if="{{item.styleCode}}">· {{item.styleCode}}</text>
+          </view>
+          <view class="order-color-size">
+            <text class="color-size-value">{{item.color || '未设置'}}</text>
+            <text class="color-size-separator" wx:if="{{item.color && item.size}}">·</text>
+            <text class="color-size-value" wx:if="{{item.size}}">{{item.size}}</text>
+          </view>
+        </view>
+      </view>
+      
+      <!-- 发料日期和重量 -->
+      <view class="order-footer">
+        <view class="footer-item">
+          <image class="footer-icon" src="/images/icons/calendar.svg" mode="aspectFit"></image>
+          <text class="footer-text">{{item.issueDateFormatted}}</text>
+        </view>
+        <text class="footer-weight">{{item.issueWeightFormatted}} kg</text>
+      </view>
+      
+      <view class="order-progress" wx:if="{{item.status !== '未回货' && item.status !== '已完成'}}">
+        <view class="progress-row">
+          <text class="progress-label">回货进度</text>
+          <text class="progress-value">{{item.progress.totalReturnQuantityFormatted}}打 {{item.progress.totalReturnPieces}}件 · {{item.progress.totalReturnYarnFormatted}} kg</text>
+        </view>
+        <view class="progress-row">
+          <text class="progress-label progress-label-warning">剩余待回</text>
+          <text class="progress-value progress-value-warning">{{item.progress.remainingQuantityFormatted}}打 {{item.progress.remainingPieces}}件 · {{item.progress.remainingYarnFormatted}} kg</text>
+        </view>
+        <view class="progress-bar">
+          <view class="progress-fill" style="width: {{item.issueWeight > 0 ? (item.progress.totalReturnYarn / item.issueWeight * 100) : 0}}%"></view>
+        </view>
+        <view class="return-details" wx:if="{{item.returnOrders && item.returnOrders.length > 1}}">
+          <text class="details-title">回货明细（{{item.returnOrders.length}}次）</text>
+          <view class="details-list">
+            <view class="detail-item" wx:for="{{item.returnOrders}}" wx:key="_id" wx:for-item="returnOrder">
+              <view class="detail-header">
+                <text class="detail-no">#{{returnOrder.returnOrderIndex}}</text>
+                <text class="detail-date">{{returnOrder.returnDateFormatted}}</text>
+              </view>
+              <text class="detail-info">{{returnOrder.returnQuantity}}打 {{returnOrder.returnPieces}}件 · {{returnOrder.actualYarnUsageFormatted}}kg</text>
+              <text class="detail-color-size" wx:if="{{returnOrder.color || returnOrder.size}}">
+                {{returnOrder.color}}{{returnOrder.size ? ' · ' + returnOrder.size : ''}}
+              </text>
+            </view>
+          </view>
+        </view>
+      </view>
+      
+      <view class="order-status-completed" wx:if="{{item.status === '已完成' || (item.progress && item.progress.status === '已完成')}}">
+        <text class="completed-text">✓ 已完成</text>
+      </view>
+      
+      <view class="order-actions">
+        <view class="btn btn-secondary" bindtap="navigateToReturn" data-id="{{item._id}}" wx:if="{{item.status !== '已完成' && !(item.progress && item.progress.status === '已完成')}}">
+          <text>{{(item.progress && item.progress.status === '未回货') || (!item.progress && item.status === '未回货') ? '登记回货' : '继续回货'}}</text>
+        </view>
+        <view class="btn btn-primary" wx:if="{{item.canComplete && item.status !== '已完成' && !(item.progress && item.progress.status === '已完成')}}" bindtap="onCompleteIssue" data-id="{{item._id}}">
+          <text>结束</text>
+        </view>
+      </view>
+    </view>
+    
+    <view class="empty-tip" wx:if="{{filteredOrders.length === 0}}">
+      <text>暂无发料单数据</text>
+    </view>
+  </view>
+
+  <!-- 总记录数 -->
+  <view class="list-end" wx:if="{{filteredOrders.length > 0}}">
+    <text>共 {{filteredOrders.length}} 条数据</text>
+  </view>
+</view>
+

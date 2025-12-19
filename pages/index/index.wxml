@@ -1,0 +1,84 @@
+<!--pages/index/index.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <text class="page-title">数据总览</text>
+    <text class="page-subtitle">快速查看业务关键指标</text>
+  </view>
+
+  <!-- 数据总览卡片 -->
+  <view class="overview-cards">
+    <view class="overview-card card-blue">
+      <view class="card-header">
+        <text class="card-label">合作工厂</text>
+      </view>
+      <view class="card-value">{{factoryCount}}</view>
+      <view class="card-unit">家</view>
+    </view>
+
+    <view class="overview-card card-orange">
+      <view class="card-header">
+        <text class="card-label">款号数量</text>
+      </view>
+      <view class="card-value">{{styleCount}}</view>
+      <view class="card-unit">个款式</view>
+    </view>
+
+    <view class="overview-card card-purple">
+      <view class="card-header">
+        <text class="card-label">未结账款</text>
+      </view>
+      <view class="card-value">¥{{unpaidAmountFormatted}}</view>
+      <view class="card-unit">待结算金额</view>
+    </view>
+  </view>
+
+  <!-- 快速操作 -->
+  <view class="card quick-actions">
+    <view class="section-title">快速操作</view>
+    <view class="action-buttons">
+      <view class="action-btn btn-issue" bindtap="navigateToIssue">
+        <text class="btn-text">纱线发料</text>
+      </view>
+      <view class="action-btn btn-return" bindtap="navigateToReturn">
+        <text class="btn-text">登记回货</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 最近动态 -->
+  <view class="card recent-activities">
+    <view class="section-header">
+      <text class="section-title">最近动态</text>
+      <view class="more-btn" bindtap="onShowMoreActivities" wx:if="{{recentActivities.length > 10}}">
+        <text class="more-text">更多</text>
+        <text class="more-arrow">→</text>
+      </view>
+    </view>
+    <view class="activity-list">
+      <view class="activity-item" wx:for="{{displayActivities}}" wx:key="_id">
+        <view class="activity-image-wrapper">
+          <image class="activity-image" src="{{item.styleImageUrl}}" mode="aspectFill" wx:if="{{item.styleImageUrl}}"></image>
+          <view class="activity-image-placeholder" wx:else>
+            <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+          </view>
+        </view>
+        <view class="activity-content">
+          <view class="activity-content-header">
+            <view class="activity-header">
+              <text class="activity-label">发料给</text>
+              <text class="activity-factory">{{item.factoryName}}</text>
+            </view>
+            <image class="activity-type-icon" src="/images/issue-icon.svg" mode="aspectFit"></image>
+          </view>
+          <view class="activity-detail">{{item.styleName}} · {{item.issueWeight}}kg · {{item.color}}</view>
+          <view class="activity-date">{{item.issueDateFormatted}}</view>
+        </view>
+      </view>
+    </view>
+    <view class="empty-tip" wx:if="{{displayActivities.length === 0}}">
+      <text>暂无动态数据</text>
+    </view>
+  </view>
+</view>
+

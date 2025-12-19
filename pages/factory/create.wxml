@@ -1,0 +1,92 @@
+<!--pages/factory/create.wxml-->
+<view class="modal-overlay">
+  <view class="modal-content">
+    <view class="modal-header">
+      <text class="modal-title">{{isEdit ? '编辑加工厂' : '新增加工厂'}}</text>
+      <view class="close-btn" bindtap="onCancel">
+        <image class="icon-close" src="/images/icons/close.svg" mode="aspectFit"></image>
+      </view>
+    </view>
+
+    <view class="form-container">
+      <view class="form-item">
+        <text class="form-label">加工厂名称 *</text>
+        <input 
+          class="form-input" 
+          placeholder="例：宏达针织厂"
+          value="{{name}}"
+          bindinput="onNameInput"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">联系人 *</text>
+        <input 
+          class="form-input" 
+          placeholder="例：张经理"
+          value="{{contact}}"
+          bindinput="onContactInput"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">联系电话 *</text>
+        <input 
+          class="form-input" 
+          type="number"
+          placeholder="例：13800138000"
+          value="{{phone}}"
+          bindinput="onPhoneInput"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">默认加工单价（元/件）*</text>
+        <input 
+          class="form-input" 
+          type="digit"
+          placeholder="例：4.2"
+          value="{{defaultPrice}}"
+          bindinput="onPriceInput"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">结算方式 *</text>
+        <picker 
+          mode="selector" 
+          range="{{settlementMethods}}"
+          value="{{settlementMethodIndex}}"
+          bindchange="onSettlementMethodChange"
+        >
+          <view class="form-picker">
+            <text class="{{settlementMethod ? '' : 'placeholder'}}">
+              {{settlementMethod}}
+            </text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">备注说明</text>
+        <textarea 
+          class="form-textarea" 
+          placeholder="填写加工厂的详细说明..."
+          value="{{remark}}"
+          bindinput="onRemarkInput"
+        />
+      </view>
+
+      <view class="form-actions">
+        <view class="btn btn-cancel" bindtap="onCancel">
+          <text>取消</text>
+        </view>
+        <view class="btn btn-submit" bindtap="onSubmit">
+          <text>保存</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+

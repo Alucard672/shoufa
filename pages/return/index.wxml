@@ -1,0 +1,90 @@
+<!--pages/return/index.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <text class="page-title">回货单</text>
+    <text class="page-subtitle">加工厂回货记录</text>
+  </view>
+
+  <!-- 统计卡片 -->
+  <view class="stats-cards">
+    <view class="stats-card card-gradient" style="background: linear-gradient(90deg, rgba(0, 201, 80, 1) 0%, rgba(0, 166, 62, 1) 100%);">
+      <view class="stats-content">
+        <text class="stats-label">累计回货</text>
+        <text class="stats-value">{{totalReturnPieces}}</text>
+        <text class="stats-unit">件</text>
+      </view>
+    </view>
+
+    <view class="stats-card card-gradient" style="background: linear-gradient(90deg, rgba(173, 70, 255, 1) 0%, rgba(152, 16, 250, 1) 100%);">
+      <view class="stats-content">
+        <text class="stats-label">加工费总额</text>
+        <text class="stats-value">¥{{totalProcessingFeeFormatted}}</text>
+        <text class="stats-unit">元</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 搜索框 -->
+  <view class="search-container">
+    <search-box 
+      placeholder="搜索回货单号"
+      bindsearch="onSearch"
+    />
+  </view>
+
+  <!-- 回货单列表 -->
+  <view class="order-list">
+    <view class="order-card card" wx:for="{{filteredOrders}}" wx:key="_id">
+      <view class="order-header">
+        <view class="order-title">
+          <text class="factory-name">{{item.factoryName}}</text>
+          <badge type="{{item.settlementStatus === '未结算' ? 'warning' : item.settlementStatus === '部分结算' ? 'info' : 'success'}}" text="{{item.settlementStatus}}" />
+        </view>
+        <text class="order-no">{{item.returnNo}}</text>
+      </view>
+      
+      <view class="order-info">
+        <text class="info-text">发料单: {{item.issueNo}}</text>
+        <view class="style-info-row" wx:if="{{item.styleDisplay || item.styleName}}">
+          <view class="style-image-container">
+            <image class="style-image" src="{{item.styleImageUrl}}" mode="aspectFill" wx:if="{{item.styleImageUrl}}"></image>
+            <view class="style-image-placeholder" wx:else>
+              <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+            </view>
+          </view>
+          <text class="info-text info-text-right">款号: {{item.styleDisplay || item.styleName}}</text>
+        </view>
+      </view>
+      
+      <view class="order-details">
+        <view class="detail-item">
+          <text class="detail-label">回货数量</text>
+          <text class="detail-value">{{item.returnQuantity}} 打 / {{item.returnPieces}} 件</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">单价</text>
+          <text class="detail-value fee-value">¥{{item.pricePerPieceFormatted}}/件</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">总金额</text>
+          <text class="detail-value fee-value">{{item.processingFeeFormatted}}</text>
+        </view>
+      </view>
+      
+      <view class="order-meta">
+        <view class="meta-row">
+          <text class="meta-text" wx:if="{{item.color}}">{{item.color}}</text>
+          <text class="meta-separator" wx:if="{{item.color && item.size}}">·</text>
+          <text class="meta-text" wx:if="{{item.size}}">{{item.size}}</text>
+        </view>
+        <view class="meta-row">
+          <text class="meta-text">用纱: {{item.actualYarnUsageFormatted}}kg</text>
+          <text class="meta-separator">·</text>
+          <text class="meta-text">{{item.returnDateFormatted}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+

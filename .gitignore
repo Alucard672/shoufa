@@ -1,0 +1,24 @@
+# 微信小程序
+project.config.json
+project.private.config.json
+
+# 云函数
+cloudfunctions/**/node_modules/
+cloudfunctions/**/.logs/
+
+# 日志
+*.log
+npm-debug.log*
+
+# 编辑器
+.DS_Store
+.vscode/
+.idea/
+
+# 临时文件
+*.tmp
+*.temp
+
+
+
+

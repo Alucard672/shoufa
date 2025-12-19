@@ -1,0 +1,113 @@
+<!--pages/style/index.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-left">
+      <text class="page-title">款号管理</text>
+      <text class="page-subtitle">管理款式信息和用纱量</text>
+    </view>
+    <view class="btn btn-primary" bindtap="navigateToCreate">
+      <text>新增</text>
+    </view>
+  </view>
+
+  <!-- 统计卡片 -->
+  <view class="stats-card card-gradient">
+    <view class="stats-content">
+      <text class="stats-label">款号总数</text>
+      <text class="stats-value">{{styleCount}}</text>
+      <text class="stats-unit">个款式</text>
+    </view>
+  </view>
+
+  <!-- 搜索框 -->
+  <view class="search-container">
+    <search-box 
+      placeholder="搜索款号或款名..."
+      bindsearch="onSearch"
+    />
+  </view>
+
+  <!-- 款号列表 -->
+  <view class="style-list">
+    <view class="style-card card" wx:for="{{styles}}" wx:key="_id">
+      <view class="card-content">
+        <view class="style-header">
+          <view class="style-image-container">
+            <image class="style-image" src="{{item.imageUrl}}" mode="aspectFill" wx:if="{{item.imageUrl}}"></image>
+            <view class="style-image-placeholder" wx:else>
+              <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+            </view>
+          </view>
+          <view class="style-info">
+            <view class="style-code-row">
+              <text class="style-code">{{item.styleCode}}</text>
+              <view class="style-badge">款号</view>
+            </view>
+            <text class="style-name">{{item.styleName}}</text>
+          </view>
+          <view class="style-actions">
+            <view class="btn-edit-icon" bindtap="onEditStyle" data-id="{{item._id}}">
+              <image class="icon-edit" src="/images/icons/edit.svg" mode="aspectFit"></image>
+            </view>
+          </view>
+        </view>
+        
+        <view class="style-details">
+          <view class="detail-section">
+            <view class="detail-row">
+              <text class="detail-label">单件用量</text>
+              <text class="detail-value">{{item.yarnUsagePerPieceFormatted}}</text>
+            </view>
+            <view class="detail-row" wx:if="{{item.lossRate}}">
+              <text class="detail-label">损耗率</text>
+              <text class="detail-value loss-rate">{{item.lossRate}}%</text>
+            </view>
+            <view class="detail-row" wx:if="{{item.category}}">
+              <text class="detail-label">类别</text>
+              <text class="detail-value category">{{item.category}}</text>
+            </view>
+          </view>
+          
+          <view class="detail-section" wx:if="{{item.actualUsageFormatted}}">
+            <view class="detail-row">
+              <text class="detail-label">实际用量（含损耗）</text>
+              <text class="detail-value actual-usage">{{item.actualUsageFormatted}} kg/件</text>
+            </view>
+          </view>
+          
+          <view class="detail-section" wx:if="{{item.availableColors && item.availableColors.length > 0}}">
+            <view class="detail-row">
+              <text class="detail-label">可选颜色</text>
+              <view class="badge-group">
+                <view class="badge-item" wx:for="{{item.availableColors}}" wx:key="*this" wx:for-item="color">
+                  <text>{{color}}</text>
+                </view>
+              </view>
+            </view>
+            <view class="detail-row" wx:if="{{item.availableSizes && item.availableSizes.length > 0}}">
+              <text class="detail-label">可选尺码</text>
+              <view class="badge-group">
+                <view class="badge-item" wx:for="{{item.availableSizes}}" wx:key="*this" wx:for-item="size">
+                  <text>{{size}}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+          
+          <view class="detail-section" wx:if="{{item.remark}}">
+            <view class="detail-row">
+              <text class="detail-label">备注</text>
+              <text class="detail-value remark">{{item.remark}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <view class="empty-tip" wx:if="{{styles.length === 0}}">
+      <text>暂无款号数据</text>
+    </view>
+  </view>
+</view>
+

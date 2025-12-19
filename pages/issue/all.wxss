@@ -1,0 +1,430 @@
+/* pages/issue/index.wxss */
+.container {
+  padding: 16px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: #101828;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: #6A7282;
+}
+
+/* 统计卡片 */
+.stats-card {
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 14px;
+  color: #FFFFFF;
+}
+
+.stats-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stats-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stats-label {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.stats-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.stats-divider {
+  width: 1px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 发料单列表 */
+.order-list {
+  margin-top: 16px;
+}
+
+.order-card {
+  margin-bottom: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.order-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.order-no {
+  font-size: 16px;
+  color: #101828;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.factory-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #101828;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 图片和款号信息行 */
+.order-content-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* 图片区域 */
+.order-image-section {
+  flex-shrink: 0;
+}
+
+.style-image-container {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #F3F4F6;
+  position: relative;
+}
+
+.style-image-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0);
+  transition: background 0.2s;
+}
+
+.style-image-container:active::after {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.style-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.style-image-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  background: #F3F4F6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-icon {
+  width: 32px;
+  height: 32px;
+  opacity: 0.3;
+  color: #6A7282;
+}
+
+/* 款号信息区域 */
+.order-style-section {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.style-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.style-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #101828;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.style-code {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6A7282;
+  flex-shrink: 0;
+}
+
+/* 颜色尺码 */
+.order-color-size {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.color-size-value {
+  color: #4A5565;
+}
+
+.color-size-separator {
+  color: #99A1AF;
+  margin: 0 2px;
+}
+
+/* 底部信息 */
+.order-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.footer-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.footer-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.6;
+}
+
+.footer-text {
+  font-size: 12px;
+  color: #6A7282;
+}
+
+.footer-weight {
+  font-size: 16px;
+  font-weight: 700;
+  color: #155DFC;
+}
+
+.order-progress {
+  padding-top: 13px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  margin-bottom: 12px;
+}
+
+.progress-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.progress-label {
+  font-size: 14px;
+  color: #6A7282;
+}
+
+.progress-label-warning {
+  color: #FF6900;
+}
+
+.progress-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #101828;
+  text-align: right;
+  word-break: break-all;
+  flex: 1;
+  margin-left: 8px;
+}
+
+.progress-value-warning {
+  color: #F54900;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #E5E7EB;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #2B7FFF;
+  border-radius: 9999px;
+}
+
+.order-actions {
+  padding-top: 21.5px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  gap: 12px;
+}
+
+.order-actions button {
+  flex: 1;
+  height: 32px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: none;
+  line-height: 32px;
+}
+
+.order-actions .btn {
+  flex: 1;
+  height: 32px;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+.return-details {
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.details-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6A7282;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-item {
+  background: #FFFFFF;
+  border-radius: 4px;
+  padding: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-no {
+  font-size: 12px;
+  color: #99A1AF;
+}
+
+.detail-date {
+  font-size: 12px;
+  color: #4A5565;
+}
+
+.detail-info {
+  font-size: 12px;
+  font-weight: 500;
+  color: #101828;
+}
+
+.detail-color-size {
+  display: block;
+  font-size: 12px;
+  color: #2B7FFF;
+  margin-top: 4px;
+}
+
+.filter-section {
+  margin-bottom: 16rpx;
+}
+
+.more-filters {
+  padding: 24rpx 32rpx;
+  background: #f9f9f9;
+  border-radius: 8rpx;
+  margin: 16rpx 32rpx;
+}
+
+.filter-tip {
+  text-align: center;
+  color: #999;
+  font-size: 24rpx;
+  padding: 16rpx 0;
+}
+
+/* 已完成状态 */
+.order-status-completed {
+  padding: 12px 0;
+  text-align: center;
+}
+
+.completed-text {
+  color: #10B981;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.list-end {
+  padding: 24rpx;
+  text-align: center;
+  color: #999;
+  font-size: 24rpx;
+}
+
+.empty-tip {
+  padding: 80rpx 32rpx;
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+}
+

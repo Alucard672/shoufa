@@ -1,0 +1,57 @@
+<!--pages/mine/index.wxml-->
+<view class="container">
+  <!-- 公司信息卡片 -->
+  <view class="profile-card card-gradient">
+    <view class="profile-content">
+      <view class="profile-avatar">
+        <text class="avatar-text">公</text>
+      </view>
+      <view class="profile-info">
+        <text class="company-name">{{companyName}}</text>
+        <view class="profile-details">
+          <view class="detail-item">
+            <image class="detail-icon" src="/images/icons/user.svg" mode="aspectFit"></image>
+            <text class="detail-text">{{contactName}}</text>
+          </view>
+          <view class="detail-item">
+            <image class="detail-icon" src="/images/icons/phone.svg" mode="aspectFit"></image>
+            <text class="detail-text">{{contactPhone}}</text>
+          </view>
+          <view class="detail-item">
+            <image class="detail-icon" src="/images/icons/location.svg" mode="aspectFit"></image>
+            <text class="detail-text">{{address}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 基础管理 -->
+  <view class="section">
+    <text class="section-title">基础管理</text>
+    <view class="menu-card card">
+      <view 
+        class="menu-item" 
+        wx:for="{{menuItems}}" 
+        wx:key="id"
+        bindtap="onMenuItemTap"
+        data-path="{{item.path}}"
+      >
+        <view class="menu-icon-wrapper" style="background: {{item.bgColor}};">
+          <image class="menu-icon" src="{{item.icon}}" mode="aspectFit"></image>
+        </view>
+        <view class="menu-content">
+          <text class="menu-title">{{item.title}}</text>
+          <text class="menu-desc">{{item.desc}}</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 版本信息 -->
+  <view class="version-info">
+    <text>版本 v1.0.0</text>
+  </view>
+</view>
+

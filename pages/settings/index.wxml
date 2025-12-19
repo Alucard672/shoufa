@@ -1,0 +1,49 @@
+<!--pages/settings/index.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-left">
+      <text class="page-title">基础信息设置</text>
+      <text class="page-subtitle">管理系统基础数据</text>
+    </view>
+  </view>
+
+  <!-- 菜单列表 -->
+  <view class="section">
+    <view class="menu-card card">
+      <view 
+        class="menu-item" 
+        wx:for="{{menuItems}}" 
+        wx:key="id"
+        bindtap="onMenuItemTap"
+        data-path="{{item.path}}"
+      >
+        <view class="menu-icon-wrapper" style="background: {{item.bgColor}};">
+          <text class="menu-icon">{{item.icon}}</text>
+        </view>
+        <view class="menu-content">
+          <text class="menu-title">{{item.title}}</text>
+          <text class="menu-desc">{{item.desc}}</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 数据清理 -->
+  <view class="section">
+    <view class="card">
+      <view class="section-title">数据清理</view>
+      <view class="cleanup-item">
+        <view class="cleanup-content">
+          <text class="cleanup-title">清理无效颜色和尺码</text>
+          <text class="cleanup-desc">清理所有款号中不在字典中的颜色和尺码</text>
+        </view>
+        <view class="btn btn-primary" bindtap="onCleanupInvalidColorsAndSizes">
+          <text>开始清理</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+

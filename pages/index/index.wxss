@@ -1,0 +1,271 @@
+/* pages/index/index.wxss */
+.container {
+  padding: 16px;
+}
+
+.page-header {
+  margin-bottom: 16px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: #101828;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: #6A7282;
+  display: block;
+}
+
+/* 数据总览卡片 */
+.overview-cards {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.overview-card {
+  flex: 1;
+  padding: 16px;
+  border-radius: 14px;
+  color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-blue {
+  background: linear-gradient(135deg, rgba(43, 127, 255, 1) 0%, rgba(21, 93, 252, 1) 100%);
+}
+
+.card-orange {
+  background: linear-gradient(135deg, rgba(255, 105, 0, 1) 0%, rgba(245, 73, 0, 1) 100%);
+}
+
+.card-purple {
+  background: linear-gradient(135deg, rgba(173, 70, 255, 1) 0%, rgba(152, 16, 250, 1) 100%);
+}
+
+.card-header {
+  opacity: 0.8;
+  margin-bottom: 8px;
+}
+
+.card-label {
+  font-size: 12px;
+  color: #FFFFFF;
+}
+
+.card-value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+  margin-bottom: 4px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.card-unit {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* 快速操作 */
+.quick-actions {
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.more-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.more-btn:active {
+  opacity: 0.7;
+}
+
+.more-text {
+  color: #007AFF;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.more-arrow {
+  color: #007AFF;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  flex: 1;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-issue {
+  background: #EFF6FF;
+}
+
+.btn-return {
+  background: #F0FDF4;
+}
+
+.btn-text {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.btn-issue .btn-text {
+  color: #1447E6;
+}
+
+.btn-return .btn-text {
+  color: #008236;
+}
+
+/* 最近动态 */
+.recent-activities {
+  margin-bottom: 16px;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.activity-image-wrapper {
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #F3F4F6;
+}
+
+.activity-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.activity-image-placeholder {
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #F3F4F6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-icon {
+  width: 24px;
+  height: 24px;
+  opacity: 0.3;
+  color: #6A7282;
+}
+
+.activity-content {
+  flex: 1;
+  position: relative;
+}
+
+.activity-content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+.activity-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-type-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.activity-label {
+  font-size: 14px;
+  color: #101828;
+}
+
+.activity-factory {
+  font-size: 14px;
+  font-weight: 500;
+  color: #101828;
+}
+
+.activity-detail {
+  font-size: 12px;
+  color: #6A7282;
+  margin-bottom: 4px;
+}
+
+.activity-date {
+  font-size: 12px;
+  color: #99A1AF;
+}
+
+.empty-tip {
+  padding: 40rpx;
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+}
+

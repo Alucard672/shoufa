@@ -1,0 +1,237 @@
+/* pages/factory/settlement.wxss */
+.container {
+  padding: 16px;
+  padding-bottom: 100px;
+}
+
+.factory-info {
+  margin-bottom: 16px;
+}
+
+.factory-name {
+  font-size: 18px;
+  font-weight: 500;
+  color: #101828;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.factory-contact {
+  font-size: 14px;
+  color: #6A7282;
+  display: block;
+}
+
+.settlement-info {
+  margin-bottom: 16px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 14px;
+  color: #6A7282;
+}
+
+.info-value {
+  font-size: 16px;
+  font-weight: 500;
+  color: #101828;
+}
+
+.info-value.amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: #00A63E;
+}
+
+.info-value.picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.picker-arrow {
+  color: #6A7282;
+  font-size: 20px;
+}
+
+.orders-section {
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #101828;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-card {
+  padding: 16px;
+}
+
+.order-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.order-checkbox {
+  flex-shrink: 0;
+}
+
+.checkbox {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #D1D5DC;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFFFF;
+}
+
+.checkbox.checked {
+  background: #155DFC;
+  border-color: #155DFC;
+}
+
+.check-icon {
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.order-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.order-no {
+  font-size: 14px;
+  font-weight: 500;
+  color: #101828;
+}
+
+.order-date {
+  font-size: 12px;
+  color: #6A7282;
+}
+
+.order-details {
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.detail-label {
+  font-size: 14px;
+  color: #6A7282;
+}
+
+.detail-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #101828;
+}
+
+.settlement-input {
+  text-align: right;
+  font-size: 14px;
+  font-weight: 500;
+  color: #155DFC;
+  min-width: 100px;
+}
+
+.order-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.summary-text {
+  font-size: 14px;
+  color: #4A5565;
+}
+
+.summary-status {
+  font-size: 12px;
+  color: #F59E0B;
+  background: #FEF3C7;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.remark-section {
+  margin-bottom: 16px;
+}
+
+.remark-input {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  background: #F9FAFB;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #101828;
+  box-sizing: border-box;
+}
+
+.submit-section {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 16px;
+  background: #FFFFFF;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.btn-submit {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.empty-tip {
+  text-align: center;
+  padding: 40px 0;
+  color: #99A1AF;
+  font-size: 14px;
+}
+

@@ -1,0 +1,153 @@
+<!--pages/statistics/index.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <text class="page-title">交货表统计</text>
+    <text class="page-subtitle">发料与回货对照表</text>
+  </view>
+
+  <!-- 统计卡片 -->
+  <view class="stats-cards">
+    <view class="stats-card card-gradient" style="background: linear-gradient(135deg, rgba(43, 127, 255, 1) 0%, rgba(21, 93, 252, 1) 100%);">
+      <view class="stats-content">
+        <text class="stats-label">总发料单数</text>
+        <text class="stats-value">{{totalIssueCount}}</text>
+        <text class="stats-unit">笔</text>
+      </view>
+    </view>
+
+    <view class="stats-card card-gradient" style="background: linear-gradient(135deg, rgba(0, 201, 80, 1) 0%, rgba(0, 166, 62, 1) 100%);">
+      <view class="stats-content">
+        <text class="stats-label">已回货单数</text>
+        <text class="stats-value">{{returnedCount}}</text>
+        <text class="stats-unit">笔</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 筛选 -->
+  <filter-tabs 
+    options="{{['全部时间', '今天', '本周', '本月']}}"
+    current="{{timeFilter === 'all' ? 0 : timeFilter === 'today' ? 1 : timeFilter === 'week' ? 2 : 3}}"
+    bindchange="onTimeFilterChange"
+  />
+
+  <filter-tabs 
+    options="{{['全部 (' + totalIssueCount + ')', '未回货', '部分回货', '已回货']}}"
+    current="{{statusFilter === 'all' ? 0 : statusFilter === '未回货' ? 1 : statusFilter === '部分回货' ? 2 : 3}}"
+    bindchange="onStatusFilterChange"
+  />
+
+  <!-- 搜索框 -->
+  <search-box 
+    placeholder="搜索发料单号或款号..."
+    bindsearch="onSearch"
+  />
+
+  <!-- 统计列表 -->
+  <view class="statistics-list">
+    <view class="stat-card card" wx:for="{{statistics}}" wx:key="_id">
+      <view class="stat-header">
+        <view class="stat-title">
+          <text class="stat-no">{{item.issueNo}}</text>
+          <badge type="{{item.status === '未回货' ? 'warning' : item.status === '部分回货' ? 'info' : 'success'}}" text="{{item.status}}" />
+        </view>
+        <view class="stat-style-row">
+          <view class="style-image-container">
+            <image class="style-image" src="{{item.styleImageUrl}}" mode="aspectFill" wx:if="{{item.styleImageUrl}}"></image>
+            <view class="style-image-placeholder" wx:else>
+              <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+            </view>
+          </view>
+          <view class="stat-style">
+            <text class="style-code">{{item.styleCode}} - {{item.styleName}}</text>
+            <text class="style-usage">· {{item.yarnUsagePerPiece}}g/件</text>
+            <text class="style-loss" wx:if="{{item.lossRate > 0}}">· 损耗{{item.lossRateFormatted}}</text>
+          </view>
+        </view>
+      </view>
+      
+      <view class="stat-issue">
+        <view class="stat-row">
+          <text class="stat-label">发料日期</text>
+          <text class="stat-value">{{item.issueDateFormatted}}</text>
+        </view>
+        <view class="stat-row">
+          <text class="stat-label">发料重量</text>
+          <text class="stat-value weight">{{item.issueWeightFormatted}}</text>
+        </view>
+      </view>
+      
+      <view class="stat-return" wx:if="{{item.status !== '未回货'}}">
+        <view class="stat-row">
+          <text class="stat-label">回货日期</text>
+          <text class="stat-value">{{item.latestReturnDateFormatted}}</text>
+        </view>
+        <view class="stat-row">
+          <text class="stat-label">回货重量</text>
+          <text class="stat-value return">{{item.totalReturnYarnFormatted}}</text>
+        </view>
+        <view class="stat-row">
+          <text class="stat-label">回货数量</text>
+          <text class="stat-value">{{item.totalReturnQuantity}}打 {{item.totalReturnPieces}}件</text>
+        </view>
+        <view class="stat-row" wx:if="{{item.totalReturnPieces > 0}}">
+          <text class="stat-label">计划用纱</text>
+          <text class="stat-value">{{item.planYarnUsageFormatted}}</text>
+        </view>
+        <view class="stat-row" wx:if="{{item.totalReturnPieces > 0}}">
+          <text class="stat-label">实际用纱</text>
+          <text class="stat-value">{{item.totalReturnYarnFormatted}}</text>
+        </view>
+        <view class="stat-row" wx:if="{{item.totalReturnPieces > 0 && item.lossAmount !== 0}}">
+          <text class="stat-label">损耗量</text>
+          <text class="stat-value {{item.lossAmount > 0 ? 'loss-positive' : 'loss-negative'}}">
+            {{item.lossAmount > 0 ? '+' : ''}}{{item.lossAmountFormatted}}
+          </text>
+          <text class="stat-value loss-rate">({{item.actualLossRateFormatted}})</text>
+        </view>
+      </view>
+      
+      <view class="stat-remaining" wx:if="{{item.status === '部分回货'}}">
+        <view class="remaining-row">
+          <text class="remaining-label">剩余待回</text>
+          <text class="remaining-value">{{item.remainingYarnFormatted}}</text>
+          <text class="remaining-quantity">{{item.remainingQuantityFormatted}}打 {{item.remainingPieces}}件</text>
+        </view>
+      </view>
+      
+      <view class="stat-waiting" wx:if="{{item.status === '未回货'}}">
+        <text class="waiting-text">等待回货中...</text>
+      </view>
+      
+      <view class="stat-return" wx:if="{{item.status === '未回货'}}">
+        <view class="stat-row">
+          <text class="stat-label">回货日期</text>
+          <text class="stat-value">-</text>
+        </view>
+        <view class="stat-row">
+          <text class="stat-label">回货重量</text>
+          <text class="stat-value">-</text>
+        </view>
+        <view class="stat-row">
+          <text class="stat-label">回货数量</text>
+          <text class="stat-value">-</text>
+        </view>
+      </view>
+      
+      <view class="return-details" wx:if="{{item.returnOrders.length > 1}}">
+        <text class="details-title">回货明细（{{item.returnOrders.length}}次）</text>
+        <view class="details-list">
+          <view class="detail-item" wx:for="{{item.returnOrders}}" wx:key="_id" wx:for-item="returnOrder">
+            <view class="detail-header">
+              <text class="detail-no">#{{returnOrder.returnOrderIndex}}</text>
+              <text class="detail-date">{{returnOrder.returnDateFormatted}}</text>
+            </view>
+            <text class="detail-info">{{returnOrder.returnQuantity}}打 {{returnOrder.returnPieces}}件 · {{returnOrder.actualYarnUsageFormatted}}kg</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+

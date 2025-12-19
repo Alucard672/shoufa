@@ -1,0 +1,73 @@
+<!--pages/issue/create.wxml-->
+<view class="container">
+  <view class="form">
+    <view class="form-item">
+      <text class="form-label">加工厂</text>
+      <search-select 
+        placeholder="请搜索选择加工厂"
+        options="{{factories}}"
+        display-key="name"
+        value-key="_id"
+        selected-values="{{selectedFactory ? [selectedFactory] : []}}"
+        multiple="{{false}}"
+        bindchange="onFactoryChange"
+      />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">款号</text>
+      <search-select 
+        placeholder="请搜索选择款号"
+        options="{{styles}}"
+        display-key="styleName"
+        value-key="_id"
+        format-display="style"
+        selected-values="{{selectedStyle ? [selectedStyle] : []}}"
+        multiple="{{false}}"
+        bindchange="onStyleChange"
+      />
+    </view>
+
+    <view class="form-item" wx:if="{{selectedStyleId}}">
+      <text class="form-label">颜色</text>
+      <search-select 
+        placeholder="请搜索选择颜色"
+        options="{{colorOptions}}"
+        display-key="name"
+        value-key="_id"
+        selected-values="{{selectedColors}}"
+        multiple="{{false}}"
+        bindchange="onColorChange"
+      />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">发料重量 (kg)</text>
+      <input 
+        class="form-input" 
+        type="digit" 
+        placeholder="请输入发料重量"
+        value="{{issueWeight}}"
+        bindinput="onWeightInput"
+      />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">发料日期</text>
+      <picker 
+        mode="date" 
+        value="{{issueDate}}"
+        bindchange="onDateChange"
+      >
+        <view class="picker">
+          {{issueDate || '请选择日期'}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-actions">
+      <button class="btn btn-primary" bindtap="onSubmit">提交</button>
+    </view>
+  </view>
+</view>
+

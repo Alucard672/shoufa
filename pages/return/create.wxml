@@ -1,0 +1,92 @@
+<!--pages/return/create.wxml-->
+<view class="container">
+  <view class="form">
+    <view class="form-item" wx:if="{{issueOrder}}">
+      <text class="form-label">发料单</text>
+      <view class="form-readonly">{{issueOrder.issueNo}}</view>
+    </view>
+
+    <view class="form-item" wx:if="{{factory}}">
+      <text class="form-label">加工厂</text>
+      <view class="form-readonly">{{factory.name}}</view>
+    </view>
+
+    <view class="form-item" wx:if="{{style}}">
+      <text class="form-label">款号</text>
+      <view class="form-readonly">{{style.styleName}}</view>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">颜色 *</text>
+      <search-select 
+        placeholder="请选择颜色"
+        options="{{colorOptions}}"
+        display-key="name"
+        value-key="_id"
+        selected-values="{{selectedColors}}"
+        multiple="{{false}}"
+        allow-add="{{false}}"
+        bindchange="onColorChange"
+      />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">尺码</text>
+      <search-select 
+        placeholder="请选择尺码（可选）"
+        options="{{sizeOptions}}"
+        display-key="name"
+        value-key="_id"
+        selected-values="{{selectedSizes}}"
+        multiple="{{false}}"
+        allow-add="{{false}}"
+        bindchange="onSizeChange"
+      />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">回货数量（打）</text>
+      <input 
+        class="form-input" 
+        type="digit" 
+        placeholder="请输入回货打数"
+        value="{{returnQuantity}}"
+        bindinput="onQuantityInput"
+      />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">回货日期</text>
+      <picker 
+        mode="date" 
+        value="{{returnDate}}"
+        bindchange="onDateChange"
+      >
+        <view class="picker">
+          {{returnDate || '请选择日期'}}
+        </view>
+      </picker>
+    </view>
+
+    <!-- 自动计算结果显示 -->
+    <view class="calc-results" wx:if="{{returnQuantity && calculatedPieces > 0}}">
+      <view class="calc-item">
+        <text class="calc-label">回货件数：</text>
+        <text class="calc-value">{{calculatedPieces}} 件</text>
+      </view>
+      <view class="calc-item">
+        <text class="calc-label">用纱量：</text>
+        <text class="calc-value">{{calculatedYarnUsageFormatted}} kg</text>
+      </view>
+      <view class="calc-item">
+        <text class="calc-label">加工费：</text>
+        <text class="calc-value fee">¥{{calculatedFeeFormatted}}</text>
+      </view>
+    </view>
+
+    <view class="form-actions">
+      <button class="btn btn-primary" bindtap="onSubmit">提交</button>
+    </view>
+  </view>
+</view>
+

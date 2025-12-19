@@ -1,0 +1,17 @@
+<!--components/filter-tabs/filter-tabs.wxml-->
+<view class="filter-tabs">
+  <view 
+    class="filter-tab {{index === internalCurrent ? 'active' : ''}}"
+    wx:for="{{options}}"
+    wx:key="index"
+    wx:for-index="index"
+    data-index="{{index}}"
+    bindtap="onTabTap"
+  >
+    {{item}}
+  </view>
+</view>
+
+
+
+

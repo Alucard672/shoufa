@@ -1,0 +1,111 @@
+<!--pages/factory/settlement.wxml-->
+<view class="container">
+  <!-- 工厂信息 -->
+  <view class="factory-info card" wx:if="{{factory}}">
+    <text class="factory-name">{{factory.name}}</text>
+    <text class="factory-contact" wx:if="{{factory.contact}}">联系人：{{factory.contact}}</text>
+  </view>
+
+  <!-- 结算信息 -->
+  <view class="settlement-info card">
+    <view class="info-row">
+      <text class="info-label">结算日期</text>
+      <picker mode="date" value="{{settlementDate}}" bindchange="onDateChange">
+        <view class="info-value picker">
+          {{settlementDate}}
+          <text class="picker-arrow">›</text>
+        </view>
+      </picker>
+    </view>
+    <view class="info-row">
+      <text class="info-label">结算总金额</text>
+      <text class="info-value amount">¥{{settlementAmountFormatted}}</text>
+    </view>
+  </view>
+
+  <!-- 回货单列表 -->
+  <view class="orders-section">
+    <text class="section-title">选择回货单</text>
+    <view class="order-list">
+      <view 
+        class="order-card card" 
+        wx:for="{{returnOrders}}" 
+        wx:key="_id"
+      >
+        <view class="order-header">
+          <view class="order-checkbox" bindtap="onToggleOrder" data-id="{{item._id}}">
+            <view class="checkbox {{item.selected ? 'checked' : ''}}">
+              <text class="check-icon" wx:if="{{item.selected}}">✓</text>
+            </view>
+          </view>
+          <view class="order-info">
+            <text class="order-no">{{item.returnNo}}</text>
+            <text class="order-date">{{item.returnDateFormatted}}</text>
+          </view>
+        </view>
+        
+        <view class="order-details" wx:if="{{item.selected}}">
+          <view class="detail-row">
+            <text class="detail-label">款号</text>
+            <text class="detail-value">{{item.styleName}}{{item.styleCode ? ' · ' + item.styleCode : ''}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">发料单号</text>
+            <text class="detail-value">{{item.issueNo}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">加工费总额</text>
+            <text class="detail-value">¥{{item.processingFeeFormatted}}</text>
+          </view>
+          <view class="detail-row" wx:if="{{item.settledAmount > 0}}">
+            <text class="detail-label">已结算</text>
+            <text class="detail-value">¥{{item.settledAmountFormatted}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">剩余金额</text>
+            <text class="detail-value">¥{{item.remainingAmountFormatted}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">本次结算</text>
+            <input 
+              class="settlement-input" 
+              type="digit" 
+              value="{{item.settlementAmount}}" 
+              placeholder="{{item.remainingAmountFormatted}}"
+              bindinput="onSettlementAmountInput"
+              data-id="{{item._id}}"
+            />
+          </view>
+        </view>
+        
+        <view class="order-summary" wx:else>
+          <text class="summary-text">{{item.styleName}} · ¥{{item.processingFeeFormatted}}</text>
+          <text class="summary-status" wx:if="{{item.settlementStatus === '部分结算'}}">部分结算</text>
+        </view>
+      </view>
+      
+      <view class="empty-tip" wx:if="{{returnOrders.length === 0}}">
+        <text>暂无未结算的回货单</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 备注 -->
+  <view class="remark-section card">
+    <text class="section-title">备注说明</text>
+    <textarea 
+      class="remark-input" 
+      placeholder="填写结算备注信息..."
+      value="{{remark}}"
+      bindinput="onRemarkInput"
+    />
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="submit-section">
+    <view class="btn btn-primary btn-submit" bindtap="onSubmit">
+      <text>确认结算</text>
+    </view>
+  </view>
+</view>
+

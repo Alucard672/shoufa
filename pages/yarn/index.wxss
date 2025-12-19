@@ -1,0 +1,132 @@
+/* pages/yarn/index.wxss */
+.container {
+  padding: 16px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: #101828;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: #6A7282;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.btn-primary {
+  background: #155DFC;
+  color: #FFFFFF;
+}
+
+.search-container {
+  margin-bottom: 16px;
+}
+
+.yarn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.yarn-card {
+  padding: 16px;
+}
+
+.yarn-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.yarn-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.yarn-name {
+  font-size: 18px;
+  font-weight: 500;
+  color: #101828;
+}
+
+.yarn-color {
+  font-size: 14px;
+  color: #6A7282;
+}
+
+.yarn-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.yarn-stock {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.stock-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #155DFC;
+}
+
+.stock-unit {
+  font-size: 14px;
+  color: #6A7282;
+}
+
+.btn-edit {
+  padding: 6px 12px;
+  background: #EFF6FF;
+  color: #2B7FFF;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.yarn-remark {
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.remark-text {
+  font-size: 12px;
+  color: #6A7282;
+}
+
+.empty-tip {
+  text-align: center;
+  padding: 40px 0;
+  color: #99A1AF;
+  font-size: 14px;
+}
+
+
+
+

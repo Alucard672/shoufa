@@ -1,0 +1,67 @@
+<!--pages/yarn/create.wxml-->
+<view class="modal-overlay">
+  <view class="modal-content">
+    <view class="modal-header">
+      <text class="modal-title">{{isEdit ? '编辑纱线' : '新增纱线'}}</text>
+      <view class="close-btn" bindtap="onCancel">
+        <image class="icon-close" src="/images/icons/close.svg" mode="aspectFit"></image>
+      </view>
+    </view>
+
+    <view class="form-container">
+      <view class="form-item">
+        <text class="form-label">纱线名称/批次 *</text>
+        <input 
+          class="form-input" 
+          placeholder="例：纯棉纱线-20240101"
+          value="{{yarnName}}"
+          bindinput="onYarnNameInput"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">颜色</text>
+        <search-select 
+          placeholder="请选择颜色"
+          options="{{colorOptions}}"
+          display-key="name"
+          value-key="_id"
+          selected-values="{{selectedColor}}"
+          multiple="{{false}}"
+          bindchange="onColorChange"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">当前库存（kg）*</text>
+        <input 
+          class="form-input" 
+          type="digit"
+          placeholder="例：100.5"
+          value="{{currentStock}}"
+          bindinput="onStockInput"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">备注说明</text>
+        <textarea 
+          class="form-textarea" 
+          placeholder="填写纱线的详细说明..."
+          value="{{remark}}"
+          bindinput="onRemarkInput"
+        />
+      </view>
+
+      <view class="form-actions">
+        <view class="btn btn-cancel" bindtap="onCancel">
+          <text>取消</text>
+        </view>
+        <view class="btn btn-submit" bindtap="onSubmit">
+          <text>保存</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+

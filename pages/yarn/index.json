@@ -1,0 +1,12 @@
+{
+  "usingComponents": {
+    "search-box": "/components/search-box/search-box",
+    "card": "/components/card/card"
+  },
+  "navigationBarTitleText": "纱线管理",
+  "enablePullDownRefresh": true
+}
+
+
+
+

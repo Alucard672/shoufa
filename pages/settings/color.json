@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "颜色字典",
+  "usingComponents": {
+    "search-box": "/components/search-box/search-box"
+  }
+}
+

@@ -1,0 +1,52 @@
+<!--pages/yarn/index.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-left">
+      <text class="page-title">纱线管理</text>
+      <text class="page-subtitle">管理纱线库存</text>
+    </view>
+    <view class="btn btn-primary" bindtap="navigateToCreate">
+      <text>新建</text>
+    </view>
+  </view>
+
+  <!-- 搜索框 -->
+  <view class="search-container">
+    <search-box 
+      placeholder="搜索纱线名称或批次"
+      bindsearch="onSearch"
+    />
+  </view>
+
+  <!-- 纱线列表 -->
+  <view class="yarn-list">
+    <view class="yarn-card card" wx:for="{{yarnList}}" wx:key="_id">
+      <view class="yarn-header">
+        <view class="yarn-info">
+          <text class="yarn-name">{{item.yarnName}}</text>
+          <text class="yarn-color" wx:if="{{item.color}}">{{item.color}}</text>
+        </view>
+        <view class="yarn-right">
+          <view class="yarn-stock">
+            <text class="stock-value">{{item.currentStock}}</text>
+            <text class="stock-unit">kg</text>
+          </view>
+          <view class="btn-edit" bindtap="onEditYarn" data-id="{{item._id}}">编辑</view>
+        </view>
+      </view>
+      
+      <view class="yarn-remark" wx:if="{{item.remark}}">
+        <text class="remark-text">{{item.remark}}</text>
+      </view>
+    </view>
+    
+    <view class="empty-tip" wx:if="{{yarnList.length === 0}}">
+      <text>暂无纱线库存数据</text>
+    </view>
+  </view>
+</view>
+
+
+
+

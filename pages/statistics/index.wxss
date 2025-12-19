@@ -1,0 +1,291 @@
+/* pages/statistics/index.wxss */
+.container {
+  padding: 16px;
+}
+
+.page-header {
+  margin-bottom: 16px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: #101828;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: #6A7282;
+  display: block;
+}
+
+/* 统计卡片 */
+.stats-cards {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.stats-card {
+  flex: 1;
+  padding: 16px;
+  border-radius: 14px;
+  color: #FFFFFF;
+}
+
+.stats-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stats-label {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.stats-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.stats-unit {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* 统计列表 */
+.statistics-list {
+  margin-top: 16px;
+}
+
+.stat-card {
+  margin-bottom: 12px;
+}
+
+.stat-header {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.stat-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.stat-no {
+  font-size: 16px;
+  font-weight: 500;
+  color: #101828;
+}
+
+.stat-style-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.stat-style {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.style-image-container {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+}
+
+.style-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: #F3F4F6;
+}
+
+.style-image-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: #F3F4F6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-icon {
+  width: 24px;
+  height: 24px;
+  opacity: 0.3;
+  color: #6A7282;
+}
+
+.style-code {
+  color: #4A5565;
+}
+
+.style-usage {
+  color: #9810FA;
+}
+
+.stat-issue {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.stat-row {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #6A7282;
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #101828;
+}
+
+.stat-value.weight {
+  color: #155DFC;
+}
+
+.stat-value.return {
+  color: #00A63E;
+}
+
+.stat-return {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.stat-remaining {
+  padding-top: 13px;
+  border-top: 1px solid #FFD6A7;
+}
+
+.remaining-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.remaining-label {
+  font-size: 12px;
+  color: #FF6900;
+}
+
+.remaining-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: #F54900;
+}
+
+.remaining-quantity {
+  font-size: 12px;
+  font-weight: 500;
+  color: #F54900;
+}
+
+.stat-waiting {
+  text-align: center;
+  padding: 8px 0;
+}
+
+.waiting-text {
+  font-size: 14px;
+  color: #F54900;
+}
+
+.return-details {
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.details-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6A7282;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-item {
+  background: #FFFFFF;
+  border-radius: 4px;
+  padding: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-no {
+  font-size: 12px;
+  color: #99A1AF;
+}
+
+.detail-date {
+  font-size: 12px;
+  color: #4A5565;
+}
+
+.detail-info {
+  font-size: 12px;
+  font-weight: 500;
+  color: #101828;
+}
+
+.stat-return .stat-value {
+  color: #6A7282;
+}
+
+/* 损耗率样式 */
+.loss-positive {
+  color: #F54900;
+}
+
+.loss-negative {
+  color: #00A63E;
+}
+
+.loss-rate {
+  color: #6A7282;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.style-loss {
+  font-size: 12px;
+  color: #6A7282;
+  margin-left: 4px;
+}
+

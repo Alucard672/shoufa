@@ -1,0 +1,12 @@
+<!--components/filter-expand/filter-expand.wxml-->
+<view class="filter-expand">
+  <view class="filter-content" wx:if="{{expanded}}">
+    <slot name="content"></slot>
+  </view>
+  
+  <view class="filter-toggle" bindtap="onToggle">
+    <text class="toggle-text">{{expanded ? collapseText : expandText}}</text>
+    <text class="toggle-icon">{{expanded ? '▲' : '▼'}}</text>
+  </view>
+</view>
+

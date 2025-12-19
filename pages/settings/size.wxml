@@ -1,0 +1,99 @@
+<!--pages/settings/size.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-left">
+      <text class="page-title">尺码字典</text>
+      <text class="page-subtitle">管理尺码选项</text>
+    </view>
+    <view class="btn btn-primary" bindtap="onAddSize">
+      <text>新增</text>
+    </view>
+  </view>
+
+  <!-- 搜索框 -->
+  <view class="search-container">
+    <search-box 
+      placeholder="搜索尺码名称..."
+      bindsearch="onSearch"
+    />
+  </view>
+
+  <!-- 尺码列表 -->
+  <view class="list-container">
+    <view class="list-item card" wx:for="{{sizes}}" wx:key="_id">
+      <view class="item-content">
+        <view class="item-main">
+          <text class="item-name">{{item.name}}</text>
+          <view class="item-info">
+            <text class="item-code" wx:if="{{item.code}}">{{item.code}}</text>
+            <text class="item-order" wx:if="{{item.order !== undefined && item.order !== null}}">排序: {{item.order}}</text>
+          </view>
+        </view>
+        <view class="item-actions">
+          <view class="btn-icon" bindtap="onEditSize" data-size="{{item}}">
+            <text>编辑</text>
+          </view>
+          <view class="btn-icon btn-danger" bindtap="onDelete" data-size="{{item}}">
+            <text>删除</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <view class="empty-tip" wx:if="{{sizes.length === 0}}">
+      <text>暂无尺码数据</text>
+    </view>
+  </view>
+
+  <!-- 新增/编辑模态框 -->
+  <view class="modal-overlay" wx:if="{{showAddModal}}" bindtap="onCloseModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">{{editSize ? '编辑尺码' : '新增尺码'}}</text>
+        <view class="close-btn" bindtap="onCloseModal">
+          <image class="icon-close" src="/images/icons/close.svg" mode="aspectFit"></image>
+        </view>
+      </view>
+
+      <view class="modal-body">
+        <view class="form-item">
+          <text class="form-label">尺码名称 *</text>
+          <input 
+            class="form-input" 
+            placeholder="例：S"
+            value="{{sizeName}}"
+            bindinput="onSizeNameInput"
+          />
+        </view>
+
+        <view class="form-item">
+          <text class="form-label">尺码编码</text>
+          <input 
+            class="form-input" 
+            placeholder="例：S（可选）"
+            value="{{sizeCode}}"
+            bindinput="onSizeCodeInput"
+          />
+        </view>
+
+        <view class="form-item">
+          <text class="form-label">排序顺序</text>
+          <input 
+            class="form-input" 
+            type="number"
+            placeholder="例：1（数字越小越靠前）"
+            value="{{sizeOrder}}"
+            bindinput="onSizeOrderInput"
+          />
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <view class="btn btn-cancel" bindtap="onCloseModal">取消</view>
+        <view class="btn btn-submit" bindtap="onSave">保存</view>
+      </view>
+    </view>
+  </view>
+</view>
+

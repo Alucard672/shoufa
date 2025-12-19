@@ -1,0 +1,143 @@
+<!--pages/index/activities.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <text class="page-title">全部动态</text>
+    <text class="page-subtitle">所有发料和回货记录</text>
+  </view>
+
+  <!-- 统计卡片 -->
+  <view class="stats-card">
+    <view class="stats-content">
+      <view class="stats-item">
+        <text class="stats-label">发料总量</text>
+        <text class="stats-value">{{totalIssueWeightFormatted}}</text>
+        <text class="stats-unit">kg</text>
+      </view>
+      <view class="stats-item">
+        <text class="stats-label">回货总量</text>
+        <text class="stats-value">{{totalReturnPieces}}</text>
+        <text class="stats-unit">件</text>
+      </view>
+      <view class="stats-item">
+        <text class="stats-label">加工费</text>
+        <text class="stats-value">¥{{totalProcessingFeeFormatted}}</text>
+        <text class="stats-unit">元</text>
+      </view>
+    </view>
+    <view class="stats-divider"></view>
+    <view class="stats-count">
+      <text class="stats-count-label">记录数</text>
+      <text class="stats-count-value">发料 {{issueCount}} 笔 · 回货 {{returnCount}} 笔</text>
+    </view>
+  </view>
+
+  <!-- 筛选条件 -->
+  <view class="filter-section">
+    <!-- 操作类型筛选 -->
+    <view class="filter-buttons">
+      <view 
+        class="filter-btn {{typeFilterIndex === 0 ? 'active' : ''}}" 
+        bindtap="onTypeFilterChange"
+        data-index="0"
+      >
+        <text class="btn-text">全部操作</text>
+      </view>
+      <view 
+        class="filter-btn {{typeFilterIndex === 1 ? 'active' : ''}}" 
+        bindtap="onTypeFilterChange"
+        data-index="1"
+      >
+        <text class="btn-text">发料记录</text>
+      </view>
+      <view 
+        class="filter-btn {{typeFilterIndex === 2 ? 'active' : ''}}" 
+        bindtap="onTypeFilterChange"
+        data-index="2"
+      >
+        <text class="btn-text">回货记录</text>
+      </view>
+    </view>
+
+    <!-- 时间筛选 -->
+    <filter-tabs 
+      options="{{['全部时间', '今天', '本周', '本月']}}"
+      current="{{timeFilterIndex}}"
+      bindchange="onTimeFilterChange"
+    />
+
+    <!-- 搜索框 -->
+    <view class="search-section">
+      <view class="search-input-wrapper">
+        <input 
+          class="search-input" 
+          type="text" 
+          placeholder="搜索单号、加工厂或款号"
+          value="{{searchKeyword}}"
+          bindinput="onSearchInput"
+          bindconfirm="onSearch"
+        />
+        <image class="search-icon" src="/images/icons/search.svg" mode="aspectFit"></image>
+      </view>
+    </view>
+  </view>
+
+  <!-- 动态列表 -->
+  <view class="activity-list">
+    <!-- 发料单 -->
+    <view class="activity-item" wx:for="{{activities}}" wx:key="_id" wx:if="{{item.type === 'issue'}}">
+      <view class="activity-image-wrapper" bindtap="onPreviewImage" data-url="{{item.styleImageUrl}}" wx:if="{{item.styleImageUrl}}">
+        <image class="activity-image" src="{{item.styleImageUrl}}" mode="aspectFill"></image>
+      </view>
+      <view class="activity-image-placeholder" wx:else>
+        <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+      </view>
+      <view class="activity-content">
+        <view class="activity-content-header">
+          <view class="activity-header">
+            <text class="activity-label">发料给</text>
+            <text class="activity-factory">{{item.factoryName}}</text>
+          </view>
+          <image class="activity-type-icon" src="/images/issue-icon.svg" mode="aspectFit"></image>
+        </view>
+        <view class="activity-detail">{{item.styleName}} · {{item.issueWeightFormatted}}kg · {{item.color || '未设置'}}</view>
+        <view class="activity-date">{{item.dateFormatted}}</view>
+      </view>
+    </view>
+
+    <!-- 回货单 -->
+    <view class="activity-item" wx:for="{{activities}}" wx:key="_id" wx:if="{{item.type === 'return'}}">
+      <view class="activity-image-wrapper" bindtap="onPreviewImage" data-url="{{item.styleImageUrl}}" wx:if="{{item.styleImageUrl}}">
+        <image class="activity-image" src="{{item.styleImageUrl}}" mode="aspectFill"></image>
+      </view>
+      <view class="activity-image-placeholder" wx:else>
+        <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+      </view>
+      <view class="activity-content">
+        <view class="activity-content-header">
+          <view class="activity-header">
+            <text class="activity-factory">{{item.factoryName}}</text>
+            <text class="activity-label">回货</text>
+          </view>
+          <image class="activity-type-icon" src="/images/return-icon.svg" mode="aspectFit"></image>
+        </view>
+        <view class="activity-detail">{{item.styleName}} · {{item.returnQuantityFormatted}} · {{item.color || '未设置'}}</view>
+        <view class="activity-date">{{item.dateFormatted}}</view>
+      </view>
+    </view>
+    
+    <view class="empty-tip" wx:if="{{activities.length === 0 && !loading}}">
+      <text>暂无动态数据</text>
+    </view>
+    
+    <view class="loading-tip" wx:if="{{loading}}">
+      <text>加载中...</text>
+    </view>
+  </view>
+
+  <!-- 底部统计 -->
+  <view class="footer-stats" wx:if="{{activities.length > 0}}">
+    <text>共 {{activities.length}} 条记录</text>
+  </view>
+</view>
+

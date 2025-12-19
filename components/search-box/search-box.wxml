@@ -1,0 +1,16 @@
+<!--components/search-box/search-box.wxml-->
+<view class="search-box">
+  <input 
+    class="search-input" 
+    type="text" 
+    placeholder="{{placeholder}}"
+    value="{{inputValue}}"
+    bindinput="onInput"
+    confirm-type="search"
+    bindconfirm="onSearch"
+  />
+  <view class="search-icon" bindtap="onSearch">
+    <image class="search-icon-img" src="/images/icons/search.svg" mode="aspectFit"></image>
+  </view>
+</view>
+

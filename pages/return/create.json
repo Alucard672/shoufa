@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "登记回货",
+  "usingComponents": {
+    "search-select": "/components/search-select/search-select"
+  }
+}
+
+
+
+

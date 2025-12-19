@@ -1,0 +1,8 @@
+<!--components/badge/badge.wxml-->
+<view class="badge badge-{{type}}">
+  {{text}}
+</view>
+
+
+
+

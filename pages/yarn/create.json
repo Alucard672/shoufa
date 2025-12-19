@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "纱线管理",
+  "usingComponents": {
+    "search-select": "/components/search-select/search-select"
+  }
+}
+
