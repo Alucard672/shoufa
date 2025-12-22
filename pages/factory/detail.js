@@ -7,6 +7,8 @@ Page({
     factory: null,
     issueOrders: [],
     returnOrders: [],
+    settlements: [],
+    currentTab: 0,
     totalIssueWeight: 0,
     totalUsedYarn: 0,
     unpaidFee: 0
@@ -44,6 +46,15 @@ Page({
         deleted: _.neq(true)
       })
       .orderBy('returnDate', 'desc')
+      .get()
+
+    // 加载结算单
+    const settlements = await db.collection('settlements')
+      .where({
+        factoryId: this.data.factoryId,
+        deleted: _.neq(true)
+      })
+      .orderBy('settlementDate', 'desc')
       .get()
 
     // 计算统计数据
@@ -108,12 +119,24 @@ Page({
         ...order,
         processingFeeFormatted: (order.processingFee || 0).toFixed(2)
       })),
+      settlements: settlements.data.map(item => ({
+        ...item,
+        totalAmountFormatted: (item.totalAmount || 0).toFixed(2),
+        settlementDateFormatted: formatDate(item.settlementDate)
+      })),
       totalIssueWeight,
       totalIssueWeightFormatted: totalIssueWeight.toFixed(2),
       totalUsedYarn,
       totalUsedYarnFormatted: totalUsedYarn.toFixed(2),
       unpaidFee,
       unpaidFeeFormatted: unpaidFee.toFixed(2)
+    })
+  },
+
+  switchTab(e) {
+    const index = parseInt(e.currentTarget.dataset.index)
+    this.setData({
+      currentTab: index
     })
   },
 
