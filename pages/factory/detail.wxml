@@ -30,8 +30,13 @@
     </view>
   </view>
 
-  <view class="section">
-    <text class="section-title">发料记录</text>
+  <view class="tabs">
+    <view class="tab-item {{currentTab === 0 ? 'active' : ''}}" data-index="0" bindtap="switchTab">发料记录</view>
+    <view class="tab-item {{currentTab === 1 ? 'active' : ''}}" data-index="1" bindtap="switchTab">回货记录</view>
+    <view class="tab-item {{currentTab === 2 ? 'active' : ''}}" data-index="2" bindtap="switchTab">结算记录</view>
+  </view>
+
+  <view class="section" wx:if="{{currentTab === 0}}">
     <view class="record-list">
       <view class="record-item" wx:for="{{issueOrders}}" wx:key="_id">
         <text class="record-text">{{item.styleName}} · {{item.issueWeight}}kg · {{item.issueDateFormatted}}</text>
@@ -42,14 +47,33 @@
     </view>
   </view>
 
-  <view class="section">
-    <text class="section-title">回货记录</text>
+  <view class="section" wx:if="{{currentTab === 1}}">
     <view class="record-list">
       <view class="record-item" wx:for="{{returnOrders}}" wx:key="_id">
         <text class="record-text">{{item.styleName}} · {{item.returnQuantity}}打 · ¥{{item.processingFeeFormatted}} · {{item.returnDateFormatted}}</text>
       </view>
       <view class="empty-tip" wx:if="{{returnOrders.length === 0}}">
         <text>暂无回货记录</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section" wx:if="{{currentTab === 2}}">
+    <view class="record-list">
+      <view class="record-item" wx:for="{{settlements}}" wx:key="_id">
+        <view class="settlement-row">
+          <text class="settlement-no">{{item.settlementNo}}</text>
+          <text class="settlement-amount">¥{{item.totalAmountFormatted}}</text>
+        </view>
+        <view class="settlement-row">
+          <text class="settlement-date">{{item.settlementDateFormatted}}</text>
+        </view>
+        <view class="settlement-row" wx:if="{{item.remark}}">
+          <text class="settlement-remark">备注：{{item.remark}}</text>
+        </view>
+      </view>
+      <view class="empty-tip" wx:if="{{settlements.length === 0}}">
+        <text>暂无结算记录</text>
       </view>
     </view>
   </view>
