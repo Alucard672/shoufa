@@ -4,19 +4,28 @@
     "functionRoot": "./cloudfunctions",
     "functions": [
       {
-        "name": "tenants"
+        "name": "tenants",
+        "installDependency": true
       },
       {
-        "name": "initDatabase"
+        "name": "initDatabase",
+        "installDependency": true
       },
       {
-        "name": "cleanupInvalidColorsAndSizes"
+        "name": "cleanupInvalidColorsAndSizes",
+        "installDependency": true
       },
       {
-        "name": "createIssueOrder"
+        "name": "createIssueOrder",
+        "installDependency": true
       },
       {
-        "name": "createReturnOrder"
+        "name": "createReturnOrder",
+        "installDependency": true
+      },
+      {
+        "name": "updateStyle",
+        "installDependency": true
       }
     ]
   }
