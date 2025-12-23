@@ -1,0 +1,22 @@
+{
+    "version": "2.0",
+    "envId": "cloud1-3g9cra4h71f647dd",
+    "functionRoot": "./cloudfunctions",
+    "functions": [
+      {
+        "name": "tenants"
+      },
+      {
+        "name": "initDatabase"
+      },
+      {
+        "name": "cleanupInvalidColorsAndSizes"
+      },
+      {
+        "name": "createIssueOrder"
+      },
+      {
+        "name": "createReturnOrder"
+      }
+    ]
+  }
