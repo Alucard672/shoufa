@@ -1,0 +1,31 @@
+{
+    "version": "2.0",
+    "envId": "cloud1-3g9cra4h71f647dd",
+    "functionRoot": "./cloudfunctions",
+    "functions": [
+      {
+        "name": "tenants",
+        "installDependency": true
+      },
+      {
+        "name": "initDatabase",
+        "installDependency": true
+      },
+      {
+        "name": "cleanupInvalidColorsAndSizes",
+        "installDependency": true
+      },
+      {
+        "name": "createIssueOrder",
+        "installDependency": true
+      },
+      {
+        "name": "createReturnOrder",
+        "installDependency": true
+      },
+      {
+        "name": "updateStyle",
+        "installDependency": true
+      }
+    ]
+  }
