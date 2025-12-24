@@ -1,5 +1,4 @@
 # 微信小程序
-project.config.json
 project.private.config.json
 
 # 云函数
@@ -20,6 +19,4 @@ npm-debug.log*
 *.temp
 
 
-
-
-
+api_key_config.sh
