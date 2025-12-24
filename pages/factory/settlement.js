@@ -1,5 +1,6 @@
-// pages/factory/settlement.js
-import { formatDate, formatAmount } from '../../utils/calc.js'
+import { formatDate, formatAmount, formatQuantity } from '../../utils/calc.js'
+import { query, queryByIds, insert, update } from '../../utils/db.js'
+const app = getApp()
 
 Page({
   data: {
@@ -7,9 +8,12 @@ Page({
     factory: null,
     returnOrders: [], // 未结算的回货单列表
     selectedOrders: [], // 选中的回货单ID列表
+    totalSelectedQuantityDisp: '0件', // 选中合计显示
     settlementDate: '', // 结算日期
     settlementAmount: 0, // 结算总金额
     settlementAmountFormatted: '0.00',
+    totalSettledAmount: 0, // 总已结算金额
+    totalSettledAmountFormatted: '0.00', // 总已结算金额格式化
     remark: '', // 备注
     loading: false
   },
@@ -51,95 +55,121 @@ Page({
   },
 
   async loadFactory() {
-    const db = wx.cloud.database()
-    const factory = await db.collection('factories').doc(this.data.factoryId).get()
-    this.setData({
-      factory: factory.data
+    const result = await queryByIds('factories', [this.data.factoryId], {
+      excludeDeleted: true
     })
+    if (result.data && result.data.length > 0) {
+      this.setData({
+        factory: result.data[0]
+      })
+    }
   },
 
   async loadReturnOrders() {
     const db = wx.cloud.database()
     const _ = db.command
-    
+
     // 查询未结算的回货单
-    const returnOrders = await db.collection('return_orders')
-      .where({
-        factoryId: this.data.factoryId,
-        settlementStatus: _.in(['未结算', '部分结算']),
-        deleted: _.eq(false)
-      })
-      .orderBy('returnDate', 'desc')
-      .get()
-    
+    const returnOrdersRes = await query('return_orders', {
+      factory_id: this.data.factoryId,
+      settlement_status: ['未结算', '部分结算']
+    }, {
+      excludeDeleted: true,
+      orderBy: { field: 'return_date', direction: 'DESC' }
+    })
+
     // 查询该工厂的所有结算单，计算每个回货单的已结算金额
-    const settlements = await db.collection('settlements')
-      .where({
-        factoryId: this.data.factoryId,
-        deleted: _.eq(false)
-      })
-      .get()
-    
+    const settlementsRes = await query('settlements', {
+      factory_id: this.data.factoryId
+    }, {
+      excludeDeleted: true
+    })
+
     // 计算每个回货单的已结算金额（从settlements集合中累计）
     const settledAmountMap = new Map()
-    settlements.data.forEach(settlement => {
-      if (settlement.returnOrderIds && Array.isArray(settlement.returnOrderIds)) {
+    settlementsRes.data.forEach(settlement => {
+      const returnOrderIds = settlement.returnOrderIds || settlement.return_order_ids || []
+      if (Array.isArray(returnOrderIds) && returnOrderIds.length > 0) {
         // 计算每个回货单在该结算单中的金额（平均分配）
-        const amountPerOrder = settlement.totalAmount / settlement.returnOrderIds.length
-        settlement.returnOrderIds.forEach(orderId => {
-          const currentAmount = settledAmountMap.get(orderId) || 0
-          settledAmountMap.set(orderId, currentAmount + amountPerOrder)
+        const totalAmount = settlement.totalAmount || settlement.total_amount || 0
+        const amountPerOrder = totalAmount / returnOrderIds.length
+        returnOrderIds.forEach(orderId => {
+          const id = orderId.toString()
+          const currentAmount = settledAmountMap.get(id) || 0
+          settledAmountMap.set(id, currentAmount + amountPerOrder)
         })
       }
     })
-    
+
+    // 批量查询款号和发料单信息
+    const styleIds = [...new Set(returnOrdersRes.data.map(order => order.styleId || order.style_id).filter(Boolean))]
+    const issueIds = [...new Set(returnOrdersRes.data.map(order => order.issueId || order.issue_id).filter(Boolean))]
+
+    const [stylesRes, issueOrdersRes] = await Promise.all([
+      styleIds.length > 0 ? queryByIds('styles', styleIds, { excludeDeleted: true }) : { data: [] },
+      issueIds.length > 0 ? queryByIds('issue_orders', issueIds, { excludeDeleted: true }) : { data: [] }
+    ])
+
+    const stylesMap = Object.fromEntries(stylesRes.data.map(s => [s._id || s.id, s]))
+    const issueOrdersMap = Object.fromEntries(issueOrdersRes.data.map(o => [o._id || o.id, o]))
+
     // 关联查询款号和发料单信息
-    const ordersWithDetails = await Promise.all(
-      returnOrders.data.map(async (order) => {
-        try {
-          const style = await db.collection('styles').doc(order.styleId).get()
-          const issueOrder = await db.collection('issue_orders').doc(order.issueId).get()
-          
-          // 计算已结算金额（优先使用数据库字段，否则从settlements集合查询）
-          const settledAmount = order.settledAmount || settledAmountMap.get(order._id) || 0
-          const remainingAmount = order.processingFee - settledAmount
-          
-          return {
-            ...order,
-            styleName: style.data?.styleName || style.data?.name || '未知款号',
-            styleCode: style.data?.styleCode || '',
-            issueNo: issueOrder.data?.issueNo || '未知',
-            returnDateFormatted: formatDate(order.returnDate),
-            processingFeeFormatted: formatAmount(order.processingFee),
-            settledAmount: settledAmount,
-            settledAmountFormatted: formatAmount(settledAmount),
-            remainingAmount: remainingAmount,
-            remainingAmountFormatted: formatAmount(remainingAmount),
-            selected: false,
-            settlementAmount: remainingAmount // 默认结算剩余金额
-          }
-        } catch (error) {
-          console.error('加载回货单详情失败:', error)
-          return {
-            ...order,
-            styleName: '加载失败',
-            styleCode: '',
-            issueNo: '未知',
-            returnDateFormatted: formatDate(order.returnDate),
-            processingFeeFormatted: formatAmount(order.processingFee),
-            settledAmount: 0,
-            settledAmountFormatted: '0.00',
-            remainingAmount: order.processingFee,
-            remainingAmountFormatted: formatAmount(order.processingFee),
-            selected: false,
-            settlementAmount: order.processingFee
-          }
+    const ordersWithDetails = returnOrdersRes.data.map(order => {
+      try {
+        const styleId = order.styleId || order.style_id
+        const issueId = order.issueId || order.issue_id
+        const orderId = order._id || order.id
+
+        const style = stylesMap[styleId]
+        const issueOrder = issueOrdersMap[issueId]
+
+        // 计算已结算金额（优先使用数据库字段，否则从settlements集合查询）
+        const settledAmount = order.settledAmount || order.settled_amount || settledAmountMap.get(orderId.toString()) || 0
+        const processingFee = order.processingFee || order.processing_fee || 0
+        const remainingAmount = processingFee - settledAmount
+
+        return {
+          ...order,
+          styleName: style?.styleName || style?.style_name || '未知款号',
+          styleCode: style?.styleCode || style?.style_code || '',
+          issueNo: issueOrder?.issueNo || issueOrder?.issue_no || '未知',
+          returnDateFormatted: formatDate(order.returnDate || order.return_date),
+          processingFeeFormatted: formatAmount(processingFee),
+          settledAmount: settledAmount,
+          settledAmountFormatted: formatAmount(settledAmount),
+          remainingAmount: remainingAmount,
+          remainingAmountFormatted: formatAmount(remainingAmount),
+          quantityFormatted: formatQuantity(order.returnPieces || order.return_pieces || 0),
+          selected: false,
+          settlementAmount: remainingAmount // 默认结算剩余金额
         }
-      })
-    )
-    
+      } catch (error) {
+        console.error('加载回货单详情失败:', error)
+        const processingFee = order.processingFee || order.processing_fee || 0
+        return {
+          ...order,
+          styleName: '加载失败',
+          styleCode: '',
+          issueNo: '未知',
+          returnDateFormatted: formatDate(order.returnDate || order.return_date),
+          processingFeeFormatted: formatAmount(processingFee),
+          settledAmount: 0,
+          settledAmountFormatted: '0.00',
+          remainingAmount: processingFee,
+          remainingAmountFormatted: formatAmount(processingFee),
+          selected: false,
+          settlementAmount: processingFee
+        }
+      }
+    })
+
+    // 计算总已结算金额（所有回货单的已结算金额之和）
+    const totalSettledAmount = ordersWithDetails.reduce((sum, order) => sum + (order.settledAmount || 0), 0)
+
     this.setData({
-      returnOrders: ordersWithDetails
+      returnOrders: ordersWithDetails,
+      totalSettledAmount: totalSettledAmount,
+      totalSettledAmountFormatted: formatAmount(totalSettledAmount)
     })
   },
 
@@ -154,15 +184,17 @@ Page({
       }
       return order
     })
-    
+
     const selectedOrders = orders.filter(order => order.selected)
     const settlementAmount = selectedOrders.reduce((sum, order) => sum + (order.settlementAmount || 0), 0)
-    
+    const totalPieces = selectedOrders.reduce((sum, order) => sum + (order.returnPieces || 0), 0)
+
     this.setData({
       returnOrders: orders,
       selectedOrders: selectedOrders.map(order => order._id),
       settlementAmount: settlementAmount,
-      settlementAmountFormatted: settlementAmount.toFixed(2)
+      settlementAmountFormatted: settlementAmount.toFixed(2),
+      totalSelectedQuantityDisp: formatQuantity(totalPieces)
     })
   },
 
@@ -179,10 +211,10 @@ Page({
       }
       return order
     })
-    
+
     const selectedOrders = orders.filter(order => order.selected)
     const settlementAmount = selectedOrders.reduce((sum, order) => sum + (order.settlementAmount || 0), 0)
-    
+
     this.setData({
       returnOrders: orders,
       settlementAmount: settlementAmount,
@@ -204,7 +236,7 @@ Page({
 
   async onSubmit() {
     const selectedOrders = this.data.returnOrders.filter(order => order.selected)
-    
+
     if (selectedOrders.length === 0) {
       wx.showToast({
         title: '请选择要结算的回货单',
@@ -212,7 +244,7 @@ Page({
       })
       return
     }
-    
+
     if (this.data.settlementAmount <= 0) {
       wx.showToast({
         title: '结算金额必须大于0',
@@ -220,7 +252,7 @@ Page({
       })
       return
     }
-    
+
     wx.showModal({
       title: '确认结算',
       content: `确定要结算 ${selectedOrders.length} 笔回货单，总金额 ¥${this.data.settlementAmountFormatted} 吗？`,
@@ -237,58 +269,54 @@ Page({
       wx.showLoading({
         title: '处理中...'
       })
-      
-      const db = wx.cloud.database()
+
       const selectedOrders = this.data.returnOrders.filter(order => order.selected)
-      
+
       // 生成结算单号
       const settlementNo = `JS${Date.now()}`
-      
+
       // 创建结算单
-      const settlement = await db.collection('settlements').add({
-        data: {
-          settlementNo: settlementNo,
-          factoryId: this.data.factoryId,
-          factoryName: this.data.factory?.name || '未知工厂',
-          settlementDate: new Date(this.data.settlementDate),
-          totalAmount: this.data.settlementAmount,
-          remark: this.data.remark,
-          returnOrderIds: selectedOrders.map(order => order._id),
-          createTime: db.serverDate(),
-          updateTime: db.serverDate(),
-          deleted: false
-        }
+      const settlementResult = await insert('settlements', {
+        settlement_no: settlementNo,
+        factory_id: this.data.factoryId,
+        factory_name: this.data.factory?.name || '未知工厂',
+        settlement_date: new Date(this.data.settlementDate),
+        total_amount: this.data.settlementAmount,
+        remark: this.data.remark,
+        return_order_ids: selectedOrders.map(order => order._id || order.id)
       })
-      
+
       // 更新回货单的结算状态
       const updatePromises = selectedOrders.map(order => {
-        const newSettledAmount = (order.settledAmount || 0) + order.settlementAmount
-        const processingFee = order.processingFee
+        const orderId = order._id || order.id
+        const id = typeof orderId === 'string' && /^\d+$/.test(orderId) ? parseInt(orderId) : orderId
         
+        const newSettledAmount = (order.settledAmount || order.settled_amount || 0) + order.settlementAmount
+        const processingFee = order.processingFee || order.processing_fee || 0
+
         let settlementStatus = '未结算'
         if (newSettledAmount >= processingFee - 0.01) {
           settlementStatus = '已结算'
         } else if (newSettledAmount > 0) {
           settlementStatus = '部分结算'
         }
-        
-        return db.collection('return_orders').doc(order._id).update({
-          data: {
-            settledAmount: newSettledAmount,
-            settlementStatus: settlementStatus,
-            updateTime: db.serverDate()
-          }
+
+        return update('return_orders', {
+          settled_amount: newSettledAmount,
+          settlement_status: settlementStatus
+        }, {
+          id: id
         })
       })
-      
+
       await Promise.all(updatePromises)
-      
+
       wx.hideLoading()
       wx.showToast({
         title: '结算成功',
         icon: 'success'
       })
-      
+
       // 返回上一页并刷新
       setTimeout(() => {
         wx.navigateBack()

@@ -1,0 +1,63 @@
+/* pages/plan/create.wxss */
+.container {
+  padding: 16px;
+}
+
+.form-card {
+  padding: 8px 16px;
+  margin-bottom: 24px;
+}
+
+.form-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #F3F4F6;
+}
+
+.form-item:last-child {
+  border-bottom: none;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-item.half {
+  flex: 1;
+}
+
+.label {
+  font-size: 14px;
+  color: #6A7282;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.picker {
+  font-size: 16px;
+  color: #101828;
+  height: 24px;
+}
+
+.picker.placeholder {
+  color: #9CA3AF;
+}
+
+input {
+  font-size: 16px;
+  color: #101828;
+  height: 24px;
+}
+
+.input-disabled {
+  color: #6A7282;
+  background: #F9FAFB;
+}
+
+.btn-area {
+  margin-top: 32px;
+}
+
+.btn-primary {
+  width: 100%;
+}

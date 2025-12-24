@@ -4,7 +4,8 @@
   <view class="profile-card card-gradient">
     <view class="profile-content">
       <view class="profile-avatar">
-        <text class="avatar-text">公</text>
+        <image class="avatar-image" src="/images/avatar.png" mode="aspectFill" wx:if="{{hasAvatar}}"></image>
+        <text class="avatar-text" wx:else>公</text>
       </view>
       <view class="profile-info">
         <text class="company-name">{{companyName}}</text>

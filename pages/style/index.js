@@ -1,4 +1,7 @@
 // pages/style/index.js
+import { query } from '../../utils/db.js'
+const app = getApp()
+
 Page({
   data: {
     styles: [],
@@ -21,23 +24,38 @@ Page({
 
   async loadStyles() {
     try {
-      const db = wx.cloud.database()
-      const _ = db.command
-      const styles = await db.collection('styles')
-        .where({
-          deleted: _.eq(false)
-        })
-        .orderBy('createTime', 'desc')
-        .get()
-      
-      // 格式化数据，确保颜色和尺码是字符串数组
+      const result = await query('styles', {}, {
+        excludeDeleted: true,
+        orderBy: { field: 'create_time', direction: 'DESC' }
+      })
+      const styles = { data: result.data }
+
+        // 格式化数据，确保颜色和尺码是字符串数组
       const formattedStyles = styles.data.map(style => {
-        const yarnUsageKg = (style.yarnUsagePerPiece || 0) / 1000
-        
+        const yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
+        const yarnUsageKg = yarnUsagePerPiece / 1000
+
         // 确保 availableColors 和 availableSizes 是字符串数组
-        let availableColors = style.availableColors || []
-        let availableSizes = style.availableSizes || []
+        // MySQL中JSON字段需要解析
+        let availableColors = style.availableColors || style.available_colors || []
+        let availableSizes = style.availableSizes || style.available_sizes || []
         
+        // 如果是从JSON字段读取的字符串，需要解析
+        if (typeof availableColors === 'string') {
+          try {
+            availableColors = JSON.parse(availableColors)
+          } catch (e) {
+            availableColors = []
+          }
+        }
+        if (typeof availableSizes === 'string') {
+          try {
+            availableSizes = JSON.parse(availableSizes)
+          } catch (e) {
+            availableSizes = []
+          }
+        }
+
         // 处理不同的数据格式
         // 如果 availableColors 是字符串（可能是逗号分隔的字符串）
         if (typeof style.availableColors === 'string') {
@@ -47,7 +65,7 @@ Page({
         else if (Array.isArray(availableColors) && availableColors.length === 1 && typeof availableColors[0] === 'string' && availableColors[0].indexOf(',') >= 0) {
           availableColors = availableColors[0].split(',').map(c => c.trim()).filter(c => c)
         }
-        
+
         // 如果 availableSizes 是字符串（可能是逗号分隔的字符串）
         if (typeof style.availableSizes === 'string') {
           availableSizes = style.availableSizes.split(',').map(s => s.trim()).filter(s => s)
@@ -56,7 +74,7 @@ Page({
         else if (Array.isArray(availableSizes) && availableSizes.length === 1 && typeof availableSizes[0] === 'string' && availableSizes[0].indexOf(',') >= 0) {
           availableSizes = availableSizes[0].split(',').map(s => s.trim()).filter(s => s)
         }
-        
+
         // 如果保存的是对象数组，转换为字符串数组
         if (availableColors.length > 0 && typeof availableColors[0] === 'object') {
           availableColors = availableColors.map(c => c.name || c._id || String(c))
@@ -64,11 +82,11 @@ Page({
         if (availableSizes.length > 0 && typeof availableSizes[0] === 'object') {
           availableSizes = availableSizes.map(s => s.name || s._id || String(s))
         }
-        
+
         // 计算实际用量（含损耗）
-        const lossRate = style.lossRate || 0
+        const lossRate = style.lossRate || style.loss_rate || 0
         const actualUsage = yarnUsageKg * (1 + lossRate / 100)
-        
+
         return {
           ...style,
           yarnUsagePerPieceFormatted: yarnUsageKg.toFixed(2) + ' kg',
@@ -77,7 +95,7 @@ Page({
           availableSizes: availableSizes
         }
       })
-      
+
       this.setData({
         styles: formattedStyles,
         styleCount: styles.data.length

@@ -1,6 +1,7 @@
 // pages/statistics/index.js
-import { getIssueOrders, getReturnOrdersByIssueId } from '../../utils/db.js'
-import { getTimeRange, formatDate, formatWeight } from '../../utils/calc.js'
+import { query, queryByIds, getStyleById } from '../../utils/db.js'
+import { getTimeRange, formatDate, formatWeight, formatQuantity } from '../../utils/calc.js'
+const app = getApp()
 
 Page({
   data: {
@@ -13,11 +14,43 @@ Page({
   },
 
   onLoad() {
+    // 检查租户
+    if (!this.checkTenant()) {
+      return
+    }
     this.loadData()
   },
 
   onShow() {
+    // 检查租户
+    if (!this.checkTenant()) {
+      return
+    }
     this.loadData()
+  },
+
+  checkTenant() {
+    const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
+    if (!tenantId) {
+      wx.showModal({
+        title: '未登录',
+        content: '请先登录',
+        showCancel: false,
+        success: () => {
+          wx.reLaunch({
+            url: '/pages/login/index'
+          })
+        }
+      })
+      return false
+    }
+    // 确保 globalData 中有 tenantId
+    if (!app.globalData.tenantId) {
+      app.globalData.tenantId = tenantId
+      app.globalData.userInfo = wx.getStorageSync('userInfo')
+      app.globalData.tenantInfo = wx.getStorageSync('tenantInfo')
+    }
+    return true
   },
 
   onPullDownRefresh() {
@@ -42,105 +75,137 @@ Page({
   },
 
   async loadStatistics() {
-    const db = wx.cloud.database()
-    const _ = db.command
-    
-    const issueOrders = await db.collection('issue_orders')
-      .where({
-        deleted: _.eq(false)
-      })
-      .get()
-    
+    let whereClause = {}
+
+    if (this.data.timeFilter !== 'all') {
+      const timeRange = getTimeRange(this.data.timeFilter)
+      if (timeRange.startDate && timeRange.endDate) {
+        whereClause.issue_date = {
+          gte: timeRange.startDate,
+          lte: timeRange.endDate
+        }
+      }
+    }
+
+    const issueOrdersRes = await query('issue_orders', whereClause, {
+      excludeDeleted: true
+    })
+
     let returnedCount = 0
-    issueOrders.data.forEach(order => {
-      if (order.status === '已回货') {
+    issueOrdersRes.data.forEach(order => {
+      // 这里的逻辑依然保持 check status，但订单池已经按时间过滤过了
+      if (order.status === '已回货' || order.status === '已完成') {
         returnedCount++
       }
     })
-    
+
     this.setData({
-      totalIssueCount: issueOrders.data.length,
+      totalIssueCount: issueOrdersRes.data.length,
       returnedCount
     })
   },
 
   async loadStatisticsList() {
-    const db = wx.cloud.database()
-    const _ = db.command
-    
-    let query = db.collection('issue_orders')
-      .where({
-        deleted: _.eq(false)
-      })
-    
+    let whereClause = {}
+
     // 时间筛选
     if (this.data.timeFilter !== 'all') {
       const timeRange = getTimeRange(this.data.timeFilter)
       if (timeRange.startDate && timeRange.endDate) {
-        query = query.where({
-          issueDate: _.gte(timeRange.startDate).and(_.lte(timeRange.endDate))
-        })
+        whereClause.issue_date = {
+          gte: timeRange.startDate,
+          lte: timeRange.endDate
+        }
       }
     }
-    
+
     // 状态筛选
     if (this.data.statusFilter !== 'all') {
-      query = query.where({
-        status: this.data.statusFilter
-      })
+      whereClause.status = this.data.statusFilter
     }
-    
+
     // 搜索
     if (this.data.searchKeyword) {
-      query = query.where({
-        issueNo: _.regex({
-          regexp: this.data.searchKeyword,
-          options: 'i'
-        })
+      whereClause.issue_no = this.data.searchKeyword
+    }
+
+    const issueOrdersRes = await query('issue_orders', whereClause, {
+      excludeDeleted: true,
+      orderBy: { field: 'issue_date', direction: 'DESC' }
+    })
+    const issueOrders = { data: issueOrdersRes.data || [] }
+
+    // 批量查询回货单
+    const issueIds = issueOrders.data.map(order => order.id || order._id)
+    const returnOrdersMap = new Map()
+    if (issueIds.length > 0) {
+      const returnOrdersRes = await query('return_orders', {
+        issue_id: issueIds
+      }, {
+        excludeDeleted: true
+      })
+      
+      returnOrdersRes.data.forEach(order => {
+        const issueId = order.issueId || order.issue_id
+        if (!returnOrdersMap.has(issueId)) {
+          returnOrdersMap.set(issueId, [])
+        }
+        returnOrdersMap.get(issueId).push(order)
       })
     }
-    
-    const issueOrders = await query.orderBy('issueDate', 'desc').get()
-    
+
+    // 批量查询款号
+    const styleIds = [...new Set(issueOrders.data.map(order => order.styleId || order.style_id).filter(Boolean))]
+    const stylesMap = new Map()
+    if (styleIds.length > 0) {
+      const stylesRes = await queryByIds('styles', styleIds)
+      stylesRes.data.forEach(style => {
+        stylesMap.set(style.id || style._id, style)
+      })
+    }
+
     // 为每个发料单加载回货信息和计算统计
     const statistics = await Promise.all(
       issueOrders.data.map(async (issueOrder) => {
-        const [style, returnOrders] = await Promise.all([
-          db.collection('styles').doc(issueOrder.styleId).get(),
-          getReturnOrdersByIssueId(issueOrder._id)
-        ])
-        
+        const styleId = issueOrder.styleId || issueOrder.style_id
+        const style = stylesMap.get(styleId) || {}
+        const returnOrders = returnOrdersMap.get(issueOrder.id || issueOrder._id) || []
+
         let totalReturnQuantity = 0
         let totalReturnPieces = 0
         let totalReturnYarn = 0
         let latestReturnDate = null
-        
-        returnOrders.data.forEach(order => {
-          totalReturnQuantity += order.returnQuantity || 0
-          totalReturnPieces += order.returnPieces || 0
-          totalReturnYarn += order.actualYarnUsage || 0
-          if (!latestReturnDate || new Date(order.returnDate) > new Date(latestReturnDate)) {
-            latestReturnDate = order.returnDate
+
+        returnOrders.forEach(order => {
+          totalReturnQuantity += order.returnQuantity || order.return_quantity || 0
+          totalReturnPieces += Math.floor(order.returnPieces || order.return_pieces || 0)
+          totalReturnYarn += order.actualYarnUsage || order.actual_yarn_usage || 0
+          const returnDate = order.returnDate || order.return_date
+          if (!latestReturnDate || new Date(returnDate) > new Date(latestReturnDate)) {
+            latestReturnDate = returnDate
           }
         })
-        
-        const remainingYarn = issueOrder.issueWeight - totalReturnYarn
-        const remainingPieces = Math.floor(remainingYarn / (style.data.yarnUsagePerPiece / 1000))
+
+        const issueWeight = issueOrder.issueWeight || issueOrder.issue_weight || 0
+        const yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
+        const remainingYarn = issueWeight - totalReturnYarn
+        const remainingPieces = Math.floor(remainingYarn / (yarnUsagePerPiece / 1000))
         const remainingQuantity = remainingPieces / 12
-        
+
         // 计算损耗率相关数据
-        const lossRate = style.data?.lossRate || 0
-        const planYarnUsage = (totalReturnPieces * style.data.yarnUsagePerPiece) / 1000 // 计划用纱量（kg）
+        const lossRate = style.lossRate || style.loss_rate || 0
+        const planYarnUsage = (totalReturnPieces * yarnUsagePerPiece) / 1000 // 计划用纱量（kg）
         const actualYarnUsage = totalReturnYarn // 实际用纱量（kg）
         const lossAmount = actualYarnUsage - planYarnUsage // 损耗量（kg）
         const actualLossRate = planYarnUsage > 0 ? ((lossAmount / planYarnUsage) * 100) : 0 // 实际损耗率（%）
-        
+
         return {
           ...issueOrder,
-          styleName: style.data?.styleName || '未知款号',
-          styleCode: style.data?.styleCode || '',
-          styleImageUrl: style.data?.imageUrl || '',
-          yarnUsagePerPiece: style.data?.yarnUsagePerPiece || 0,
+          _id: issueOrder._id || issueOrder.id,
+          styleName: style.styleName || style.style_name || style.name || '未知款号',
+          styleCode: style.styleCode || style.style_code || '',
+          styleImageUrl: style.imageUrl || style.image_url || '',
+          yarnUsagePerPiece: yarnUsagePerPiece,
           lossRate: lossRate, // 款号设定的损耗率
           planYarnUsage: planYarnUsage, // 计划用纱量
           actualYarnUsage: actualYarnUsage, // 实际用纱量
@@ -150,36 +215,42 @@ Page({
           planYarnUsageFormatted: formatWeight(planYarnUsage),
           lossAmountFormatted: formatWeight(Math.abs(lossAmount)),
           actualLossRateFormatted: actualLossRate.toFixed(1) + '%',
-          totalReturnQuantity,
-          totalReturnPieces,
+          totalReturnQuantity: totalReturnQuantity.toFixed(1),
+          totalReturnPieces: Math.floor(totalReturnPieces),
+          totalReturnPiecesFormatted: formatQuantity(totalReturnPieces),
           totalReturnYarn,
           remainingYarn,
-          remainingPieces,
+          remainingPieces: Math.floor(remainingPieces),
+          remainingPiecesFormatted: formatQuantity(remainingPieces),
           remainingQuantity,
           remainingQuantityFormatted: remainingQuantity.toFixed(1),
           latestReturnDate,
-          issueDateFormatted: formatDate(issueOrder.issueDate),
+          issueDateFormatted: formatDate(issueOrder.issueDate || issueOrder.issue_date),
           latestReturnDateFormatted: latestReturnDate ? formatDate(latestReturnDate) : null,
-          issueWeightFormatted: formatWeight(issueOrder.issueWeight),
+          issueWeightFormatted: formatWeight(issueWeight),
           totalReturnYarnFormatted: formatWeight(totalReturnYarn),
           remainingYarnFormatted: formatWeight(remainingYarn),
-          returnOrders: returnOrders.data
+          returnOrders: returnOrders
             .slice()
             .sort((a, b) => {
-              const dateA = a.returnDate instanceof Date ? a.returnDate : new Date(a.returnDate)
-              const dateB = b.returnDate instanceof Date ? b.returnDate : new Date(b.returnDate)
-              return dateB.getTime() - dateA.getTime()
+              const dateA = a.returnDate || a.return_date
+              const dateB = b.returnDate || b.return_date
+              const dateAObj = dateA instanceof Date ? dateA : new Date(dateA)
+              const dateBObj = dateB instanceof Date ? dateB : new Date(dateB)
+              return dateBObj.getTime() - dateAObj.getTime()
             })
             .map((order, index) => ({
               ...order,
-              returnDateFormatted: formatDate(order.returnDate),
-              actualYarnUsageFormatted: (order.actualYarnUsage || 0).toFixed(2),
-              returnOrderIndex: returnOrders.data.length - index
+              returnPieces: Math.floor(order.returnPieces || order.return_pieces || 0),
+              quantityFormatted: formatQuantity(order.returnPieces || order.return_pieces),
+              returnDateFormatted: formatDate(order.returnDate || order.return_date),
+              actualYarnUsageFormatted: (order.actualYarnUsage || order.actual_yarn_usage || 0).toFixed(2),
+              returnOrderIndex: returnOrders.length - index
             }))
         }
       })
     )
-    
+
     this.setData({
       statistics
     })

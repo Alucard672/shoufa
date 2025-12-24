@@ -1,5 +1,7 @@
 // pages/factory/detail.js
 import { formatDate, formatAmount, formatWeight } from '../../utils/calc.js'
+import { query, queryByIds } from '../../utils/db.js'
+const app = getApp()
 
 Page({
   data: {
@@ -11,6 +13,7 @@ Page({
     currentTab: 0,
     totalIssueWeight: 0,
     totalUsedYarn: 0,
+    remainingYarn: 0,
     unpaidFee: 0
   },
 
@@ -24,110 +27,127 @@ Page({
   },
 
   async loadData() {
-    const db = wx.cloud.database()
-    const _ = db.command
-
     // 加载工厂信息
-    const factory = await db.collection('factories').doc(this.data.factoryId).get()
+    const factoryRes = await queryByIds('factories', [this.data.factoryId], {
+      excludeDeleted: true
+    })
+    
+    if (!factoryRes.data || factoryRes.data.length === 0) {
+      wx.showToast({
+        title: '工厂不存在',
+        icon: 'none'
+      })
+      setTimeout(() => wx.navigateBack(), 1500)
+      return
+    }
+
+    const factory = factoryRes.data[0]
+
+    // 验证租户权限
+    if (factory.tenantId && factory.tenantId !== app.globalData.tenantId) {
+      wx.showToast({
+        title: '无权访问',
+        icon: 'none'
+      })
+      setTimeout(() => wx.navigateBack(), 1500)
+      return
+    }
 
     // 加载发料单
-    const issueOrders = await db.collection('issue_orders')
-      .where({
-        factoryId: this.data.factoryId,
-        deleted: _.neq(true)
-      })
-      .orderBy('issueDate', 'desc')
-      .get()
+    const issueOrdersRes = await query('issue_orders', {
+      factory_id: this.data.factoryId
+    }, {
+      excludeDeleted: true,
+      orderBy: { field: 'issue_date', direction: 'DESC' }
+    })
 
     // 加载回货单
-    const returnOrders = await db.collection('return_orders')
-      .where({
-        factoryId: this.data.factoryId,
-        deleted: _.neq(true)
-      })
-      .orderBy('returnDate', 'desc')
-      .get()
+    const returnOrdersRes = await query('return_orders', {
+      factory_id: this.data.factoryId
+    }, {
+      excludeDeleted: true,
+      orderBy: { field: 'return_date', direction: 'DESC' }
+    })
 
     // 加载结算单
-    const settlements = await db.collection('settlements')
-      .where({
-        factoryId: this.data.factoryId,
-        deleted: _.neq(true)
-      })
-      .orderBy('settlementDate', 'desc')
-      .get()
+    const settlementsRes = await query('settlements', {
+      factory_id: this.data.factoryId
+    }, {
+      excludeDeleted: true,
+      orderBy: { field: 'settlement_date', direction: 'DESC' }
+    })
 
     // 计算统计数据
     let totalIssueWeight = 0
     let totalUsedYarn = 0
-    let unpaidFee = 0
+    let totalSettledAmount = 0
+    let totalProcessingFee = 0
 
-    issueOrders.data.forEach(order => {
-      totalIssueWeight += order.issueWeight || 0
+    issueOrdersRes.data.forEach(order => {
+      totalIssueWeight += order.issueWeight || order.issue_weight || 0
     })
 
-    returnOrders.data.forEach(order => {
-      totalUsedYarn += order.actualYarnUsage || 0
-      if (order.settlementStatus !== '已结算') {
-        unpaidFee += order.processingFee || 0
+    returnOrdersRes.data.forEach(order => {
+      totalUsedYarn += order.actualYarnUsage || order.actual_yarn_usage || 0
+      totalProcessingFee += order.processingFee || order.processing_fee || 0
+      totalSettledAmount += order.settledAmount || order.settled_amount || 0
+    })
+
+    const unpaidFee = totalProcessingFee - totalSettledAmount
+    const remainingYarn = totalIssueWeight - totalUsedYarn
+
+    // 批量查询款号信息
+    const styleIds = [...new Set([
+      ...issueOrdersRes.data.map(o => o.styleId || o.style_id),
+      ...returnOrdersRes.data.map(o => o.styleId || o.style_id)
+    ].filter(Boolean))]
+
+    const stylesRes = styleIds.length > 0 
+      ? await queryByIds('styles', styleIds, { excludeDeleted: true })
+      : { data: [] }
+    
+    const stylesMap = Object.fromEntries(stylesRes.data.map(s => [s._id || s.id, s]))
+
+    // 关联查询款号信息
+    const issueOrdersWithDetails = issueOrdersRes.data.map(order => {
+      const style = stylesMap[order.styleId || order.style_id]
+      return {
+        ...order,
+        styleName: style?.styleName || style?.style_name || '未知款号',
+        styleCode: style?.styleCode || style?.style_code || '',
+        issueDateFormatted: formatDate(order.issueDate || order.issue_date)
       }
     })
 
-    // 关联查询款号信息
-    const issueOrdersWithDetails = await Promise.all(
-      issueOrders.data.map(async (order) => {
-        try {
-          const style = await db.collection('styles').doc(order.styleId).get()
-          return {
-            ...order,
-            styleName: style.data?.styleName || '未知款号',
-            issueDateFormatted: formatDate(order.issueDate)
-          }
-        } catch (error) {
-          return {
-            ...order,
-            styleName: '加载失败',
-            issueDateFormatted: formatDate(order.issueDate)
-          }
-        }
-      })
-    )
-
-    const returnOrdersWithDetails = await Promise.all(
-      returnOrders.data.map(async (order) => {
-        try {
-          const style = await db.collection('styles').doc(order.styleId).get()
-          return {
-            ...order,
-            styleName: style.data?.styleName || '未知款号',
-            returnDateFormatted: formatDate(order.returnDate)
-          }
-        } catch (error) {
-          return {
-            ...order,
-            styleName: '加载失败',
-            returnDateFormatted: formatDate(order.returnDate)
-          }
-        }
-      })
-    )
+    const returnOrdersWithDetails = returnOrdersRes.data.map(order => {
+      const style = stylesMap[order.styleId || order.style_id]
+      return {
+        ...order,
+        returnPieces: Math.floor(order.returnPieces || order.return_pieces || 0),
+        styleName: style?.styleName || style?.style_name || '未知款号',
+        styleCode: style?.styleCode || style?.style_code || '',
+        returnDateFormatted: formatDate(order.returnDate || order.return_date)
+      }
+    })
 
     this.setData({
-      factory: factory.data,
+      factory: factory,
       issueOrders: issueOrdersWithDetails,
       returnOrders: returnOrdersWithDetails.map(order => ({
         ...order,
-        processingFeeFormatted: (order.processingFee || 0).toFixed(2)
+        processingFeeFormatted: (order.processingFee || order.processing_fee || 0).toFixed(2)
       })),
-      settlements: settlements.data.map(item => ({
+      settlements: settlementsRes.data.map(item => ({
         ...item,
-        totalAmountFormatted: (item.totalAmount || 0).toFixed(2),
-        settlementDateFormatted: formatDate(item.settlementDate)
+        totalAmountFormatted: (item.totalAmount || item.total_amount || 0).toFixed(2),
+        settlementDateFormatted: formatDate(item.settlementDate || item.settlement_date)
       })),
       totalIssueWeight,
       totalIssueWeightFormatted: totalIssueWeight.toFixed(2),
       totalUsedYarn,
       totalUsedYarnFormatted: totalUsedYarn.toFixed(2),
+      remainingYarn,
+      remainingYarnFormatted: remainingYarn.toFixed(2),
       unpaidFee,
       unpaidFeeFormatted: unpaidFee.toFixed(2)
     })

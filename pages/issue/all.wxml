@@ -69,8 +69,7 @@
         <!-- 款号名称和颜色尺码 -->
         <view class="order-style-section">
           <view class="style-name-row">
-            <text class="style-name">{{item.styleName || '未知款号'}}</text>
-            <text class="style-code" wx:if="{{item.styleCode}}">· {{item.styleCode}}</text>
+            <text class="style-name">{{item.styleCode ? '[' + item.styleCode + '] ' : ''}}{{item.styleName || '未知款号'}}</text>
           </view>
           <view class="order-color-size">
             <text class="color-size-value">{{item.color || '未设置'}}</text>

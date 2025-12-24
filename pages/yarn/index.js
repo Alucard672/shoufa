@@ -1,4 +1,7 @@
 // pages/yarn/index.js
+import { query } from '../../utils/db.js'
+const app = getApp()
+
 Page({
   data: {
     yarnList: [],
@@ -21,26 +24,19 @@ Page({
 
   async loadYarnList() {
     try {
-      const db = wx.cloud.database()
-      const _ = db.command
-      let query = db.collection('yarn_inventory')
-        .where({
-          deleted: _.eq(false)
-        })
+      const whereClause = {}
       
       if (this.data.searchKeyword) {
-        query = query.where({
-          yarnName: _.regex({
-            regexp: this.data.searchKeyword,
-            options: 'i'
-          })
-        })
+        whereClause.yarn_name = this.data.searchKeyword
       }
-      
-      const result = await query.orderBy('createTime', 'desc').get()
-      
+
+      const result = await query('yarn_inventory', whereClause, {
+        excludeDeleted: true,
+        orderBy: { field: 'create_time', direction: 'DESC' }
+      })
+
       this.setData({
-        yarnList: result.data
+        yarnList: result.data || []
       })
     } catch (error) {
       console.error('加载纱线库存失败:', error)

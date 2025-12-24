@@ -4,7 +4,7 @@
     <text class="factory-name">{{factory.name}}</text>
     <text class="factory-contact" wx:if="{{factory.contact}}">联系人：{{factory.contact}}</text>
     <text class="factory-phone" wx:if="{{factory.phone}}">联系方式：{{factory.phone}}</text>
-    <text class="factory-price">加工单价：¥{{factory.defaultPrice}}/件</text>
+    <text class="factory-price">加工单价：¥{{factory.defaultPrice}}/打</text>
     <text class="factory-settlement">结算方式：{{factory.settlementMethod}}</text>
   </view>
 
@@ -16,6 +16,10 @@
     <view class="stat-card card">
       <text class="stat-label">累计用纱</text>
       <text class="stat-value">{{totalUsedYarnFormatted}} kg</text>
+    </view>
+    <view class="stat-card card">
+      <text class="stat-label">剩余回款（在厂）</text>
+      <text class="stat-value">{{remainingYarnFormatted}} kg</text>
     </view>
     <view class="stat-card card">
       <text class="stat-label">未结账款</text>
@@ -39,7 +43,10 @@
   <view class="section" wx:if="{{currentTab === 0}}">
     <view class="record-list">
       <view class="record-item" wx:for="{{issueOrders}}" wx:key="_id">
-        <text class="record-text">{{item.styleName}} · {{item.issueWeight}}kg · {{item.issueDateFormatted}}</text>
+        <view class="record-text">
+          <text style="font-weight: 700; color: #101828;">{{item.styleName}}{{item.styleCode ? ' [' + item.styleCode + ']' : ''}}</text>
+          <text> · {{item.issueWeight}}kg · {{item.issueDateFormatted}}</text>
+        </view>
       </view>
       <view class="empty-tip" wx:if="{{issueOrders.length === 0}}">
         <text>暂无发料记录</text>
@@ -50,7 +57,10 @@
   <view class="section" wx:if="{{currentTab === 1}}">
     <view class="record-list">
       <view class="record-item" wx:for="{{returnOrders}}" wx:key="_id">
-        <text class="record-text">{{item.styleName}} · {{item.returnQuantity}}打 · ¥{{item.processingFeeFormatted}} · {{item.returnDateFormatted}}</text>
+        <view class="record-text">
+          <text style="font-weight: 700; color: #101828;">{{item.styleName}}{{item.styleCode ? ' [' + item.styleCode + ']' : ''}}</text>
+          <text> · {{item.returnQuantity}}打 · ¥{{item.processingFeeFormatted}} · {{item.returnDateFormatted}}</text>
+        </view>
       </view>
       <view class="empty-tip" wx:if="{{returnOrders.length === 0}}">
         <text>暂无回货记录</text>

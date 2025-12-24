@@ -1,4 +1,7 @@
 // pages/style/create.js
+import { query, getStyleById, insert, update } from '../../utils/db.js'
+const app = getApp()
+
 Page({
   data: {
     styleId: '',
@@ -25,7 +28,7 @@ Page({
   async onLoad(options) {
     // 先加载字典数据（包括纱线列表）
     await this.loadDictionaries()
-    
+
     if (options.id) {
       this.setData({
         styleId: options.id,
@@ -41,23 +44,26 @@ Page({
       wx.showLoading({
         title: '加载中...'
       })
-      
-      const db = wx.cloud.database()
-      const style = await db.collection('styles').doc(styleId).get()
-      
-      if (style.data) {
-        const styleData = style.data
-        
+
+      const styleRes = await getStyleById(styleId)
+      const styleData = styleRes.data
+
+      if (styleData) {
+        // 验证租户，防止水平越权
+        if (styleData.tenantId && styleData.tenantId !== app.globalData.tenantId) {
+          throw new Error('无权访问该款号')
+        }
+
         // 确保字典数据已加载（如果还没有，重新加载）
         if (!this.data.colorOptions || this.data.colorOptions.length === 0) {
           await this.loadDictionaries()
         }
-        
+
         // 使用最新的字典数据
         const colorOptions = this.data.colorOptions || []
         const sizeOptions = this.data.sizeOptions || []
         const yarnOptions = this.data.yarnOptions || []
-        
+
         console.log('加载款号数据:', {
           styleCode: styleData.styleCode,
           availableColors: styleData.availableColors,
@@ -65,32 +71,43 @@ Page({
           colorOptionsCount: colorOptions.length,
           sizeOptionsCount: sizeOptions.length
         })
-        
+
         // 匹配选中的颜色和尺码
         const selectedColors = []
         const selectedSizes = []
         const selectedYarns = []
-        
-        if (styleData.availableColors) {
+
+        // 处理 availableColors（可能是 JSON 字符串或数组）
+        let availableColors = styleData.availableColors
+        if (typeof availableColors === 'string') {
+          try {
+            availableColors = JSON.parse(availableColors)
+          } catch (e) {
+            // 如果不是 JSON，当作逗号分隔的字符串处理
+            availableColors = availableColors.split(',').map(c => c.trim()).filter(c => c)
+          }
+        }
+
+        if (availableColors) {
           // 处理不同的数据格式
           let colorsToProcess = []
-          
+
           // 如果 availableColors 是字符串（可能是逗号分隔的字符串）
-          if (typeof styleData.availableColors === 'string') {
-            colorsToProcess = styleData.availableColors.split(',').map(c => c.trim()).filter(c => c)
-          } 
-          // 如果 availableColors 是数组
-          else if (Array.isArray(styleData.availableColors)) {
-            colorsToProcess = styleData.availableColors
+          if (typeof availableColors === 'string') {
+            colorsToProcess = availableColors.split(',').map(c => c.trim()).filter(c => c)
           }
-          
+          // 如果 availableColors 是数组
+          else if (Array.isArray(availableColors)) {
+            colorsToProcess = availableColors
+          }
+
           colorsToProcess.forEach(colorItem => {
             // 处理不同的数据格式：可能是字符串，也可能是对象
             let colorName = colorItem
             if (typeof colorItem === 'object' && colorItem !== null) {
               colorName = colorItem.name || colorItem
             }
-            
+
             // 处理可能是逗号分隔的字符串（旧数据格式）
             if (typeof colorName === 'string' && colorName.indexOf(',') >= 0) {
               // 如果是逗号分隔的字符串，分割后处理每个颜色
@@ -118,13 +135,13 @@ Page({
               })
               return // 跳过当前项，因为已经处理了
             }
-            
+
             // 从字典中查找匹配的颜色
             const color = colorOptions.find(c => {
               const cName = c.name || c
               return cName === colorName
             })
-            
+
             if (color) {
               // 避免重复添加
               if (!selectedColors.find(c => (c._id || c.name) === (color._id || color.name))) {
@@ -142,27 +159,38 @@ Page({
             }
           })
         }
-        
-        if (styleData.availableSizes) {
+
+        // 处理 availableSizes（可能是 JSON 字符串或数组）
+        let availableSizes = styleData.availableSizes
+        if (typeof availableSizes === 'string') {
+          try {
+            availableSizes = JSON.parse(availableSizes)
+          } catch (e) {
+            // 如果不是 JSON，当作逗号分隔的字符串处理
+            availableSizes = availableSizes.split(',').map(s => s.trim()).filter(s => s)
+          }
+        }
+
+        if (availableSizes) {
           // 处理不同的数据格式
           let sizesToProcess = []
-          
+
           // 如果 availableSizes 是字符串（可能是逗号分隔的字符串）
-          if (typeof styleData.availableSizes === 'string') {
-            sizesToProcess = styleData.availableSizes.split(',').map(s => s.trim()).filter(s => s)
-          } 
-          // 如果 availableSizes 是数组
-          else if (Array.isArray(styleData.availableSizes)) {
-            sizesToProcess = styleData.availableSizes
+          if (typeof availableSizes === 'string') {
+            sizesToProcess = availableSizes.split(',').map(s => s.trim()).filter(s => s)
           }
-          
+          // 如果 availableSizes 是数组
+          else if (Array.isArray(availableSizes)) {
+            sizesToProcess = availableSizes
+          }
+
           sizesToProcess.forEach(sizeItem => {
             // 处理不同的数据格式：可能是字符串，也可能是对象
             let sizeName = sizeItem
             if (typeof sizeItem === 'object' && sizeItem !== null) {
               sizeName = sizeItem.name || sizeItem
             }
-            
+
             // 处理可能是逗号分隔的字符串（旧数据格式）
             if (typeof sizeName === 'string' && sizeName.indexOf(',') >= 0) {
               // 如果是逗号分隔的字符串，分割后处理每个尺码
@@ -190,13 +218,13 @@ Page({
               })
               return // 跳过当前项，因为已经处理了
             }
-            
+
             // 从字典中查找匹配的尺码
             const size = sizeOptions.find(s => {
               const sName = s.name || s
               return sName === sizeName
             })
-            
+
             if (size) {
               // 避免重复添加
               if (!selectedSizes.find(s => (s._id || s.name) === (size._id || size.name))) {
@@ -214,44 +242,53 @@ Page({
             }
           })
         }
-        
+
         // 匹配选中的纱线
-        if (styleData.yarnIds && styleData.yarnIds.length > 0) {
-          styleData.yarnIds.forEach(yarnId => {
-            const yarn = yarnOptions.find(y => y._id === yarnId)
+        let yarnIds = styleData.yarnIds || styleData.yarn_ids || []
+        // 处理 JSON 字符串
+        if (typeof yarnIds === 'string') {
+          try {
+            yarnIds = JSON.parse(yarnIds)
+          } catch (e) {
+            yarnIds = []
+          }
+        }
+        if (yarnIds && yarnIds.length > 0) {
+          yarnIds.forEach(yarnId => {
+            const yarn = yarnOptions.find(y => (y._id || y.id) === yarnId)
             if (yarn) {
               selectedYarns.push(yarn)
             }
           })
         }
-        
+
         console.log('匹配结果:', {
           selectedColorsCount: selectedColors.length,
           selectedSizesCount: selectedSizes.length,
           selectedColors: selectedColors.map(c => c.name || c),
           selectedSizes: selectedSizes.map(s => s.name || s)
         })
-        
+
         this.setData({
-          imageUrl: styleData.imageUrl || '',
-          styleCode: styleData.styleCode || '',
-          styleName: styleData.styleName || '',
+          imageUrl: styleData.imageUrl || styleData.image_url || '',
+          styleCode: styleData.styleCode || styleData.style_code || '',
+          styleName: styleData.styleName || styleData.style_name || '',
           category: styleData.category || '',
-          yarnUsagePerPiece: styleData.yarnUsagePerPiece ? styleData.yarnUsagePerPiece.toString() : '',
-          lossRate: styleData.lossRate ? styleData.lossRate.toString() : '',
-          actualUsage: styleData.actualUsage ? styleData.actualUsage.toString() : '',
-          availableColors: styleData.availableColors || [],
-          availableSizes: styleData.availableSizes || [],
+          yarnUsagePerPiece: (styleData.yarnUsagePerPiece || styleData.yarn_usage_per_piece) ? (styleData.yarnUsagePerPiece || styleData.yarn_usage_per_piece).toString() : '',
+          lossRate: (styleData.lossRate || styleData.loss_rate) ? (styleData.lossRate || styleData.loss_rate).toString() : '',
+          actualUsage: (styleData.actualUsage || styleData.actual_usage) ? (styleData.actualUsage || styleData.actual_usage).toString() : '',
+          availableColors: availableColors || [],
+          availableSizes: availableSizes || [],
           selectedColors: selectedColors,
           selectedSizes: selectedSizes,
           selectedYarns: selectedYarns,
-          yarnIds: styleData.yarnIds || [],
+          yarnIds: yarnIds || [],
           remark: styleData.remark || ''
         })
-        
+
         this.calculateActualUsage()
       }
-      
+
       wx.hideLoading()
     } catch (error) {
       wx.hideLoading()
@@ -264,61 +301,33 @@ Page({
   },
 
   async loadDictionaries() {
-    const db = wx.cloud.database()
-    const _ = db.command
-    
     try {
       const promises = []
-      
+
       // 加载颜色字典（如果集合不存在，返回空数组）
       promises.push(
-        db.collection('color_dict')
-          .where({
-            deleted: _.eq(false)
-          })
-          .get()
-          .catch(err => {
-            if (err.errCode === -502005 || (err.message && err.message.indexOf('collection not exists') >= 0)) {
-              return { data: [] }
-            }
-            throw err
-          })
+        query('color_dict', null, {
+          excludeDeleted: true
+        }).catch(() => ({ data: [] }))
       )
-      
+
       // 加载尺码字典（如果集合不存在，返回空数组）
       promises.push(
-        db.collection('size_dict')
-          .where({
-            deleted: _.eq(false)
-          })
-          .orderBy('order', 'asc')
-          .orderBy('createTime', 'desc')
-          .get()
-          .catch(err => {
-            if (err.errCode === -502005 || (err.message && err.message.indexOf('collection not exists') >= 0)) {
-              return { data: [] }
-            }
-            throw err
-          })
+        query('size_dict', null, {
+          excludeDeleted: true,
+          orderBy: { field: 'order', direction: 'ASC' }
+        }).catch(() => ({ data: [] }))
       )
-      
+
       // 加载纱线列表（如果集合不存在，返回空数组）
       promises.push(
-        db.collection('yarn_inventory')
-          .where({
-            deleted: wx.cloud.database().command.neq(true)
-          })
-          .get()
-          .catch(err => {
-            if (err.errCode === -502005 || (err.message && err.message.indexOf('collection not exists') >= 0)) {
-              return { data: [] }
-            }
-            throw err
-          })
+        query('yarn_inventory', null, {
+          excludeDeleted: true
+        }).catch(() => ({ data: [] }))
       )
-      
+
       const [colorsResult, sizesResult, yarnsResult] = await Promise.all(promises)
-      
+
       this.setData({
         colorOptions: colorsResult.data || [],
         sizeOptions: sizesResult.data || [],
@@ -390,7 +399,7 @@ Page({
       }
       return String(item)
     }).filter(name => name && name.trim())
-    
+
     this.setData({
       selectedColors: selectedColors,
       availableColors: colorNames
@@ -409,7 +418,7 @@ Page({
       }
       return String(item)
     }).filter(name => name && name.trim())
-    
+
     this.setData({
       selectedSizes: selectedSizes,
       availableSizes: sizeNames
@@ -418,7 +427,7 @@ Page({
 
   async onAddColor(e) {
     let { name, code } = e.detail
-    
+
     // 如果名称为空，检查白色是否存在，如果不存在则自动填充"白色"
     if (!name || name.trim() === '') {
       const hasWhite = this.data.colorOptions.some(c => c.name === '白色')
@@ -426,7 +435,7 @@ Page({
         name = '白色'
       }
     }
-    
+
     // 确保名称不为空
     name = name ? name.trim() : ''
     if (!name) {
@@ -436,49 +445,37 @@ Page({
       })
       return
     }
-    
+
     try {
       wx.showLoading({
         title: '添加中...'
       })
 
-      const db = wx.cloud.database()
-      
       // 检查集合是否存在，如果不存在则提示用户
       try {
-        await db.collection('color_dict').limit(1).get()
+        await query('color_dict', null, { limit: 1 })
       } catch (checkError) {
-        if (checkError.errCode === -502005 || checkError.message.includes('collection not exists')) {
-          wx.hideLoading()
-          wx.showModal({
-            title: '提示',
-            content: '颜色字典表不存在，请先在"基础信息设置"中创建颜色字典表',
-            showCancel: false,
-            confirmText: '知道了'
-          })
-          return
-        }
+        wx.hideLoading()
+        wx.showModal({
+          title: '提示',
+          content: '颜色字典表不存在，请先在"基础信息设置"中创建颜色字典表',
+          showCancel: false,
+          confirmText: '知道了'
+        })
+        return
       }
-      
-      const result = await db.collection('color_dict').add({
-        data: {
-          name: name,
-          code: code || '',
-          createTime: db.serverDate(),
-          updateTime: db.serverDate(),
-          deleted: false
-        }
+
+      const result = await insert('color_dict', {
+        name: name,
+        code: code || ''
       })
 
       // 重新加载颜色列表（过滤已删除的）
-      const _ = db.command
-      const colorsResult = await db.collection('color_dict')
-        .where({
-          deleted: _.eq(false)
-        })
-        .get()
-      const newColor = colorsResult.data.find(c => c._id === result._id)
-      
+      const colorsResult = await query('color_dict', null, {
+        excludeDeleted: true
+      })
+      const newColor = colorsResult.data.find(c => (c._id || c.id) === (result._id || result.id))
+
       if (newColor) {
         // 自动选中新添加的颜色
         const selectedColors = [...this.data.selectedColors, newColor]
@@ -492,7 +489,7 @@ Page({
           }
           return String(item)
         }).filter(name => name && name.trim())
-        
+
         this.setData({
           colorOptions: colorsResult.data || [],
           selectedColors: selectedColors,
@@ -508,14 +505,14 @@ Page({
     } catch (error) {
       wx.hideLoading()
       console.error('添加颜色失败:', error)
-      
+
       let errorMsg = '添加失败'
       if (error.errCode === -502005 || error.message.includes('collection not exists')) {
         errorMsg = '颜色字典表不存在，请先在"基础信息设置"中创建'
       } else if (error.errCode === -502002) {
         errorMsg = '颜色名称已存在'
       }
-      
+
       wx.showToast({
         title: errorMsg,
         icon: 'none',
@@ -531,46 +528,33 @@ Page({
         title: '添加中...'
       })
 
-      const db = wx.cloud.database()
-      
       // 检查集合是否存在，如果不存在则提示用户
       try {
-        await db.collection('size_dict').limit(1).get()
+        await query('size_dict', null, { limit: 1 })
       } catch (checkError) {
-        if (checkError.errCode === -502005 || checkError.message.includes('collection not exists')) {
-          wx.hideLoading()
-          wx.showModal({
-            title: '提示',
-            content: '尺码字典表不存在，请先在"基础信息设置"中创建尺码字典表',
-            showCancel: false,
-            confirmText: '知道了'
-          })
-          return
-        }
+        wx.hideLoading()
+        wx.showModal({
+          title: '提示',
+          content: '尺码字典表不存在，请先在"基础信息设置"中创建尺码字典表',
+          showCancel: false,
+          confirmText: '知道了'
+        })
+        return
       }
-      
-      const result = await db.collection('size_dict').add({
-        data: {
-          name: name,
-          code: code || '',
-          order: code ? parseInt(code) : 0,
-          createTime: db.serverDate(),
-          updateTime: db.serverDate(),
-          deleted: false
-        }
+
+      const result = await insert('size_dict', {
+        name: name,
+        code: code || '',
+        order: code ? parseInt(code) : 0
       })
 
       // 重新加载尺码列表（过滤已删除的）
-      const _ = db.command
-      const sizesResult = await db.collection('size_dict')
-        .where({
-          deleted: _.eq(false)
-        })
-        .orderBy('order', 'asc')
-        .orderBy('createTime', 'desc')
-        .get()
-      const newSize = sizesResult.data.find(s => s._id === result._id)
-      
+      const sizesResult = await query('size_dict', null, {
+        excludeDeleted: true,
+        orderBy: { field: 'order', direction: 'ASC' }
+      })
+      const newSize = sizesResult.data.find(s => (s._id || s.id) === (result._id || result.id))
+
       if (newSize) {
         // 自动选中新添加的尺码
         const selectedSizes = [...this.data.selectedSizes, newSize]
@@ -584,7 +568,7 @@ Page({
           }
           return String(item)
         }).filter(name => name && name.trim())
-        
+
         this.setData({
           sizeOptions: sizesResult.data || [],
           selectedSizes: selectedSizes,
@@ -600,14 +584,14 @@ Page({
     } catch (error) {
       wx.hideLoading()
       console.error('添加尺码失败:', error)
-      
+
       let errorMsg = '添加失败'
       if (error.errCode === -502005 || error.message.includes('collection not exists')) {
         errorMsg = '尺码字典表不存在，请先在"基础信息设置"中创建'
       } else if (error.errCode === -502002) {
         errorMsg = '尺码名称已存在'
       }
-      
+
       wx.showToast({
         title: errorMsg,
         icon: 'none',
@@ -620,7 +604,7 @@ Page({
     const selectedYarns = e.detail.value || []
     this.setData({
       selectedYarns: selectedYarns,
-      yarnIds: selectedYarns.map(item => item._id || item)
+      yarnIds: selectedYarns.map(item => item._id || item.id || item)
     })
   },
 
@@ -641,36 +625,33 @@ Page({
     }
 
     try {
-      const db = wx.cloud.database()
-      const _ = db.command
-      
       // 从 selectedColors 和 selectedSizes 重新计算 availableColors 和 availableSizes
       // 确保保存的是名称字符串数组
       const selectedColors = this.data.selectedColors || []
       const selectedSizes = this.data.selectedSizes || []
-      
+
       const colors = selectedColors.map(item => {
         if (typeof item === 'string') {
           return item
         }
         if (typeof item === 'object' && item !== null) {
-          return item.name || item._id || String(item)
+          return item.name || item._id || item.id || String(item)
         }
         return String(item)
       }).filter(name => name && name.trim())
-      
+
       const sizes = selectedSizes.map(item => {
         if (typeof item === 'string') {
           return item
         }
         if (typeof item === 'object' && item !== null) {
-          return item.name || item._id || String(item)
+          return item.name || item._id || item.id || String(item)
         }
         return String(item)
       }).filter(name => name && name.trim())
-      
+
       const yarnIds = this.data.yarnIds || []
-      
+
       console.log('保存款号数据:', {
         styleCode: this.data.styleCode,
         selectedColorsCount: selectedColors.length,
@@ -681,117 +662,49 @@ Page({
 
       // 确保 colors 和 sizes 是数组，即使为空也要保存
       const styleData = {
-        styleCode: this.data.styleCode,
-        styleName: this.data.styleName,
+        style_code: this.data.styleCode,
+        style_name: this.data.styleName,
         category: this.data.category || '',
-        yarnUsagePerPiece: parseFloat(this.data.yarnUsagePerPiece),
-        lossRate: parseFloat(this.data.lossRate) || 0,
-        actualUsage: parseFloat(this.data.actualUsage) || parseFloat(this.data.yarnUsagePerPiece),
-        availableColors: Array.isArray(colors) ? colors : [],
-        availableSizes: Array.isArray(sizes) ? sizes : [],
-        yarnIds: Array.isArray(yarnIds) ? yarnIds : [],
+        yarn_usage_per_piece: parseFloat(this.data.yarnUsagePerPiece),
+        loss_rate: parseFloat(this.data.lossRate) || 0,
+        actual_usage: parseFloat(this.data.actualUsage) || parseFloat(this.data.yarnUsagePerPiece),
+        available_colors: Array.isArray(colors) ? JSON.stringify(colors) : JSON.stringify([]),
+        available_sizes: Array.isArray(sizes) ? JSON.stringify(sizes) : JSON.stringify([]),
+        yarn_ids: Array.isArray(yarnIds) ? JSON.stringify(yarnIds) : JSON.stringify([]),
         remark: this.data.remark || '',
-        updateTime: db.serverDate()
-      }
-      
-      // 确保数组字段不为 undefined
-      if (styleData.availableColors === undefined) {
-        styleData.availableColors = []
-      }
-      if (styleData.availableSizes === undefined) {
-        styleData.availableSizes = []
-      }
-      if (styleData.yarnIds === undefined) {
-        styleData.yarnIds = []
+        image_url: this.data.imageUrl || ''
       }
 
-      // 添加图片URL
-      styleData.imageUrl = this.data.imageUrl || ''
+      // 确保数组字段不为 undefined
+      if (!styleData.available_colors) {
+        styleData.available_colors = JSON.stringify([])
+      }
+      if (!styleData.available_sizes) {
+        styleData.available_sizes = JSON.stringify([])
+      }
+      if (!styleData.yarn_ids) {
+        styleData.yarn_ids = JSON.stringify([])
+      }
 
       let result
       if (this.data.isEdit) {
         // 编辑模式
         console.log('更新款号数据到数据库:', {
           styleId: this.data.styleId,
-          styleData: styleData,
-          availableColors: styleData.availableColors,
-          availableColorsLength: styleData.availableColors ? styleData.availableColors.length : 0,
-          availableSizes: styleData.availableSizes,
-          availableSizesLength: styleData.availableSizes ? styleData.availableSizes.length : 0
+          styleData: styleData
         })
-        
-        // 确保数组字段被正确传递，创建新的数组副本避免引用问题
-        const colorsToSave = Array.isArray(styleData.availableColors) 
-          ? [...styleData.availableColors] 
-          : []
-        const sizesToSave = Array.isArray(styleData.availableSizes) 
-          ? [...styleData.availableSizes] 
-          : []
-        const yarnIdsToSave = Array.isArray(styleData.yarnIds) 
-          ? [...styleData.yarnIds] 
-          : []
-        
-        console.log('准备保存的数组数据:', {
-          colorsToSave: colorsToSave,
-          colorsToSaveLength: colorsToSave.length,
-          colorsToSaveJSON: JSON.stringify(colorsToSave),
-          sizesToSave: sizesToSave,
-          sizesToSaveLength: sizesToSave.length
+
+        await update('styles', styleData, {
+          id: this.data.styleId
         })
-        
-        // 使用明确的字段更新，确保数组字段被正确保存
-        const updateData = {
-          styleCode: styleData.styleCode,
-          styleName: styleData.styleName,
-          category: styleData.category || '',
-          yarnUsagePerPiece: styleData.yarnUsagePerPiece,
-          lossRate: styleData.lossRate || 0,
-          actualUsage: styleData.actualUsage,
-          imageUrl: styleData.imageUrl || '',
-          availableColors: colorsToSave, // 使用新数组副本
-          availableSizes: sizesToSave, // 使用新数组副本
-          yarnIds: yarnIdsToSave, // 使用新数组副本
-          remark: styleData.remark || '',
-          updateTime: db.serverDate()
-        }
-        
-        console.log('实际更新的数据:', {
-          availableColors: updateData.availableColors,
-          availableColorsType: Array.isArray(updateData.availableColors),
-          availableColorsLength: updateData.availableColors.length,
-          availableColorsValue: JSON.stringify(updateData.availableColors)
-        })
-        
-        // 使用云函数更新，避免客户端更新限制
-        console.log('使用云函数更新款号数据')
-        const cloudResult = await wx.cloud.callFunction({
-          name: 'updateStyle',
-          data: {
-            styleId: this.data.styleId,
-            styleData: updateData
-          }
-        })
-        
-        console.log('云函数更新结果:', cloudResult.result)
-        
-        if (cloudResult.result && cloudResult.result.success) {
-          console.log('云函数验证数据:', cloudResult.result.verifyData)
-          result = cloudResult.result.result
-        } else {
-          throw new Error(cloudResult.result?.error || '云函数更新失败')
-        }
+
+        result = { _id: this.data.styleId }
       } else {
         // 新增模式
         console.log('新增款号数据到数据库:', {
           styleData: styleData
         })
-        result = await db.collection('styles').add({
-          data: {
-            ...styleData,
-            createTime: db.serverDate(),
-            deleted: false
-          }
-        })
+        result = await insert('styles', styleData)
         console.log('新增结果:', result)
       }
 
@@ -876,7 +789,7 @@ Page({
 
       // 获取文件ID（可以直接使用，也可以获取下载链接）
       const fileID = uploadResult.fileID
-      
+
       this.setData({
         imageUrl: fileID
       })
@@ -915,7 +828,7 @@ Page({
               }
             })
           }
-          
+
           this.setData({
             imageUrl: ''
           })

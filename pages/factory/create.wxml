@@ -41,7 +41,7 @@
       </view>
 
       <view class="form-item">
-        <text class="form-label">默认加工单价（元/件）*</text>
+        <text class="form-label">默认加工单价（元/打）*</text>
         <input 
           class="form-input" 
           type="digit"

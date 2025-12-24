@@ -1,4 +1,7 @@
 // pages/factory/create.js
+import { formatAmount } from '../../utils/calc.js'
+import { queryByIds, insert, update } from '../../utils/db.js'
+const app = getApp()
 Page({
   data: {
     factoryId: '',
@@ -28,25 +31,32 @@ Page({
       wx.showLoading({
         title: '加载中...'
       })
-      
-      const db = wx.cloud.database()
-      const factory = await db.collection('factories').doc(factoryId).get()
-      
-      if (factory.data) {
-        const factoryData = factory.data
-        const settlementMethodIndex = this.data.settlementMethods.indexOf(factoryData.settlementMethod)
+
+      const result = await queryByIds('factories', [factoryId], {
+        excludeDeleted: true
+      })
+
+      if (result.data && result.data.length > 0) {
+        const factoryData = result.data[0]
         
+        // 验证租户权限
+        if (factoryData.tenantId && factoryData.tenantId !== app.globalData.tenantId) {
+          throw new Error('无权访问该加工厂')
+        }
+
+        const settlementMethodIndex = this.data.settlementMethods.indexOf(factoryData.settlementMethod || factoryData.settlement_method)
+
         this.setData({
           name: factoryData.name || '',
           contact: factoryData.contact || '',
           phone: factoryData.phone || '',
-          defaultPrice: factoryData.defaultPrice ? factoryData.defaultPrice.toString() : '',
-          settlementMethod: factoryData.settlementMethod || '月结',
+          defaultPrice: (factoryData.defaultPrice || factoryData.default_price) ? (factoryData.defaultPrice || factoryData.default_price).toString() : '',
+          settlementMethod: factoryData.settlementMethod || factoryData.settlement_method || '月结',
           settlementMethodIndex: settlementMethodIndex >= 0 ? settlementMethodIndex : 0,
           remark: factoryData.remark || ''
         })
       }
-      
+
       wx.hideLoading()
     } catch (error) {
       wx.hideLoading()
@@ -107,32 +117,26 @@ Page({
     }
 
     try {
-      const db = wx.cloud.database()
-      
       const factoryData = {
         name: this.data.name,
         contact: this.data.contact,
         phone: this.data.phone,
-        defaultPrice: parseFloat(this.data.defaultPrice),
-        settlementMethod: this.data.settlementMethod,
-        remark: this.data.remark || '',
-        updateTime: db.serverDate()
+        default_price: parseFloat(this.data.defaultPrice),
+        settlement_method: this.data.settlementMethod,
+        remark: this.data.remark || ''
       }
 
       if (this.data.isEdit) {
         // 编辑模式
-        await db.collection('factories').doc(this.data.factoryId).update({
-          data: factoryData
+        const id = typeof this.data.factoryId === 'string' && /^\d+$/.test(this.data.factoryId) 
+          ? parseInt(this.data.factoryId) 
+          : this.data.factoryId
+        await update('factories', factoryData, {
+          id: id
         })
       } else {
         // 新增模式
-        await db.collection('factories').add({
-          data: {
-            ...factoryData,
-            createTime: db.serverDate(),
-            deleted: false
-          }
-        })
+        await insert('factories', factoryData)
       }
 
       wx.showToast({

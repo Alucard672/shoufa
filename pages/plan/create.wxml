@@ -1,0 +1,74 @@
+<!--pages/plan/create.wxml-->
+<view class="container">
+  <view class="form-card card">
+    <view class="form-item">
+      <text class="label">计划单号</text>
+      <input class="input-disabled" value="{{planNo}}" disabled />
+    </view>
+
+    <view class="form-item">
+      <text class="label">计划工厂</text>
+      <picker bindchange="onFactoryChange" value="{{selectedFactoryIndex}}" range="{{factories}}" range-key="name">
+        <view class="picker {{selectedFactoryIndex === -1 ? 'placeholder' : ''}}">
+          {{selectedFactoryIndex > -1 ? factories[selectedFactoryIndex].name : '选择工厂'}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="label">产品款式</text>
+      <picker bindchange="onStyleChange" value="{{selectedStyleIndex}}" range="{{styles}}" range-key="styleName">
+        <view class="picker {{selectedStyleIndex === -1 ? 'placeholder' : ''}}">
+          {{selectedStyleIndex > -1 ? styles[selectedStyleIndex].styleName : '选择款号'}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-row">
+      <view class="form-item half">
+        <text class="label">颜色</text>
+        <picker bindchange="onColorChange" value="{{selectedColorIndex}}" range="{{colorOptions}}">
+          <view class="picker {{selectedColorIndex === -1 ? 'placeholder' : ''}}">
+            {{selectedColorIndex > -1 ? colorOptions[selectedColorIndex] : '选择颜色'}}
+          </view>
+        </picker>
+      </view>
+      <view class="form-item half">
+        <text class="label">尺码</text>
+        <picker bindchange="onSizeChange" value="{{selectedSizeIndex}}" range="{{sizeOptions}}">
+          <view class="picker {{selectedSizeIndex === -1 ? 'placeholder' : ''}}">
+            {{selectedSizeIndex > -1 ? sizeOptions[selectedSizeIndex] : '选择尺码'}}
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <view class="form-item">
+      <text class="label">计划数量（打）</text>
+      <input type="digit" placeholder="输入打数" value="{{planQuantity}}" bindinput="onQuantityInput" />
+    </view>
+
+    <view class="form-item">
+      <text class="label">计划用纱（kg）</text>
+      <input class="input-disabled" value="{{planYarnUsage}}" disabled />
+    </view>
+
+    <view class="form-item">
+      <text class="label">计划日期</text>
+      <picker mode="date" value="{{planDate}}" bindchange="onDateChange">
+        <view class="picker">{{planDate}}</view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="label">状态</text>
+      <picker bindchange="onStatusChange" value="{{statusOptions.indexOf(status)}}" range="{{statusOptions}}">
+        <view class="picker">{{status}}</view>
+      </picker>
+    </view>
+  </view>
+
+  <view class="btn-area">
+    <button class="btn btn-primary" bindtap="onSubmit">保存计划</button>
+  </view>
+</view>

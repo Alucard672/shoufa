@@ -2,13 +2,58 @@
 // 计算工具函数
 
 /**
+ * 精确加法
+ */
+function accAdd(arg1, arg2) {
+  let r1, r2, m
+  try { r1 = arg1.toString().split('.')[1].length } catch (e) { r1 = 0 }
+  try { r2 = arg2.toString().split('.')[1].length } catch (e) { r2 = 0 }
+  m = Math.pow(10, Math.max(r1, r2))
+  return (Math.round(arg1 * m) + Math.round(arg2 * m)) / m
+}
+
+/**
+ * 精确减法
+ */
+function accSub(arg1, arg2) {
+  let r1, r2, m, n
+  try { r1 = arg1.toString().split('.')[1].length } catch (e) { r1 = 0 }
+  try { r2 = arg2.toString().split('.')[1].length } catch (e) { r2 = 0 }
+  m = Math.pow(10, Math.max(r1, r2))
+  n = (r1 >= r2) ? r1 : r2
+  return parseFloat(((Math.round(arg1 * m) - Math.round(arg2 * m)) / m).toFixed(n))
+}
+
+/**
+ * 精确乘法
+ */
+function accMul(arg1, arg2) {
+  let m = 0, s1 = arg1.toString(), s2 = arg2.toString()
+  try { m += s1.split('.')[1].length } catch (e) { }
+  try { m += s2.split('.')[1].length } catch (e) { }
+  return Number(s1.replace('.', '')) * Number(s2.replace('.', '')) / Math.pow(10, m)
+}
+
+/**
+ * 精确除法
+ */
+function accDiv(arg1, arg2) {
+  let t1 = 0, t2 = 0, r1, r2
+  try { t1 = arg1.toString().split('.')[1].length } catch (e) { }
+  try { t2 = arg2.toString().split('.')[1].length } catch (e) { }
+  r1 = Number(arg1.toString().replace('.', ''))
+  r2 = Number(arg2.toString().replace('.', ''))
+  return (r1 / r2) * Math.pow(10, t2 - t1)
+}
+
+/**
  * 计算计划用纱量
  * @param {Number} planQuantity 计划件数
  * @param {Number} yarnUsagePerPiece 单件用量（克）
  * @returns {Number} 计划用纱量（kg）
  */
 export function calculatePlanYarnUsage(planQuantity, yarnUsagePerPiece) {
-  return (planQuantity * yarnUsagePerPiece) / 1000
+  return accDiv(accMul(planQuantity, yarnUsagePerPiece), 1000)
 }
 
 /**
@@ -17,7 +62,7 @@ export function calculatePlanYarnUsage(planQuantity, yarnUsagePerPiece) {
  * @returns {Number} 回货件数
  */
 export function calculateReturnPieces(returnQuantity) {
-  return returnQuantity * 12
+  return accMul(returnQuantity, 12)
 }
 
 /**
@@ -27,7 +72,7 @@ export function calculateReturnPieces(returnQuantity) {
  * @returns {Number} 实际用纱量（kg）
  */
 export function calculateActualYarnUsage(returnPieces, yarnUsagePerPiece) {
-  return (returnPieces * yarnUsagePerPiece) / 1000
+  return accDiv(accMul(returnPieces, yarnUsagePerPiece), 1000)
 }
 
 /**
@@ -37,7 +82,7 @@ export function calculateActualYarnUsage(returnPieces, yarnUsagePerPiece) {
  * @returns {Number} 加工费（元）
  */
 export function calculateProcessingFee(returnQuantity, pricePerDozen) {
-  return returnQuantity * pricePerDozen
+  return accMul(returnQuantity, pricePerDozen)
 }
 
 /**
@@ -47,7 +92,7 @@ export function calculateProcessingFee(returnQuantity, pricePerDozen) {
  * @returns {Number} 剩余纱线（kg）
  */
 export function calculateRemainingYarn(totalIssueWeight, totalUsedYarn) {
-  return totalIssueWeight - totalUsedYarn
+  return accSub(totalIssueWeight, totalUsedYarn)
 }
 
 /**
@@ -110,6 +155,34 @@ export function generateReturnNo() {
 }
 
 /**
+ * 生成计划单号
+ * @returns {String} 计划单号 JH + YYYYMMDD + 序号
+ */
+export function generatePlanNo() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const dateStr = `${year}${month}${day}`
+  const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0')
+  return `JH${dateStr}${random}`
+}
+
+/**
+ * 生成结算单号
+ * @returns {String} 结算单号 JS + YYYYMMDD + 序号
+ */
+export function generateSettlementNo() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const dateStr = `${year}${month}${day}`
+  const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0')
+  return `JS${dateStr}${random}`
+}
+
+/**
  * 获取时间范围
  * @param {String} type 类型：today/week/month/all
  * @returns {Object} {startDate, endDate}
@@ -117,7 +190,7 @@ export function generateReturnNo() {
 export function getTimeRange(type) {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  
+
   switch (type) {
     case 'today':
       return {
@@ -145,6 +218,26 @@ export function getTimeRange(type) {
       }
   }
 }
+
+/**
+ * 格式化数量（打/件）
+ * @param {Number} pieces 总件数
+ * @returns {String} 格式化后的字符串，如 "2打 3件"
+ */
+export function formatQuantity(pieces) {
+  const p = Math.floor(pieces || 0)
+  const doz = Math.floor(p / 12)
+  const rem = p % 12
+
+  if (doz > 0 && rem > 0) {
+    return `${doz}打 ${rem}件`
+  } else if (doz > 0) {
+    return `${doz}打`
+  } else {
+    return `${rem}件`
+  }
+}
+
 
 
 

@@ -11,27 +11,19 @@ App({
       })
     }
 
-    // 获取用户信息
-    this.getUserInfo()
-  },
-
-  getUserInfo() {
-    // 获取用户信息
-    wx.getSetting({
-      success: res => {
-        if (res.authSetting['scope.userInfo']) {
-          wx.getUserInfo({
-            success: res => {
-              this.globalData.userInfo = res.userInfo
-            }
-          })
-        }
-      }
-    })
+    // 从缓存恢复登录状态
+    const tenantId = wx.getStorageSync('tenantId')
+    if (tenantId) {
+      this.globalData.tenantId = tenantId
+      this.globalData.userInfo = wx.getStorageSync('userInfo')
+      this.globalData.tenantInfo = wx.getStorageSync('tenantInfo')
+    }
   },
 
   globalData: {
-    userInfo: null
+    userInfo: null,
+    tenantId: null,
+    tenantInfo: null
   }
 })
 

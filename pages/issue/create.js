@@ -2,6 +2,8 @@
 import { createIssueOrder } from '../../utils/db.js'
 import { generateIssueNo, formatDate } from '../../utils/calc.js'
 
+const app = getApp()
+
 Page({
   data: {
     factories: [],
@@ -33,31 +35,30 @@ Page({
   },
 
   async loadFactories() {
-    const db = wx.cloud.database()
-    const factories = await db.collection('factories')
-      .where({
-        deleted: wx.cloud.database().command.neq(true)
-      })
-      .get()
+    const result = await query('factories', {}, {
+      excludeDeleted: true
+    })
     this.setData({
-      factories: factories.data
+      factories: result.data
     })
   },
 
   async loadStyles() {
-    const db = wx.cloud.database()
-    const styles = await db.collection('styles').get()
+    const result = await query('styles', {}, {
+      excludeDeleted: true
+    })
     this.setData({
-      styles: styles.data
+      styles: result.data
     })
   },
 
   async loadColorDict() {
-    const db = wx.cloud.database()
     try {
-      const colorsResult = await db.collection('color_dict').get()
+      const result = await query('color_dict', {}, {
+        excludeDeleted: true
+      })
       this.setData({
-        colorOptions: colorsResult.data || []
+        colorOptions: result.data || []
       })
     } catch (error) {
       console.error('加载颜色字典失败:', error)
@@ -121,7 +122,7 @@ Page({
       })
       return
     }
-    
+
     if (!this.data.selectedStyle || !this.data.selectedStyleId) {
       wx.showToast({
         title: '请选择款号',
@@ -129,7 +130,7 @@ Page({
       })
       return
     }
-    
+
     if (!this.data.selectedColor) {
       wx.showToast({
         title: '请选择颜色',
@@ -137,7 +138,7 @@ Page({
       })
       return
     }
-    
+
     if (!this.data.issueWeight || parseFloat(this.data.issueWeight) <= 0) {
       wx.showToast({
         title: '请输入有效的发料重量',
@@ -166,7 +167,8 @@ Page({
             color: colorName,
             issueWeight: parseFloat(this.data.issueWeight),
             issueDate,
-            planId: this.data.planId || ''
+            planId: this.data.planId || '',
+            tenantId: app.globalData.tenantId
           }
         }
       })

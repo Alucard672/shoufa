@@ -1,138 +1,184 @@
 // utils/db.js
-// 数据库操作封装
+// MySQL数据库操作封装（通过云函数）
 
-const db = wx.cloud.database()
-const _ = db.command
+/**
+ * 获取当前租户ID
+ */
+function getTenantId() {
+  const app = getApp()
+  return app?.globalData?.tenantId || ''
+}
+
+/**
+ * 调用MySQL云函数
+ */
+async function callMySQL(action, table, data = null, where = null, options = {}) {
+  const tenantId = getTenantId()
+  
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'mysql',
+      data: {
+        action,
+        table,
+        data,
+        where,
+        options: {
+          ...options,
+          tenantId
+        }
+      }
+    })
+    
+    if (res.result.success === false) {
+      throw new Error(res.result.error || '数据库操作失败')
+    }
+    
+    return res.result
+  } catch (error) {
+    console.error('MySQL云函数调用失败:', error)
+    throw error
+  }
+}
 
 /**
  * 获取款号列表
  */
 export function getStyles() {
-  return db.collection('styles').get()
+  return callMySQL('query', 'styles', null, null, {
+    excludeDeleted: true
+  }).then(res => ({
+    data: res.data || []
+  }))
 }
 
 /**
  * 获取款号详情
  */
 export function getStyleById(styleId) {
-  return db.collection('styles').doc(styleId).get()
+  return callMySQL('query', 'styles', null, { id: styleId }, {
+    excludeDeleted: true
+  }).then(res => ({
+    data: res.data && res.data[0] ? res.data[0] : null
+  }))
 }
 
 /**
  * 获取加工厂列表
  */
 export function getFactories() {
-  return db.collection('factories')
-    .where({
-      deleted: _.eq(false)
-    })
-    .get()
+  return callMySQL('query', 'factories', null, null, {
+    excludeDeleted: true
+  }).then(res => ({
+    data: res.data || []
+  }))
 }
 
 /**
  * 获取加工厂详情
  */
 export function getFactoryById(factoryId) {
-  return db.collection('factories').doc(factoryId).get()
+  return callMySQL('query', 'factories', null, { id: factoryId }, {
+    excludeDeleted: true
+  }).then(res => ({
+    data: res.data && res.data[0] ? res.data[0] : null
+  }))
 }
 
 /**
  * 获取发料单列表
  */
 export function getIssueOrders(options = {}) {
-  let query = db.collection('issue_orders')
-    .where({
-      deleted: _.eq(false)
-    })
-
+  const where = {}
+  
   // 时间筛选
   if (options.startDate && options.endDate) {
-    query = query.where({
-      issueDate: _.gte(options.startDate).and(_.lte(options.endDate))
-    })
+    where.issue_date = {
+      gte: options.startDate,
+      lte: options.endDate
+    }
   }
-
+  
   // 状态筛选
   if (options.status) {
-    query = query.where({
-      status: options.status
-    })
+    where.status = options.status
   }
-
+  
   // 搜索
   if (options.keyword) {
-    query = query.where({
-      issueNo: _.regex({
-        regexp: options.keyword,
-        options: 'i'
-      })
-    })
+    where.issue_no = options.keyword
   }
-
-  return query.orderBy('issueDate', 'desc').get()
+  
+  const queryOptions = {
+    excludeDeleted: true,
+    orderBy: {
+      field: 'issue_date',
+      direction: 'DESC'
+    }
+  }
+  
+  return callMySQL('query', 'issue_orders', null, where, queryOptions).then(res => ({
+    data: res.data || []
+  }))
 }
 
 /**
  * 获取回货单列表
  */
 export function getReturnOrders(options = {}) {
-  let query = db.collection('return_orders')
-    .where({
-      deleted: _.eq(false)
-    })
-
+  const where = {}
+  
   // 搜索
   if (options.keyword) {
-    query = query.where({
-      returnNo: _.regex({
-        regexp: options.keyword,
-        options: 'i'
-      })
-    })
+    where.return_no = options.keyword
   }
-
-  return query.orderBy('returnDate', 'desc').get()
+  
+  const queryOptions = {
+    excludeDeleted: true,
+    orderBy: {
+      field: 'return_date',
+      direction: 'DESC'
+    }
+  }
+  
+  return callMySQL('query', 'return_orders', null, where, queryOptions).then(res => ({
+    data: res.data || []
+  }))
 }
 
 /**
  * 创建发料单
  */
 export function createIssueOrder(data) {
-  return db.collection('issue_orders').add({
-    data: {
-      ...data,
-      status: '未回货',
-      createTime: db.serverDate(),
-      updateTime: db.serverDate(),
-      deleted: false
-    }
-  })
+  return callMySQL('insert', 'issue_orders', {
+    ...data,
+    status: '未回货'
+  }).then(res => ({
+    _id: res._id
+  }))
 }
 
 /**
  * 创建回货单
  */
 export function createReturnOrder(data) {
-  return db.collection('return_orders').add({
-    data: {
-      ...data,
-      settlementStatus: '未结算',
-      createTime: db.serverDate(),
-      updateTime: db.serverDate(),
-      deleted: false
-    }
-  })
+  return callMySQL('insert', 'return_orders', {
+    ...data,
+    settlement_status: '未结算',
+    settled_amount: 0
+  }).then(res => ({
+    _id: res._id
+  }))
 }
 
 /**
  * 更新发料单状态
  */
 export function updateIssueOrderStatus(issueId, status) {
-  return db.collection('issue_orders').doc(issueId).update({
-    data: {
-      status,
-      updateTime: db.serverDate()
-    }
+  return callMySQL('update', 'issue_orders', {
+    status
+  }, {
+    id: issueId
   })
 }
 
@@ -140,36 +186,62 @@ export function updateIssueOrderStatus(issueId, status) {
  * 获取发料单关联的回货单
  */
 export function getReturnOrdersByIssueId(issueId) {
-  return db.collection('return_orders')
-    .where({
-      issueId,
-      deleted: _.eq(false)
-    })
-    .get()
+  return callMySQL('query', 'return_orders', null, {
+    issue_id: issueId
+  }, {
+    excludeDeleted: true
+  }).then(res => ({
+    data: res.data || []
+  }))
 }
 
 /**
  * 计算发料单的回货进度
  */
 export async function calculateIssueProgress(issueId) {
-  const issueOrder = await db.collection('issue_orders').doc(issueId).get()
-  const returnOrders = await getReturnOrdersByIssueId(issueId)
+  // 获取发料单
+  const issueOrderRes = await callMySQL('query', 'issue_orders', null, {
+    id: issueId
+  }, {
+    excludeDeleted: true
+  })
   
-  // 获取款号信息以获取单件用量
-  const style = await db.collection('styles').doc(issueOrder.data.styleId).get()
-  const yarnUsagePerPiece = style.data.yarnUsagePerPiece
+  if (!issueOrderRes.data || issueOrderRes.data.length === 0) {
+    throw new Error('发料单不存在')
+  }
+  
+  const issueOrder = issueOrderRes.data[0]
+  
+  // 获取回货单
+  const returnOrdersRes = await getReturnOrdersByIssueId(issueId)
+  const returnOrders = returnOrdersRes.data || []
+  
+  // 获取款号信息
+  const styleRes = await callMySQL('query', 'styles', null, {
+    id: issueOrder.style_id
+  }, {
+    excludeDeleted: true
+  })
+  
+  if (!styleRes.data || styleRes.data.length === 0) {
+    throw new Error('款号不存在')
+  }
+  
+  const style = styleRes.data[0]
+  const yarnUsagePerPiece = style.yarn_usage_per_piece || style.yarnUsagePerPiece
 
   let totalReturnPieces = 0
   let totalReturnYarn = 0
   let totalReturnQuantity = 0
 
-  returnOrders.data.forEach(order => {
-    totalReturnPieces += order.returnPieces || 0
-    totalReturnYarn += order.actualYarnUsage || 0
-    totalReturnQuantity += order.returnQuantity || 0
+  returnOrders.forEach(order => {
+    totalReturnPieces += order.return_pieces || order.returnPieces || 0
+    totalReturnYarn += order.actual_yarn_usage || order.actualYarnUsage || 0
+    totalReturnQuantity += order.return_quantity || order.returnQuantity || 0
   })
 
-  const remainingYarn = issueOrder.data.issueWeight - totalReturnYarn
+  const issueWeight = issueOrder.issue_weight || issueOrder.issueWeight
+  const remainingYarn = issueWeight - totalReturnYarn
   const remainingPieces = Math.floor(remainingYarn / (yarnUsagePerPiece / 1000))
   const remainingQuantity = remainingPieces / 12
 
@@ -198,3 +270,68 @@ export async function calculateIssueProgress(issueId) {
   }
 }
 
+/**
+ * 通用查询方法
+ */
+export async function query(table, where = {}, options = {}) {
+  return callMySQL('query', table, null, where, options).then(res => ({
+    data: res.data || []
+  }))
+}
+
+/**
+ * 通用插入方法
+ */
+export async function insert(table, data) {
+  return callMySQL('insert', table, data).then(res => ({
+    _id: res._id
+  }))
+}
+
+/**
+ * 通用更新方法
+ */
+export async function update(table, data, where) {
+  return callMySQL('update', table, data, where)
+}
+
+/**
+ * 通用删除方法（软删除）
+ */
+export async function remove(table, where) {
+  return callMySQL('delete', table, null, where)
+}
+
+/**
+ * 通用计数方法
+ */
+export async function count(table, where = {}, options = {}) {
+  return callMySQL('count', table, null, where, options).then(res => ({
+    total: res.total || 0
+  }))
+}
+
+/**
+ * 批量查询（根据ID列表）
+ */
+export async function queryByIds(table, ids, options = {}) {
+  if (!ids || ids.length === 0) {
+    return { data: [] }
+  }
+  
+  // 将_id转换为id
+  const numericIds = ids.map(id => {
+    // 如果是字符串，尝试转换为数字
+    if (typeof id === 'string' && /^\d+$/.test(id)) {
+      return parseInt(id)
+    }
+    return id
+  })
+  
+  return callMySQL('query', table, null, { id: numericIds }, {
+    ...options,
+    excludeDeleted: options.excludeDeleted !== false
+  }).then(res => ({
+    data: res.data || []
+  }))
+}

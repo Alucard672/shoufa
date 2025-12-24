@@ -1,4 +1,7 @@
 // pages/settings/color.js
+import { query, insert, update, remove } from '../../utils/db.js'
+const app = getApp()
+
 Page({
   data: {
     colors: [],
@@ -19,16 +22,13 @@ Page({
 
   async loadColors() {
     try {
-      const db = wx.cloud.database()
-      const colors = await db.collection('color_dict')
-        .where({
-          deleted: wx.cloud.database().command.neq(true)
-        })
-        .orderBy('createTime', 'desc')
-        .get()
-      
+      const colorsRes = await query('color_dict', null, {
+        excludeDeleted: true,
+        orderBy: { field: 'create_time', direction: 'DESC' }
+      })
+
       this.setData({
-        colors: colors.data || []
+        colors: colorsRes.data || []
       })
     } catch (error) {
       console.error('加载颜色失败:', error)
@@ -100,28 +100,19 @@ Page({
         title: '保存中...'
       })
 
-      const db = wx.cloud.database()
-      
+      const colorData = {
+        name: this.data.colorName.trim(),
+        code: this.data.colorCode.trim() || ''
+      }
+
       if (this.data.editColor) {
         // 编辑模式
-        await db.collection('color_dict').doc(this.data.editColor._id).update({
-          data: {
-            name: this.data.colorName.trim(),
-            code: this.data.colorCode.trim() || '',
-            updateTime: db.serverDate()
-          }
+        await update('color_dict', colorData, {
+          id: this.data.editColor.id || this.data.editColor._id
         })
       } else {
         // 新增模式
-        await db.collection('color_dict').add({
-          data: {
-            name: this.data.colorName.trim(),
-            code: this.data.colorCode.trim() || '',
-            createTime: db.serverDate(),
-            updateTime: db.serverDate(),
-            deleted: false
-          }
-        })
+        await insert('color_dict', colorData)
       }
 
       wx.hideLoading()
@@ -144,7 +135,7 @@ Page({
 
   async onDelete(e) {
     const color = e.currentTarget.dataset.color
-    
+
     wx.showModal({
       title: '确认删除',
       content: `确定要删除颜色"${color.name}"吗？`,
@@ -155,12 +146,8 @@ Page({
               title: '删除中...'
             })
 
-            const db = wx.cloud.database()
-            await db.collection('color_dict').doc(color._id).update({
-              data: {
-                deleted: true,
-                updateTime: db.serverDate()
-              }
+            await remove('color_dict', {
+              id: color.id || color._id
             })
 
             wx.hideLoading()

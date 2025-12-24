@@ -89,7 +89,7 @@
         </view>
         <view class="stat-row">
           <text class="stat-label">回货数量</text>
-          <text class="stat-value">{{item.totalReturnQuantity}}打 {{item.totalReturnPieces}}件</text>
+          <text class="stat-value">{{item.totalReturnPiecesFormatted}}</text>
         </view>
         <view class="stat-row" wx:if="{{item.totalReturnPieces > 0}}">
           <text class="stat-label">计划用纱</text>
@@ -112,7 +112,7 @@
         <view class="remaining-row">
           <text class="remaining-label">剩余待回</text>
           <text class="remaining-value">{{item.remainingYarnFormatted}}</text>
-          <text class="remaining-quantity">{{item.remainingQuantityFormatted}}打 {{item.remainingPieces}}件</text>
+          <text class="remaining-quantity">{{item.remainingPiecesFormatted}}</text>
         </view>
       </view>
       
@@ -143,7 +143,7 @@
               <text class="detail-no">#{{returnOrder.returnOrderIndex}}</text>
               <text class="detail-date">{{returnOrder.returnDateFormatted}}</text>
             </view>
-            <text class="detail-info">{{returnOrder.returnQuantity}}打 {{returnOrder.returnPieces}}件 · {{returnOrder.actualYarnUsageFormatted}}kg</text>
+            <text class="detail-info">{{returnOrder.quantityFormatted}} · {{returnOrder.actualYarnUsageFormatted}}kg</text>
           </view>
         </view>
       </view>

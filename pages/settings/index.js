@@ -17,6 +17,14 @@ Page({
         icon: '📏',
         bgColor: '#F0F9FF',
         path: '/pages/settings/size'
+      },
+      {
+        id: 'tenant',
+        title: '租户管理',
+        desc: '管理租户信息',
+        icon: '🏢',
+        bgColor: '#F0FDF4',
+        path: '/pages/settings/tenant'
       }
     ]
   },

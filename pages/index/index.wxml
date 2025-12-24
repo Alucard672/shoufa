@@ -50,13 +50,9 @@
   <view class="card recent-activities">
     <view class="section-header">
       <text class="section-title">最近动态</text>
-      <view class="more-btn" bindtap="onShowMoreActivities" wx:if="{{recentActivities.length > 10}}">
-        <text class="more-text">更多</text>
-        <text class="more-arrow">→</text>
-      </view>
     </view>
     <view class="activity-list">
-      <view class="activity-item" wx:for="{{displayActivities}}" wx:key="_id">
+      <view class="activity-item" wx:for="{{displayActivities}}" wx:key="index">
         <view class="activity-image-wrapper">
           <image class="activity-image" src="{{item.styleImageUrl}}" mode="aspectFill" wx:if="{{item.styleImageUrl}}"></image>
           <view class="activity-image-placeholder" wx:else>
@@ -66,13 +62,16 @@
         <view class="activity-content">
           <view class="activity-content-header">
             <view class="activity-header">
-              <text class="activity-label">发料给</text>
+              <text class="activity-label">{{item.label}}</text>
               <text class="activity-factory">{{item.factoryName}}</text>
             </view>
-            <image class="activity-type-icon" src="/images/issue-icon.svg" mode="aspectFit"></image>
+            <image class="activity-type-icon" src="/images/{{item.type === 'issue' ? 'issue-icon.svg' : 'return-icon.svg'}}" mode="aspectFit"></image>
           </view>
-          <view class="activity-detail">{{item.styleName}} · {{item.issueWeight}}kg · {{item.color}}</view>
-          <view class="activity-date">{{item.issueDateFormatted}}</view>
+          <view class="activity-detail">
+            <text class="style-bold">{{item.styleDisplay}}</text>
+            <text> · {{item.actionInfo}}</text>
+          </view>
+          <view class="activity-date">{{item.dateFormatted}}</view>
         </view>
       </view>
     </view>

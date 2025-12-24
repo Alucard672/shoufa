@@ -64,7 +64,7 @@
           <text class="detail-label">加工单价</text>
           <view class="detail-value-group">
             <text class="detail-value">¥{{item.defaultPrice}}</text>
-            <text class="detail-unit">/件</text>
+            <text class="detail-unit">/打</text>
           </view>
         </view>
         <view class="detail-row">

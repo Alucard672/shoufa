@@ -100,7 +100,10 @@
           </view>
           <image class="activity-type-icon" src="/images/issue-icon.svg" mode="aspectFit"></image>
         </view>
-        <view class="activity-detail">{{item.styleName}} · {{item.issueWeightFormatted}}kg · {{item.color || '未设置'}}</view>
+        <view class="activity-detail">
+          <text class="style-bold">{{item.styleDisplay}}</text>
+          <text> · {{item.actionInfo}}</text>
+        </view>
         <view class="activity-date">{{item.dateFormatted}}</view>
       </view>
     </view>
@@ -121,7 +124,10 @@
           </view>
           <image class="activity-type-icon" src="/images/return-icon.svg" mode="aspectFit"></image>
         </view>
-        <view class="activity-detail">{{item.styleName}} · {{item.returnQuantityFormatted}} · {{item.color || '未设置'}}</view>
+        <view class="activity-detail">
+          <text class="style-bold">{{item.styleDisplay}}</text>
+          <text> · {{item.actionInfo}}</text>
+        </view>
         <view class="activity-date">{{item.dateFormatted}}</view>
       </view>
     </view>

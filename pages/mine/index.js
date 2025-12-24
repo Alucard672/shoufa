@@ -1,6 +1,9 @@
 // pages/mine/index.js
+const app = getApp()
+
 Page({
   data: {
+    hasAvatar: true, // 是否显示头像图片
     companyName: 'XX纺织加工有限公司',
     contactName: '张总',
     contactPhone: '0755-12345678',
@@ -29,6 +32,14 @@ Page({
         icon: '/images/icons/yarn.png',
         bgColor: '#F0FDF4',
         path: '/pages/yarn/index'
+      },
+      {
+        id: 'plan',
+        title: '生产计划',
+        desc: '管理款式生产计划',
+        icon: '/images/icons/plan.png',
+        bgColor: '#FEF2F2',
+        path: '/pages/plan/index'
       },
       {
         id: 'settings',

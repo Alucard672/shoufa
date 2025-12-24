@@ -1,5 +1,7 @@
 // pages/index/index.js
-import { formatDate } from '../../utils/calc.js'
+import { formatDate, formatQuantity } from '../../utils/calc.js'
+import { count, query } from '../../utils/db.js'
+const app = getApp()
 
 Page({
   data: {
@@ -11,11 +13,43 @@ Page({
   },
 
   onLoad() {
+    // 检查租户
+    if (!this.checkTenant()) {
+      return
+    }
     this.loadData()
   },
 
   onShow() {
+    // 检查租户
+    if (!this.checkTenant()) {
+      return
+    }
     this.loadData()
+  },
+
+  checkTenant() {
+    const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
+    if (!tenantId) {
+      wx.showModal({
+        title: '未登录',
+        content: '请先登录',
+        showCancel: false,
+        success: () => {
+          wx.reLaunch({
+            url: '/pages/login/index'
+          })
+        }
+      })
+      return false
+    }
+    // 确保 globalData 中有 tenantId
+    if (!app.globalData.tenantId) {
+      app.globalData.tenantId = tenantId
+      app.globalData.userInfo = wx.getStorageSync('userInfo')
+      app.globalData.tenantInfo = wx.getStorageSync('tenantInfo')
+    }
+    return true
   },
 
   onPullDownRefresh() {
@@ -47,50 +81,38 @@ Page({
   },
 
   async loadFactoryCount() {
-    const db = wx.cloud.database()
-    const _ = db.command
-    // 只统计未删除的工厂
-    const countResult = await db.collection('factories')
-      .where({
-        deleted: _.eq(false)
-      })
-      .count()
+    const result = await count('factories', {}, {
+      excludeDeleted: true
+    })
     this.setData({
-      factoryCount: countResult.total
+      factoryCount: result.total
     })
   },
 
   async loadStyleCount() {
-    const db = wx.cloud.database()
-    const _ = db.command
-    // 只统计未删除的款号
-    const countResult = await db.collection('styles')
-      .where({
-        deleted: _.eq(false)
-      })
-      .count()
+    const result = await count('styles', {}, {
+      excludeDeleted: true
+    })
     this.setData({
-      styleCount: countResult.total
+      styleCount: result.total
     })
   },
 
   async loadUnpaidAmount() {
-    const db = wx.cloud.database()
-    const _ = db.command
-    
-    // 查询未结算的回货单（使用 in 操作符代替 neq，支持索引）
-    const returnOrders = await db.collection('return_orders')
-      .where({
-        settlementStatus: _.in(['未结算', '部分结算']),
-        deleted: _.eq(false)
-      })
-      .get()
-    
-    let totalAmount = 0
-    returnOrders.data.forEach(order => {
-      totalAmount += order.processingFee || 0
+    // 查询未结算的回货单（使用IN查询）
+    const result = await query('return_orders', {
+      settlement_status: ['未结算', '部分结算']
+    }, {
+      excludeDeleted: true
     })
-    
+
+    let totalAmount = 0
+    result.data.forEach(order => {
+      const processingFee = order.processingFee || order.processing_fee || 0
+      const settledAmount = order.settledAmount || order.settled_amount || 0
+      totalAmount += processingFee - settledAmount
+    })
+
     this.setData({
       unpaidAmount: totalAmount,
       unpaidAmountFormatted: totalAmount.toFixed(0)
@@ -98,82 +120,95 @@ Page({
   },
 
   async loadRecentActivities() {
-    const db = wx.cloud.database()
-    const _ = db.command
-    
-    // 加载所有动态数据（不限制数量，按时间倒序）
-    const activities = await db.collection('issue_orders')
-      .where({
-        deleted: _.eq(false)
-      })
-      .orderBy('issueDate', 'desc')
-      .get()
-    
-    if (!activities.data || activities.data.length === 0) {
-      this.setData({
-        recentActivities: [],
-        displayActivities: []
-      })
-      return
-    }
-    
-    // 批量查询工厂和款号信息（避免 N+1 查询）
-    const factoryIds = [...new Set(activities.data.map(a => a.factoryId).filter(Boolean))]
-    const styleIds = [...new Set(activities.data.map(a => a.styleId).filter(Boolean))]
-    
-    const factoriesMap = new Map()
-    if (factoryIds.length > 0) {
-      const factoriesPromises = factoryIds.map(id => 
-        db.collection('factories').doc(id).get().catch(() => ({ data: null }))
-      )
-      const factoriesResults = await Promise.all(factoriesPromises)
-      factoriesResults.forEach((result, index) => {
-        if (result.data) {
-          factoriesMap.set(factoryIds[index], result.data)
-        }
-      })
-    }
-    
-    const stylesMap = new Map()
-    if (styleIds.length > 0) {
-      const stylesPromises = styleIds.map(id => 
-        db.collection('styles').doc(id).get().catch(() => ({ data: null }))
-      )
-      const stylesResults = await Promise.all(stylesPromises)
-      stylesResults.forEach((result, index) => {
-        if (result.data) {
-          stylesMap.set(styleIds[index], result.data)
-        }
-      })
-    }
-    
-    // 在内存中关联数据
-    const activitiesWithDetails = activities.data.map(activity => {
-      const factory = factoriesMap.get(activity.factoryId)
-      const style = stylesMap.get(activity.styleId)
-      return {
-        ...activity,
-        factoryName: factory?.name || '未知工厂',
-        styleName: style?.styleName || style?.name || '未知款号',
-        styleImageUrl: style?.imageUrl || '',
-        color: activity.color,
-        issueDateFormatted: formatDate(activity.issueDate)
+    try {
+      // 1. 获取最近的发料单和回货单（各取10条以保证合并后有足够展示）
+      const [issueRes, returnRes] = await Promise.all([
+        query('issue_orders', {}, {
+          excludeDeleted: true,
+          orderBy: { field: 'issue_date', direction: 'DESC' },
+          limit: 10
+        }),
+        query('return_orders', {}, {
+          excludeDeleted: true,
+          orderBy: { field: 'return_date', direction: 'DESC' },
+          limit: 10
+        })
+      ])
+
+      // 2. 统一格式并打标
+      const activities = [
+        ...issueRes.data.map(item => ({
+          ...item,
+          type: 'issue',
+          date: item.issueDate || item.issue_date,
+          label: '发料给',
+          factoryId: item.factoryId || item.factory_id,
+          styleId: item.styleId || item.style_id
+        })),
+        ...returnRes.data.map(item => ({
+          ...item,
+          type: 'return',
+          date: item.returnDate || item.return_date,
+          label: '回货自',
+          factoryId: item.factoryId || item.factory_id,
+          styleId: item.styleId || item.style_id
+        }))
+      ]
+
+      if (activities.length === 0) {
+        this.setData({ displayActivities: [] })
+        return
       }
-    })
-    
-    // 默认显示前10条
-    const displayActivities = activitiesWithDetails.slice(0, 10)
-    
-    this.setData({
-      recentActivities: activitiesWithDetails,
-      displayActivities: displayActivities
-    })
+
+      // 3. 排序并取前10条
+      activities.sort((a, b) => new Date(b.date) - new Date(a.date))
+      const topActivities = activities.slice(0, 10)
+
+      // 4. 批量查询工厂和款号信息
+      const factoryIds = [...new Set(topActivities.map(a => a.factoryId).filter(Boolean))]
+      const styleIds = [...new Set(topActivities.map(a => a.styleId).filter(Boolean))]
+
+      const [factoriesRes, stylesRes] = await Promise.all([
+        factoryIds.length ? query('factories', { id: factoryIds }, { excludeDeleted: true }) : { data: [] },
+        styleIds.length ? query('styles', { id: styleIds }, { excludeDeleted: true }) : { data: [] }
+      ])
+
+      const factoriesMap = Object.fromEntries(factoriesRes.data.map(f => [f._id || f.id, f]))
+      const stylesMap = Object.fromEntries(stylesRes.data.map(s => [s._id || s.id, s]))
+
+      // 5. 组装显示数据
+      const displayActivities = topActivities.map(item => {
+        const factory = factoriesMap[item.factoryId]
+        const style = stylesMap[item.styleId]
+        const issueWeight = item.issueWeight || item.issue_weight || 0
+        const returnPieces = item.returnPieces || item.return_pieces || 0
+        const issueInfo = item.type === 'issue'
+          ? `重量：${issueWeight}kg`
+          : `数量：${formatQuantity(returnPieces)}`
+
+        const styleName = style?.styleName || style?.style_name || '未知款号'
+        const styleCode = (style?.styleCode || style?.style_code) ? `[${style?.styleCode || style?.style_code}] ` : ''
+        return {
+          ...item,
+          factoryName: factory?.name || '未知工厂',
+          styleName: styleName,
+          styleImageUrl: style?.imageUrl || style?.image_url || '',
+          dateFormatted: formatDate(item.date),
+          styleDisplay: `${styleCode}${styleName}`,
+          actionInfo: `${issueInfo} · ${item.color || ''}`
+        }
+      })
+
+      this.setData({ displayActivities })
+    } catch (error) {
+      console.error('加载最近动态失败:', error)
+    }
   },
 
   onShowMoreActivities() {
-    // 跳转到所有动态页面
-    wx.navigateTo({
-      url: '/pages/index/activities'
+    // 默认跳转到发料记录
+    wx.switchTab({
+      url: '/pages/issue/index'
     })
   },
 

@@ -1,4 +1,7 @@
 // pages/yarn/create.js
+import { query, insert, update } from '../../utils/db.js'
+const app = getApp()
+
 Page({
   data: {
     yarnId: '',
@@ -13,7 +16,7 @@ Page({
 
   async onLoad(options) {
     await this.loadColorDict()
-    
+
     if (options.id) {
       this.setData({
         yarnId: options.id,
@@ -24,9 +27,10 @@ Page({
   },
 
   async loadColorDict() {
-    const db = wx.cloud.database()
     try {
-      const colorsResult = await db.collection('color_dict').get()
+      const colorsResult = await query('color_dict', null, {
+        excludeDeleted: true
+      })
       this.setData({
         colorOptions: colorsResult.data || []
       })
@@ -43,28 +47,35 @@ Page({
       wx.showLoading({
         title: '加载中...'
       })
-      
-      const db = wx.cloud.database()
-      const yarn = await db.collection('yarn_inventory').doc(yarnId).get()
-      
-      if (yarn.data) {
-        const yarnData = yarn.data
-        
+
+      const yarnRes = await query('yarn_inventory', {
+        id: yarnId
+      }, {
+        excludeDeleted: true
+      })
+
+      if (yarnRes.data && yarnRes.data[0]) {
+        // 验证租户权限
+        const yarnData = yarnRes.data[0]
+        if (yarnData.tenantId && yarnData.tenantId !== app.globalData.tenantId) {
+          throw new Error('无权访问该纱线数据')
+        }
+
         // 匹配选中的颜色
         let selectedColor = null
         if (yarnData.color) {
           selectedColor = this.data.colorOptions.find(c => c.name === yarnData.color)
         }
-        
+
         this.setData({
-          yarnName: yarnData.yarnName || '',
+          yarnName: yarnData.yarnName || yarnData.yarn_name || '',
           color: yarnData.color || '',
-          currentStock: yarnData.currentStock ? yarnData.currentStock.toString() : '',
+          currentStock: (yarnData.currentStock || yarnData.current_stock) ? (yarnData.currentStock || yarnData.current_stock).toString() : '',
           remark: yarnData.remark || '',
           selectedColor: selectedColor ? [selectedColor] : []
         })
       }
-      
+
       wx.hideLoading()
     } catch (error) {
       wx.hideLoading()
@@ -113,7 +124,7 @@ Page({
       })
       return
     }
-    
+
     if (!this.data.currentStock || parseFloat(this.data.currentStock) < 0) {
       wx.showToast({
         title: '请输入有效的库存数量',
@@ -127,30 +138,21 @@ Page({
         title: '保存中...'
       })
 
-      const db = wx.cloud.database()
-      
       const yarnData = {
-        yarnName: this.data.yarnName.trim(),
+        yarn_name: this.data.yarnName.trim(),
         color: this.data.color || '',
-        currentStock: parseFloat(this.data.currentStock),
-        remark: this.data.remark || '',
-        updateTime: db.serverDate()
+        current_stock: parseFloat(this.data.currentStock),
+        remark: this.data.remark || ''
       }
 
       if (this.data.isEdit) {
         // 编辑模式
-        await db.collection('yarn_inventory').doc(this.data.yarnId).update({
-          data: yarnData
+        await update('yarn_inventory', yarnData, {
+          id: this.data.yarnId
         })
       } else {
         // 新增模式
-        await db.collection('yarn_inventory').add({
-          data: {
-            ...yarnData,
-            createTime: db.serverDate(),
-            deleted: false
-          }
-        })
+        await insert('yarn_inventory', yarnData)
       }
 
       wx.hideLoading()

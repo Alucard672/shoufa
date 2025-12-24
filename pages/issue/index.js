@@ -1,6 +1,8 @@
 // pages/issue/index.js
-import { getIssueOrders, calculateIssueProgress, getReturnOrdersByIssueId } from '../../utils/db.js'
-import { getTimeRange, formatDate, formatWeight } from '../../utils/calc.js'
+import { getIssueOrders, calculateIssueProgress, getReturnOrdersByIssueId, update } from '../../utils/db.js'
+import { getTimeRange, formatDate, formatWeight, formatQuantity } from '../../utils/calc.js'
+import { query, queryByIds } from '../../utils/db.js'
+const app = getApp()
 
 Page({
   data: {
@@ -29,11 +31,44 @@ Page({
   },
 
   onLoad() {
+    // 检查租户
+    if (!this.checkTenant()) {
+      return
+    }
     this.loadData()
   },
 
   onShow() {
+    // 检查租户
+    if (!this.checkTenant()) {
+      return
+    }
     this.loadData()
+  },
+
+  checkTenant() {
+    const app = getApp()
+    const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
+    if (!tenantId) {
+      wx.showModal({
+        title: '未登录',
+        content: '请先登录',
+        showCancel: false,
+        success: () => {
+          wx.reLaunch({
+            url: '/pages/login/index'
+          })
+        }
+      })
+      return false
+    }
+    // 确保 globalData 中有 tenantId
+    if (!app.globalData.tenantId) {
+      app.globalData.tenantId = tenantId
+      app.globalData.userInfo = wx.getStorageSync('userInfo')
+      app.globalData.tenantInfo = wx.getStorageSync('tenantInfo')
+    }
+    return true
   },
 
   onPullDownRefresh() {
@@ -59,20 +94,21 @@ Page({
 
   // 从已有数据计算回货进度，避免重复查询
   async calculateProgressFromData(issueOrder, style, returnOrdersList) {
-    const yarnUsagePerPiece = style?.yarnUsagePerPiece || 0
+    const yarnUsagePerPiece = style?.yarnUsagePerPiece || style?.yarn_usage_per_piece || 0
 
     let totalReturnPieces = 0
     let totalReturnYarn = 0
     let totalReturnQuantity = 0
 
     returnOrdersList.forEach(order => {
-      totalReturnPieces += order.returnPieces || 0
-      totalReturnYarn += order.actualYarnUsage || 0
-      totalReturnQuantity += order.returnQuantity || 0
+      totalReturnPieces += order.returnPieces || order.return_pieces || 0
+      totalReturnYarn += order.actualYarnUsage || order.actual_yarn_usage || 0
+      totalReturnQuantity += order.returnQuantity || order.return_quantity || 0
     })
 
-    const remainingYarn = issueOrder.issueWeight - totalReturnYarn
-    const remainingPieces = yarnUsagePerPiece > 0 
+    const issueWeight = issueOrder.issueWeight || issueOrder.issue_weight || 0
+    const remainingYarn = issueWeight - totalReturnYarn
+    const remainingPieces = yarnUsagePerPiece > 0
       ? Math.floor(remainingYarn / (yarnUsagePerPiece / 1000))
       : 0
     const remainingQuantity = remainingPieces / 12
@@ -93,14 +129,16 @@ Page({
     }
 
     return {
-      totalReturnPieces,
+      totalReturnPieces: Math.floor(totalReturnPieces),
+      totalReturnPiecesFormatted: formatQuantity(totalReturnPieces),
       totalReturnYarn,
       totalReturnYarnFormatted: totalReturnYarn.toFixed(2),
       totalReturnQuantity,
       totalReturnQuantityFormatted: totalReturnQuantity.toFixed(1),
       remainingYarn,
       remainingYarnFormatted: remainingYarn.toFixed(2),
-      remainingPieces,
+      remainingPieces: Math.floor(remainingPieces),
+      remainingPiecesFormatted: formatQuantity(remainingPieces),
       remainingQuantity,
       remainingQuantityFormatted: remainingQuantity.toFixed(1),
       status
@@ -108,25 +146,31 @@ Page({
   },
 
   async loadStatistics() {
-    const db = wx.cloud.database()
-    const _ = db.command
+    const where = {}
     
-    // 计算累计发料总量（使用 eq(false) 代替 neq(true) 以支持索引）
-    const orders = await db.collection('issue_orders')
-      .where({
-        deleted: _.eq(false)
-      })
-      .get()
-    
-    let totalWeight = 0
-    orders.data.forEach(order => {
-      totalWeight += order.issueWeight || 0
+    if (this.data.timeFilter !== 'all') {
+      const timeRange = getTimeRange(this.data.timeFilter)
+      if (timeRange.startDate && timeRange.endDate) {
+        where.issue_date = {
+          gte: timeRange.startDate,
+          lte: timeRange.endDate
+        }
+      }
+    }
+
+    const result = await query('issue_orders', where, {
+      excludeDeleted: true
     })
-    
+
+    let totalWeight = 0
+    result.data.forEach(order => {
+      totalWeight += order.issueWeight || order.issue_weight || 0
+    })
+
     this.setData({
       totalIssueWeight: totalWeight,
       totalIssueWeightFormatted: totalWeight.toFixed(2),
-      totalIssueCount: orders.data.length
+      totalIssueCount: result.data.length
     })
   },
 
@@ -136,185 +180,127 @@ Page({
       statusFilter: this.data.statusFilter,
       searchKeyword: this.data.searchKeyword
     })
-    
-    const db = wx.cloud.database()
-    const _ = db.command
-    
-    let query = db.collection('issue_orders')
-      .where({
-        deleted: _.eq(false)
-      })
-    
-    // 搜索
-    if (this.data.searchKeyword) {
-      query = query.where({
-        issueNo: _.regex({
-          regexp: this.data.searchKeyword,
-          options: 'i'
-        })
-      })
-    }
-    
-    const orders = await query.orderBy('issueDate', 'desc').get()
-    console.log('查询到的订单数量:', orders.data.length)
-    
-    // 在内存中进行时间筛选
-    let filteredData = orders.data || []
+
+    const where = {}
+
+    // 1. 时间筛选
     if (this.data.timeFilter !== 'all') {
       const timeRange = getTimeRange(this.data.timeFilter)
       if (timeRange.startDate && timeRange.endDate) {
-        // 获取筛选范围的开始和结束时间（用于比较）
-        const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
-        const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
-        
-        filteredData = filteredData.filter(order => {
-          if (!order.issueDate) return false
-          
-          // 处理各种日期格式
-          let orderDate
-          try {
-            // 云数据库返回的日期可能是 Date 对象或时间戳对象
-            if (order.issueDate instanceof Date) {
-              orderDate = order.issueDate
-            } 
-            // 如果是字符串，尝试解析
-            else if (typeof order.issueDate === 'string') {
-              // 处理 "YYYY/MM/DD" 或 "YYYY-MM-DD" 格式
-              const dateStr = order.issueDate.replace(/\//g, '-')
-              orderDate = new Date(dateStr)
-            } 
-            // 如果是对象（可能是云数据库的日期对象）
-            else if (order.issueDate && typeof order.issueDate === 'object') {
-              // 云数据库日期对象可能有 getTime 方法
-              if (typeof order.issueDate.getTime === 'function') {
-                orderDate = new Date(order.issueDate.getTime())
-              } 
-              // 或者有 _seconds 属性（Firestore 格式）
-              else if (order.issueDate._seconds) {
-                orderDate = new Date(order.issueDate._seconds * 1000)
-              }
-              // 或者直接是时间戳
-              else if (typeof order.issueDate === 'number') {
-                orderDate = new Date(order.issueDate)
-              }
-              else {
-                orderDate = new Date(order.issueDate)
-              }
-            } 
-            else {
-              orderDate = new Date(order.issueDate)
-            }
-            
-            // 检查日期是否有效
-            if (isNaN(orderDate.getTime())) {
-              return false
-            }
-            
-            // 只比较日期部分（忽略时间）
-            const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
-            const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
-            const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
-            
-            // 直接比较时间戳
-            return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
-          } catch (e) {
-            console.error('日期解析错误:', order.issueDate, e)
-            return false
-          }
-        })
+        where.issue_date = {
+          gte: timeRange.startDate,
+          lte: timeRange.endDate
+        }
       }
     }
-    
+
+    // 2. 搜索（注意：MySQL需要支持LIKE查询，这里先简单处理）
+    // 如果搜索关键词存在，需要在客户端过滤
+    const ordersRes = await query('issue_orders', where, {
+      excludeDeleted: true,
+      orderBy: { field: 'issue_date', direction: 'DESC' }
+    })
+
+    // 客户端过滤搜索关键词
+    let filteredData = ordersRes.data || []
+    if (this.data.searchKeyword) {
+      const keyword = this.data.searchKeyword.toLowerCase()
+      filteredData = filteredData.filter(order => {
+        const issueNo = (order.issueNo || order.issue_no || '').toLowerCase()
+        const factoryName = (order.factoryName || '').toLowerCase()
+        return issueNo.includes(keyword) || factoryName.includes(keyword)
+      })
+    }
+
+    console.log('查询到的订单数量:', filteredData.length)
+
     // 批量查询工厂和款号信息
-    const factoryIds = [...new Set(filteredData.map(order => order.factoryId).filter(Boolean))]
-    const styleIds = [...new Set(filteredData.map(order => order.styleId).filter(Boolean))]
-    const issueIds = filteredData.map(order => order._id)
-    
+    const factoryIds = [...new Set(filteredData.map(order => order.factoryId || order.factory_id).filter(Boolean))]
+    const styleIds = [...new Set(filteredData.map(order => order.styleId || order.style_id).filter(Boolean))]
+    const issueIds = filteredData.map(order => order._id || order.id)
+
     // 批量查询工厂信息
     const factoriesMap = new Map()
     if (factoryIds.length > 0) {
-      const factoriesPromises = factoryIds.map(id => 
-        db.collection('factories').doc(id).get().catch(() => ({ data: null }))
-      )
-      const factoriesResults = await Promise.all(factoriesPromises)
-      factoriesResults.forEach((result, index) => {
-        if (result.data) {
-          factoriesMap.set(factoryIds[index], result.data)
-        }
+      const factoriesRes = await queryByIds('factories', factoryIds, { excludeDeleted: true })
+      factoriesRes.data.forEach(factory => {
+        const id = factory._id || factory.id
+        factoriesMap.set(id, factory)
       })
     }
-    
+
     // 批量查询款号信息
     const stylesMap = new Map()
     if (styleIds.length > 0) {
-      const stylesPromises = styleIds.map(id => 
-        db.collection('styles').doc(id).get().catch(() => ({ data: null }))
-      )
-      const stylesResults = await Promise.all(stylesPromises)
-      stylesResults.forEach((result, index) => {
-        if (result.data) {
-          stylesMap.set(styleIds[index], result.data)
-        }
+      const stylesRes = await queryByIds('styles', styleIds, { excludeDeleted: true })
+      stylesRes.data.forEach(style => {
+        const id = style._id || style.id
+        stylesMap.set(id, style)
       })
     }
-    
-    // 批量查询所有回货单（一次性查询所有相关的回货单）
+
+    // 批量查询所有回货单
     const returnOrdersMap = new Map()
     if (issueIds.length > 0) {
-      // 初始化 Map，为每个 issueId 设置空数组
+      // 初始化 Map
       issueIds.forEach(id => {
         returnOrdersMap.set(id, [])
       })
-      
-      // 一次性查询所有回货单（使用 in 操作符）
+
+      // 批量查询回货单
       try {
-        const allReturnOrders = await db.collection('return_orders')
-          .where({
-            issueId: _.in(issueIds),
-            deleted: _.eq(false)
-          })
-          .get()
-        
+        const allReturnOrdersRes = await query('return_orders', {
+          issue_id: issueIds
+        }, {
+          excludeDeleted: true
+        })
+
         // 按 issueId 分组
-        allReturnOrders.data.forEach(order => {
-          const issueId = order.issueId
-          if (returnOrdersMap.has(issueId)) {
-            returnOrdersMap.get(issueId).push(order)
+        allReturnOrdersRes.data.forEach(order => {
+          const issueId = order.issueId || order.issue_id
+          const id = issueId.toString()
+          if (returnOrdersMap.has(id)) {
+            returnOrdersMap.get(id).push(order)
           }
         })
       } catch (error) {
         console.error('批量查询回货单失败:', error)
-        // 如果批量查询失败，回退到逐个查询（但这种情况应该很少）
+        // 回退到逐个查询
         const returnOrdersPromises = issueIds.map(issueId =>
           getReturnOrdersByIssueId(issueId).catch(() => ({ data: [] }))
         )
         const returnOrdersResults = await Promise.all(returnOrdersPromises)
         returnOrdersResults.forEach((result, index) => {
-          returnOrdersMap.set(issueIds[index], result.data || [])
+          const id = issueIds[index].toString()
+          returnOrdersMap.set(id, result.data || [])
         })
       }
     }
-    
+
     // 关联查询工厂和款号信息，并计算回货进度
     const ordersWithDetails = await Promise.all(
       filteredData.map(async (order) => {
         try {
-          const factory = factoriesMap.get(order.factoryId)
-          const style = stylesMap.get(order.styleId)
-          const returnOrdersList = returnOrdersMap.get(order._id) || []
+          const factoryId = order.factoryId || order.factory_id
+          const styleId = order.styleId || order.style_id
+          const orderId = order._id || order.id
           
+          const factory = factoriesMap.get(factoryId)
+          const style = stylesMap.get(styleId)
+          const returnOrdersList = returnOrdersMap.get(orderId.toString()) || []
+
           // 计算回货进度（使用已查询的数据）
           const progress = await this.calculateProgressFromData(order, style, returnOrdersList)
-          
+
           // 格式化回货单列表，按日期倒序排列，并添加序号
           const totalReturnCount = returnOrdersList.length
-          
+
           const sortedReturnOrders = returnOrdersList
             .slice() // 创建副本避免修改原数组
             .sort((a, b) => {
-              let dateA = a.returnDate
-              let dateB = b.returnDate
-              
+              let dateA = a.returnDate || a.return_date
+              let dateB = b.returnDate || b.return_date
+
               // 转换为 Date 对象
               if (!(dateA instanceof Date)) {
                 dateA = new Date(dateA)
@@ -322,50 +308,57 @@ Page({
               if (!(dateB instanceof Date)) {
                 dateB = new Date(dateB)
               }
-              
+
               // 确保日期有效
               const timeA = isNaN(dateA.getTime()) ? 0 : dateA.getTime()
               const timeB = isNaN(dateB.getTime()) ? 0 : dateB.getTime()
-              
+
               return timeB - timeA // 倒序：最新的在前
             })
             .map((ro, index) => {
               // 序号从总数开始递减，例如：如果有3条记录，序号为 3, 2, 1
               // 确保序号是数字类型，且大于0
               const returnOrderIndex = totalReturnCount > 0 ? (totalReturnCount - index) : 0
+              const returnPieces = ro.returnPieces || ro.return_pieces || 0
+              const returnDate = ro.returnDate || ro.return_date
+              const actualYarnUsage = ro.actualYarnUsage || ro.actual_yarn_usage || 0
               return {
                 ...ro,
-                returnDateFormatted: formatDate(ro.returnDate),
-                actualYarnUsageFormatted: (ro.actualYarnUsage || 0).toFixed(2),
+                returnPieces: Math.floor(returnPieces),
+                quantityFormatted: formatQuantity(returnPieces),
+                returnDateFormatted: formatDate(returnDate),
+                actualYarnUsageFormatted: actualYarnUsage.toFixed(2),
                 returnOrderIndex: returnOrderIndex,
                 color: ro.color || '',
                 size: ro.size || ''
               }
             })
-          
-          const yarnUsagePerPiece = style.data?.yarnUsagePerPiece || 0
-          
+
+          const yarnUsagePerPiece = style?.yarnUsagePerPiece || style?.yarn_usage_per_piece || 0
+          const issueWeight = order.issueWeight || order.issue_weight || 0
+          const issueDate = order.issueDate || order.issue_date
+
           // 计算发料件数：发料重量(kg) / (单件用量(g) / 1000)
-          const issuePieces = yarnUsagePerPiece > 0 
-            ? Math.floor((order.issueWeight * 1000) / yarnUsagePerPiece)
+          const issuePieces = yarnUsagePerPiece > 0
+            ? Math.floor((issueWeight * 1000) / yarnUsagePerPiece)
             : 0
-          
+
           // 判断回货件数是否大于发料件数
           const canComplete = progress.totalReturnPieces > issuePieces && order.status !== '已完成'
-          
+
           return {
             ...order,
-            factoryName: factory.data?.name || '未知工厂',
-            styleName: style.data?.styleName || style.data?.name || '未知款号',
-            styleCode: style.data?.styleCode || '',
-            styleImageUrl: style.data?.imageUrl || '',
+            factoryName: factory?.name || '未知工厂',
+            styleName: style?.styleName || style?.style_name || '未知款号',
+            styleCode: style?.styleCode || style?.style_code || '',
+            styleImageUrl: style?.imageUrl || style?.image_url || '',
             color: order.color || '',
             size: order.size || '',
             yarnUsagePerPiece: yarnUsagePerPiece,
             progress,
             returnOrders: sortedReturnOrders,
-            issueDateFormatted: formatDate(order.issueDate),
-            issueWeightFormatted: formatWeight(order.issueWeight),
+            issueDateFormatted: formatDate(issueDate),
+            issueWeightFormatted: formatWeight(issueWeight),
             issuePieces,
             canComplete
           }
@@ -394,7 +387,7 @@ Page({
         }
       })
     )
-    
+
     // 应用状态筛选
     let finalOrders = ordersWithDetails || []
     if (this.data.statusFilter !== 'all') {
@@ -412,11 +405,11 @@ Page({
       // 如果选择"全部"，显示所有状态（包括已完成）
       finalOrders = ordersWithDetails
     }
-    
+
     // 默认只显示前 pageSize 条
     const displayCount = this.data.pageSize || 10
     const displayOrders = finalOrders.slice(0, displayCount)
-    
+
     this.setData({
       issueOrders: ordersWithDetails,
       filteredOrders: finalOrders,
@@ -454,11 +447,11 @@ Page({
     const currentCount = this.data.displayOrders.length
     const totalCount = this.data.filteredOrders.length
     const pageSize = this.data.pageSize || 10
-    
+
     // 每次加载更多时，增加 pageSize 条
     const newCount = Math.min(currentCount + pageSize, totalCount)
     const displayOrders = this.data.filteredOrders.slice(0, newCount)
-    
+
     this.setData({
       displayOrders: displayOrders
     })
@@ -480,13 +473,13 @@ Page({
   navigateToReturn(e) {
     const issueId = e.currentTarget.dataset.id
     wx.navigateTo({
-      url: `/pages/return/create?issueId=${issueId}`
+      url: `/ pages /return/create?issueId=${issueId}`
     })
   },
 
   async onCompleteIssue(e) {
     const issueId = e.currentTarget.dataset.id
-    
+
     wx.showModal({
       title: '确认完成',
       content: '确定要将此发料单标记为已完成吗？',
@@ -496,21 +489,21 @@ Page({
             wx.showLoading({
               title: '处理中...'
             })
-            
-            const db = wx.cloud.database()
-            await db.collection('issue_orders').doc(issueId).update({
-              data: {
-                status: '已完成',
-                updateTime: db.serverDate()
-              }
+
+            // 将_id转换为id（如果是字符串，尝试转换为数字）
+            const id = typeof issueId === 'string' && /^\d+$/.test(issueId) ? parseInt(issueId) : issueId
+            await update('issue_orders', {
+              status: '已完成'
+            }, {
+              id: id
             })
-            
+
             wx.hideLoading()
             wx.showToast({
               title: '标记成功',
               icon: 'success'
             })
-            
+
             // 刷新数据
             this.loadData()
           } catch (error) {

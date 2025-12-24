@@ -130,7 +130,8 @@
 }
 
 .style-code {
-  color: #4A5565;
+  color: #101828;
+  font-weight: 700;
 }
 
 .style-usage {

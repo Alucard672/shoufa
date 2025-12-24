@@ -134,6 +134,10 @@
   justify-content: center;
 }
 
+.btn-plan {
+  background: #FFF7ED;
+}
+
 .btn-issue {
   background: #EFF6FF;
 }
@@ -143,8 +147,12 @@
 }
 
 .btn-text {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
+}
+
+.btn-plan .btn-text {
+  color: #C2410C;
 }
 
 .btn-issue .btn-text {
@@ -255,6 +263,11 @@
   font-size: 12px;
   color: #6A7282;
   margin-bottom: 4px;
+}
+
+.style-bold {
+  font-weight: 700;
+  color: #101828;
 }
 
 .activity-date {

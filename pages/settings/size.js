@@ -1,4 +1,7 @@
 // pages/settings/size.js
+import { query, insert, update, remove } from '../../utils/db.js'
+const app = getApp()
+
 Page({
   data: {
     sizes: [],
@@ -20,17 +23,13 @@ Page({
 
   async loadSizes() {
     try {
-      const db = wx.cloud.database()
-      const sizes = await db.collection('size_dict')
-        .where({
-          deleted: wx.cloud.database().command.neq(true)
-        })
-        .orderBy('order', 'asc')
-        .orderBy('createTime', 'desc')
-        .get()
-      
+      const sizesRes = await query('size_dict', null, {
+        excludeDeleted: true,
+        orderBy: { field: 'order', direction: 'ASC' }
+      })
+
       this.setData({
-        sizes: sizes.data || []
+        sizes: sizesRes.data || []
       })
     } catch (error) {
       console.error('加载尺码失败:', error)
@@ -111,30 +110,20 @@ Page({
         title: '保存中...'
       })
 
-      const db = wx.cloud.database()
-      
+      const sizeData = {
+        name: this.data.sizeName.trim(),
+        code: this.data.sizeCode.trim() || '',
+        order: this.data.sizeOrder ? parseInt(this.data.sizeOrder) : 0
+      }
+
       if (this.data.editSize) {
         // 编辑模式
-        await db.collection('size_dict').doc(this.data.editSize._id).update({
-          data: {
-            name: this.data.sizeName.trim(),
-            code: this.data.sizeCode.trim() || '',
-            order: this.data.sizeOrder ? parseInt(this.data.sizeOrder) : 0,
-            updateTime: db.serverDate()
-          }
+        await update('size_dict', sizeData, {
+          id: this.data.editSize.id || this.data.editSize._id
         })
       } else {
         // 新增模式
-        await db.collection('size_dict').add({
-          data: {
-            name: this.data.sizeName.trim(),
-            code: this.data.sizeCode.trim() || '',
-            order: this.data.sizeOrder ? parseInt(this.data.sizeOrder) : 0,
-            createTime: db.serverDate(),
-            updateTime: db.serverDate(),
-            deleted: false
-          }
-        })
+        await insert('size_dict', sizeData)
       }
 
       wx.hideLoading()
@@ -157,7 +146,7 @@ Page({
 
   async onDelete(e) {
     const size = e.currentTarget.dataset.size
-    
+
     wx.showModal({
       title: '确认删除',
       content: `确定要删除尺码"${size.name}"吗？`,
@@ -168,12 +157,8 @@ Page({
               title: '删除中...'
             })
 
-            const db = wx.cloud.database()
-            await db.collection('size_dict').doc(size._id).update({
-              data: {
-                deleted: true,
-                updateTime: db.serverDate()
-              }
+            await remove('size_dict', {
+              id: size.id || size._id
             })
 
             wx.hideLoading()

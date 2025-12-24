@@ -7,7 +7,8 @@
 ## 技术栈
 
 - **前端框架**: 微信小程序原生开发
-- **后端服务**: 微信云开发（云数据库、云函数）
+- **后端服务**: 微信云开发（云函数）+ MySQL数据库
+- **数据库**: MySQL 5.7+ / 8.0+（关系型数据库）
 - **UI设计**: 参考Figma设计稿
 
 ## 项目结构
@@ -88,9 +89,17 @@ shoufa/
 
 ## 数据库设计
 
-详见 `database/README.md`
+**数据库类型**: MySQL（关系型数据库）
 
-主要数据集合：
+详见：
+- `database/README.md` - 数据库设计文档
+- `database/mysql_schema.sql` - MySQL表结构SQL
+- `database/mysql_setup.md` - MySQL配置说明
+- `database/migration_guide.md` - 数据库迁移指南
+
+主要数据表：
+- tenants（租户表）
+- users（用户表）
 - styles（款号表）
 - factories（加工厂表）
 - yarn_inventory（纱线库存表）
@@ -98,6 +107,8 @@ shoufa/
 - issue_orders（发料单表）
 - return_orders（回货单表）
 - settlements（加工费结算表）
+- color_dict（颜色字典表）
+- size_dict（尺码字典表）
 
 ## 云函数
 
@@ -117,37 +128,39 @@ shoufa/
 
 ### 数据库初始化（重要！）
 
-**如果遇到 `database collection not exists` 错误，需要先初始化数据库：**
+**本项目使用MySQL数据库，需要先创建数据库和表结构：**
 
-#### 方法一：手动创建（推荐首次使用）
+#### 步骤1：创建MySQL数据库
 
-1. 打开微信开发者工具
-2. 点击顶部菜单栏的"云开发"
-3. 进入"数据库"标签页
-4. 按照 `database/init.md` 中的说明，逐个创建以下7个集合：
-   - `styles` (款号表)
-   - `factories` (加工厂表)
-   - `yarn_inventory` (纱线库存表)
-   - `production_plans` (生产计划单表)
-   - `issue_orders` (发料单表)
-   - `return_orders` (回货单表)
-   - `settlements` (加工费结算表)
+执行SQL文件创建数据库：
 
-详细字段结构请参考 `database/README.md` 和 `database/init.md`
+```bash
+mysql -u root -p < database/mysql_schema.sql
+```
 
-#### 方法二：使用云函数初始化
+或者使用MySQL客户端工具（如Navicat、phpMyAdmin）导入 `database/mysql_schema.sql` 文件。
 
-1. 右键点击 `cloudfunctions/initDatabase` 文件夹
+#### 步骤2：配置MySQL云函数
+
+1. 打开微信开发者工具的云开发控制台
+2. 进入"云函数" -> "mysql"
+3. 点击"配置" -> "环境变量"
+4. 添加以下环境变量：
+   - `MYSQL_HOST`: MySQL服务器地址
+   - `MYSQL_PORT`: MySQL端口（默认3306）
+   - `MYSQL_USER`: 数据库用户名
+   - `MYSQL_PASSWORD`: 数据库密码
+   - `MYSQL_DATABASE`: 数据库名称（shoufa_db）
+
+#### 步骤3：部署MySQL云函数
+
+1. 右键点击 `cloudfunctions/mysql` 文件夹
 2. 选择"上传并部署：云端安装依赖"
-3. 在小程序中调用该云函数：
-   ```javascript
-   wx.cloud.callFunction({
-     name: 'initDatabase',
-     success: res => {
-       console.log('数据库初始化结果:', res.result)
-     }
-   })
-   ```
+3. 等待部署完成
+
+详细说明请参考：
+- `database/mysql_setup.md` - MySQL配置说明
+- `database/migration_guide.md` - 数据库迁移指南
 
 ### 部署云函数
 

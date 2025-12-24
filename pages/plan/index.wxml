@@ -1,0 +1,71 @@
+<!--pages/plan/index.wxml-->
+<view class="container">
+  <view class="page-header">
+    <view class="header-left">
+      <text class="page-title">生产计划</text>
+      <text class="page-subtitle">管理款式生产计划和单据</text>
+    </view>
+    <view class="btn btn-primary" bindtap="navigateToCreate">
+      <text>新增计划</text>
+    </view>
+  </view>
+
+  <view class="search-container">
+    <view class="search-box">
+      <icon type="search" size="14"></icon>
+      <input type="text" placeholder="搜索计划单号..." bindinput="onSearch" value="{{searchKeyword}}" />
+    </view>
+  </view>
+
+  <view class="status-tabs">
+    <view class="tab-item {{statusFilter === 'all' ? 'active' : ''}}" bindtap="onStatusChange" data-status="all">全部</view>
+    <view class="tab-item {{statusFilter === '待发料' ? 'active' : ''}}" bindtap="onStatusChange" data-status="待发料">待发料</view>
+    <view class="tab-item {{statusFilter === '已发料' ? 'active' : ''}}" bindtap="onStatusChange" data-status="已发料">已发料</view>
+    <view class="tab-item {{statusFilter === '已完成' ? 'active' : ''}}" bindtap="onStatusChange" data-status="已完成">已完成</view>
+  </view>
+
+  <view class="plan-list">
+    <view class="plan-card card" wx:for="{{plans}}" wx:key="_id">
+      <view class="plan-header">
+        <text class="plan-no">{{item.planNo}}</text>
+        <view class="status-badge {{item.status === '已完成' ? 'success' : (item.status === '已发料' ? 'warning' : 'info')}}">
+          {{item.status}}
+        </view>
+      </view>
+      
+      <view class="plan-body">
+        <view class="info-row">
+          <text class="label">生产款式:</text>
+          <text class="value"><text style="font-weight: 700; color: #101828;">{{item.styleName}}{{item.styleCode ? ' [' + item.styleCode + ']' : ''}}</text> ({{item.color}}/{{item.size}})</text>
+        </view>
+        <view class="info-row">
+          <text class="label">计划工厂:</text>
+          <text class="value">{{item.factoryName}}</text>
+        </view>
+        <view class="info-row">
+          <text class="label">计划数量:</text>
+          <text class="value">{{item.planQuantity}} 打</text>
+        </view>
+        <view class="info-row">
+          <text class="label">计划用纱:</text>
+          <text class="value">{{item.planYarnUsageFormatted}} kg</text>
+        </view>
+        <view class="info-row">
+          <text class="label">计划日期:</text>
+          <text class="value">{{item.planDateFormatted}}</text>
+        </view>
+      </view>
+
+      <view class="plan-footer">
+        <view class="btn-group">
+          <view class="btn-text warning" bindtap="onEditPlan" data-id="{{item._id}}">编辑</view>
+          <view class="btn-text danger" bindtap="onDeletePlan" data-id="{{item._id}}">删除</view>
+        </view>
+      </view>
+    </view>
+    
+    <view class="empty-tip" wx:if="{{plans.length === 0}}">
+      <text>暂无生产计划</text>
+    </view>
+  </view>
+</view>

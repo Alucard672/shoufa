@@ -1,12 +1,14 @@
 // pages/return/create.js
-import { createReturnOrder, getReturnOrdersByIssueId } from '../../utils/db.js'
-import { 
-  generateReturnNo, 
+import { query, getFactoryById, getStyleById, insert } from '../../utils/db.js'
+import {
+  generateReturnNo,
   formatDate,
   calculateReturnPieces,
   calculateActualYarnUsage,
-  calculateProcessingFee
+  calculateProcessingFee,
+  formatQuantity
 } from '../../utils/calc.js'
+const app = getApp()
 
 Page({
   data: {
@@ -14,7 +16,8 @@ Page({
     issueOrder: null,
     factory: null,
     style: null,
-    returnQuantity: '',
+    returnDozens: '',
+    returnPieces: '',
     returnDate: '',
     calculatedPieces: 0,
     calculatedYarnUsage: 0,
@@ -29,7 +32,7 @@ Page({
 
   async onLoad(options) {
     await this.loadDictionaries()
-    
+
     if (options.issueId) {
       this.setData({
         issueId: options.issueId
@@ -42,29 +45,22 @@ Page({
   },
 
   async loadDictionaries() {
-    const db = wx.cloud.database()
-    
     try {
       const [colorsResult, sizesResult] = await Promise.all([
-        db.collection('color_dict').get().catch(err => {
-          if (err.errCode === -502005) return { data: [] }
-          throw err
-        }),
-        db.collection('size_dict')
-          .orderBy('order', 'asc')
-          .orderBy('createTime', 'desc')
-          .get()
-          .catch(err => {
-            if (err.errCode === -502005) return { data: [] }
-            throw err
-          })
+        query('color_dict', null, {
+          excludeDeleted: true
+        }).catch(() => ({ data: [] })),
+        query('size_dict', null, {
+          excludeDeleted: true,
+          orderBy: { field: 'order', direction: 'ASC' }
+        }).catch(() => ({ data: [] }))
       ])
-      
+
       this.setData({
         colorOptions: colorsResult.data || [],
         sizeOptions: sizesResult.data || []
       })
-      
+
       // 如果发料单有颜色，默认选中该颜色
       this.setDefaultColor()
     } catch (error) {
@@ -89,37 +85,54 @@ Page({
   },
 
   async loadIssueOrder() {
-    const db = wx.cloud.database()
-    const issueOrder = await db.collection('issue_orders').doc(this.data.issueId).get()
-    
-    if (issueOrder.data) {
-      const [factoryData, styleData] = await Promise.all([
-        db.collection('factories').doc(issueOrder.data.factoryId).get(),
-        db.collection('styles').doc(issueOrder.data.styleId).get()
+    const issueOrderRes = await query('issue_orders', {
+      id: this.data.issueId
+    }, {
+      excludeDeleted: true
+    })
+
+    if (issueOrderRes.data && issueOrderRes.data[0]) {
+      const issueOrder = issueOrderRes.data[0]
+      const factoryId = issueOrder.factoryId || issueOrder.factory_id
+      const styleId = issueOrder.styleId || issueOrder.style_id
+
+      const [factoryRes, styleRes] = await Promise.all([
+        getFactoryById(factoryId),
+        getStyleById(styleId)
       ])
-      
+
       this.setData({
-        issueOrder: issueOrder.data,
-        factory: factoryData.data,
-        style: styleData.data
+        issueOrder: issueOrder,
+        factory: factoryRes.data,
+        style: styleRes.data
       })
-      
+
       // 如果发料单有颜色，默认选中该颜色
       this.setDefaultColor()
     }
   },
 
 
-  onQuantityInput(e) {
-    const quantity = parseFloat(e.detail.value) || 0
+  onDozensInput(e) {
     this.setData({
-      returnQuantity: e.detail.value
+      returnDozens: e.detail.value
     })
-    this.calculate(quantity)
+    this.calculate()
   },
 
-  calculate(quantity) {
-    if (!this.data.style || !this.data.factory || quantity <= 0) {
+  onPiecesInput(e) {
+    this.setData({
+      returnPieces: e.detail.value
+    })
+    this.calculate()
+  },
+
+  calculate() {
+    const doz = parseFloat(this.data.returnDozens) || 0
+    const extraPcs = parseInt(this.data.returnPieces) || 0
+    const totalPieces = doz * 12 + extraPcs
+
+    if (!this.data.style || !this.data.factory || totalPieces <= 0) {
       this.setData({
         calculatedPieces: 0,
         calculatedYarnUsage: 0,
@@ -129,16 +142,19 @@ Page({
       })
       return
     }
-    
-    const pieces = calculateReturnPieces(quantity)
-    const yarnUsage = calculateActualYarnUsage(pieces, this.data.style.yarnUsagePerPiece)
-    // 注意：加工单价是元/打，需要转换为元/件再计算，或者直接用打数计算
-    // 根据PRD，加工单价是元/打，所以直接用打数乘以单价
-    const pricePerDozen = this.data.factory.defaultPrice || 0
-    const fee = calculateProcessingFee(quantity, pricePerDozen)
-    
+
+    const pieces = totalPieces
+    const yarnUsagePerPiece = this.data.style.yarnUsagePerPiece || this.data.style.yarn_usage_per_piece || 0
+    const yarnUsage = calculateActualYarnUsage(pieces, yarnUsagePerPiece)
+    const pricePerDozen = this.data.factory.defaultPrice || this.data.factory.default_price || 0
+
+    // 换算为打数进行计算：总件数 / 12
+    const totalQuantity = pieces / 12
+    const fee = calculateProcessingFee(totalQuantity, pricePerDozen)
+
     this.setData({
       calculatedPieces: pieces,
+      calculatedQuantityFormatted: formatQuantity(pieces),
       calculatedYarnUsage: yarnUsage,
       calculatedYarnUsageFormatted: yarnUsage.toFixed(2),
       calculatedFee: fee,
@@ -178,10 +194,19 @@ Page({
       })
       return
     }
-    
-    if (!this.data.returnQuantity || parseFloat(this.data.returnQuantity) <= 0) {
+
+    if (!this.data.returnDozens && !this.data.returnPieces) {
       wx.showToast({
-        title: '请输入有效的回货数量',
+        title: '请输入回货数量',
+        icon: 'none'
+      })
+      return
+    }
+
+    const pieces = this.data.calculatedPieces
+    if (pieces <= 0) {
+      wx.showToast({
+        title: '回货数量必须大于0',
         icon: 'none'
       })
       return
@@ -202,46 +227,41 @@ Page({
 
       const returnNo = generateReturnNo()
       const returnDate = new Date(this.data.returnDate)
-      const quantity = parseFloat(this.data.returnQuantity)
-      const pieces = this.data.calculatedPieces
+      const quantity = pieces / 12 // 存储为标准打数
       const yarnUsage = this.data.calculatedYarnUsage
       const fee = this.data.calculatedFee
       const color = this.data.selectedColor ? (this.data.selectedColor.name || this.data.selectedColor) : ''
       const size = this.data.selectedSize ? (this.data.selectedSize.name || this.data.selectedSize) : ''
 
-      // 使用云函数创建回货单（支持事务操作，自动更新发料单状态）
-      const result = await wx.cloud.callFunction({
-        name: 'createReturnOrder',
-        data: {
-          returnOrder: {
-            returnNo,
-            factoryId: this.data.issueOrder.factoryId,
-            issueId: this.data.issueId,
-            styleId: this.data.issueOrder.styleId,
-            returnQuantity: quantity,
-            returnPieces: pieces,
-            actualYarnUsage: yarnUsage,
-            returnDate,
-            processingFee: fee,
-            color: color,
-            size: size || ''
-          }
-        }
+      const factoryId = this.data.issueOrder.factoryId || this.data.issueOrder.factory_id
+      const styleId = this.data.issueOrder.styleId || this.data.issueOrder.style_id
+
+      // 使用MySQL插入回货单
+      await insert('return_orders', {
+        return_no: returnNo,
+        factory_id: factoryId,
+        issue_id: this.data.issueId,
+        style_id: styleId,
+        return_quantity: quantity,
+        return_pieces: pieces,
+        actual_yarn_usage: yarnUsage,
+        return_date: returnDate,
+        processing_fee: fee,
+        color: color,
+        size: size || '',
+        settlement_status: '未结算',
+        settled_amount: 0
       })
 
-      if (result.result.success) {
-        wx.hideLoading()
-        wx.showToast({
-          title: '创建成功',
-          icon: 'success'
-        })
+      wx.hideLoading()
+      wx.showToast({
+        title: '创建成功',
+        icon: 'success'
+      })
 
-        setTimeout(() => {
-          wx.navigateBack()
-        }, 1500)
-      } else {
-        throw new Error(result.result.error || '创建失败')
-      }
+      setTimeout(() => {
+        wx.navigateBack()
+      }, 1500)
     } catch (error) {
       wx.hideLoading()
       console.error('创建回货单失败:', error)

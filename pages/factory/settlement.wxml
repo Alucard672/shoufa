@@ -18,7 +18,15 @@
       </picker>
     </view>
     <view class="info-row">
-      <text class="info-label">结算总金额</text>
+      <text class="info-label">已结算金额</text>
+      <text class="info-value settled-amount">¥{{totalSettledAmountFormatted}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">合计数量</text>
+      <text class="info-value">{{totalSelectedQuantityDisp}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">本次结算金额</text>
       <text class="info-value amount">¥{{settlementAmountFormatted}}</text>
     </view>
   </view>
@@ -79,8 +87,14 @@
         </view>
         
         <view class="order-summary" wx:else>
-          <text class="summary-text">{{item.styleName}} · ¥{{item.processingFeeFormatted}}</text>
-          <text class="summary-status" wx:if="{{item.settlementStatus === '部分结算'}}">部分结算</text>
+          <view class="summary-left">
+            <text class="summary-text">{{item.styleName}} · {{item.quantityFormatted}}</text>
+            <text class="summary-status" wx:if="{{item.settlementStatus === '部分结算'}}">部分结算</text>
+          </view>
+          <view class="summary-right">
+            <text class="summary-settled" wx:if="{{item.settledAmount > 0}}">已结算：¥{{item.settledAmountFormatted}}</text>
+            <text class="summary-amount">剩余：¥{{item.remainingAmountFormatted}}</text>
+          </view>
         </view>
       </view>
       
@@ -108,4 +122,5 @@
     </view>
   </view>
 </view>
+
 

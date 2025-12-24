@@ -1,5 +1,7 @@
 // pages/index/activities.js
+import { query, queryByIds } from '../../utils/db.js'
 import { formatDate, getTimeRange } from '../../utils/calc.js'
+const app = getApp()
 
 Page({
   data: {
@@ -87,14 +89,14 @@ Page({
     const index = parseInt(e.detail.index)
     const filters = ['all', 'today', 'week', 'month']
     const filter = filters[index] || 'all'
-    
+
     console.log('时间筛选变化:', { index, filter })
-    
+
     let startDate = null
     let endDate = null
     let startDateStr = ''
     let endDateStr = ''
-    
+
     if (filter !== 'all') {
       const timeRange = getTimeRange(filter)
       startDate = timeRange.startDate
@@ -108,7 +110,7 @@ Page({
       }
       console.log('时间范围:', { startDate, endDate, startDateStr, endDateStr })
     }
-    
+
     this.setData({
       timeFilter: filter,
       timeFilterIndex: index,
@@ -194,134 +196,127 @@ Page({
         loading: true
       })
 
-      const db = wx.cloud.database()
-      const _ = db.command
-      
-      // 先进行数据库层面的基础筛选（类型和日期），减少加载的数据量
-      let issueQuery = db.collection('issue_orders').where({ deleted: _.eq(false) })
-      let returnQuery = db.collection('return_orders').where({ deleted: _.eq(false) })
-      
+      // 构建查询条件
+      let issueWhere = {}
+      let returnWhere = {}
+
       // 日期筛选（数据库层面）
       if (this.data.timeFilter !== 'all' && this.data.startDate && this.data.endDate) {
-        issueQuery = issueQuery.where({
-          issueDate: _.gte(this.data.startDate).and(_.lte(this.data.endDate))
-        })
-        returnQuery = returnQuery.where({
-          returnDate: _.gte(this.data.startDate).and(_.lte(this.data.endDate))
-        })
+        issueWhere.issue_date = {
+          gte: this.data.startDate,
+          lte: this.data.endDate
+        }
+        returnWhere.return_date = {
+          gte: this.data.startDate,
+          lte: this.data.endDate
+        }
       }
-      
+
       // 根据类型筛选加载数据
       let issueOrders = { data: [] }
       let returnOrders = { data: [] }
-      
+
       if (this.data.typeFilter !== 'return') {
-        issueOrders = await issueQuery.orderBy('issueDate', 'desc').get()
+        const issueRes = await query('issue_orders', issueWhere, {
+          excludeDeleted: true,
+          orderBy: { field: 'issue_date', direction: 'DESC' }
+        })
+        issueOrders = { data: issueRes.data || [] }
       }
-      
+
       if (this.data.typeFilter !== 'issue') {
-        returnOrders = await returnQuery.orderBy('returnDate', 'desc').get()
+        const returnRes = await query('return_orders', returnWhere, {
+          excludeDeleted: true,
+          orderBy: { field: 'return_date', direction: 'DESC' }
+        })
+        returnOrders = { data: returnRes.data || [] }
       }
-      
+
       // 合并数据并添加类型标识
       let allActivities = []
-      
+
       // 处理发料单
       issueOrders.data.forEach(order => {
         allActivities.push({
           ...order,
           type: 'issue',
-          date: order.issueDate,
-          dateFormatted: formatDate(order.issueDate)
+          date: order.issueDate || order.issue_date,
+          dateFormatted: formatDate(order.issueDate || order.issue_date)
         })
       })
-      
+
       // 处理回货单
       returnOrders.data.forEach(order => {
         allActivities.push({
           ...order,
           type: 'return',
-          date: order.returnDate,
-          dateFormatted: formatDate(order.returnDate)
+          date: order.returnDate || order.return_date,
+          dateFormatted: formatDate(order.returnDate || order.return_date)
         })
       })
-      
+
       // 批量查询工厂和款号信息（只查询一次，不是逐个查询）
-      const factoryIds = [...new Set(allActivities.map(a => a.factoryId).filter(Boolean))]
-      const styleIds = [...new Set(allActivities.map(a => a.styleId).filter(Boolean))]
-      const issueIds = [...new Set(allActivities.filter(a => a.type === 'return').map(a => a.issueId).filter(Boolean))]
-      
+      const factoryIds = [...new Set(allActivities.map(a => a.factoryId || a.factory_id).filter(Boolean))]
+      const styleIds = [...new Set(allActivities.map(a => a.styleId || a.style_id).filter(Boolean))]
+      const issueIds = [...new Set(allActivities.filter(a => a.type === 'return').map(a => a.issueId || a.issue_id).filter(Boolean))]
+
       // 批量查询发料单信息（用于回货单关联）
       const issueOrdersMap = new Map()
       if (issueIds.length > 0) {
-        // 批量查询发料单（使用 Promise.all 并行查询，但只查询一次）
-        const issuePromises = issueIds.map(id => 
-          db.collection('issue_orders').doc(id).get().catch(() => ({ data: null }))
-        )
-        const issueResults = await Promise.all(issuePromises)
-        issueResults.forEach((result, index) => {
-          if (result.data) {
-            issueOrdersMap.set(issueIds[index], result.data)
-            // 将发料单的 factoryId 和 styleId 也加入查询列表
-            if (result.data.factoryId && factoryIds.indexOf(result.data.factoryId) < 0) {
-              factoryIds.push(result.data.factoryId)
-            }
-            if (result.data.styleId && styleIds.indexOf(result.data.styleId) < 0) {
-              styleIds.push(result.data.styleId)
-            }
+        const issueRes = await queryByIds('issue_orders', issueIds)
+        issueRes.data.forEach(issueOrder => {
+          const issueId = issueOrder.id || issueOrder._id
+          issueOrdersMap.set(issueId, issueOrder)
+          // 将发料单的 factoryId 和 styleId 也加入查询列表
+          const factoryId = issueOrder.factoryId || issueOrder.factory_id
+          const styleId = issueOrder.styleId || issueOrder.style_id
+          if (factoryId && factoryIds.indexOf(factoryId) < 0) {
+            factoryIds.push(factoryId)
+          }
+          if (styleId && styleIds.indexOf(styleId) < 0) {
+            styleIds.push(styleId)
           }
         })
       }
-      
-      // 批量查询工厂信息（并行查询，但只查询一次）
+
+      // 批量查询工厂信息
       const factoriesMap = new Map()
       if (factoryIds.length > 0) {
-        const factoriesPromises = factoryIds.map(id => 
-          db.collection('factories').doc(id).get().catch(() => ({ data: null }))
-        )
-        const factoriesResults = await Promise.all(factoriesPromises)
-        factoriesResults.forEach((result, index) => {
-          if (result.data) {
-            factoriesMap.set(factoryIds[index], result.data)
-          }
+        const factoriesRes = await queryByIds('factories', factoryIds)
+        factoriesRes.data.forEach(factory => {
+          factoriesMap.set(factory.id || factory._id, factory)
         })
       }
-      
-      // 批量查询款号信息（并行查询，但只查询一次）
+
+      // 批量查询款号信息
       const stylesMap = new Map()
       if (styleIds.length > 0) {
-        const stylesPromises = styleIds.map(id => 
-          db.collection('styles').doc(id).get().catch(() => ({ data: null }))
-        )
-        const stylesResults = await Promise.all(stylesPromises)
-        stylesResults.forEach((result, index) => {
-          if (result.data) {
-            stylesMap.set(styleIds[index], result.data)
-          }
+        const stylesRes = await queryByIds('styles', styleIds)
+        stylesRes.data.forEach(style => {
+          stylesMap.set(style.id || style._id, style)
         })
       }
-      
+
       // 为所有发料单批量加载回货进度信息（使用批量查询，避免 N+1 查询）
-      const issueOrderIds = allActivities.filter(a => a.type === 'issue').map(a => a._id)
+      const issueOrderIds = allActivities.filter(a => a.type === 'issue').map(a => a.id || a._id)
       const returnOrdersMap = new Map()
       if (issueOrderIds.length > 0) {
         // 批量查询所有相关的回货单（一次查询，而不是 N 次）
-        const allReturnOrders = await db.collection('return_orders')
-          .where({
-            issueId: _.in(issueOrderIds),
-            deleted: _.eq(false)
-          })
-          .get()
-        
+        const allReturnOrdersRes = await query('return_orders', {
+          issue_id: issueOrderIds
+        }, {
+          excludeDeleted: true
+        })
+
         // 按 issueId 分组
-        allReturnOrders.data.forEach(returnOrder => {
-          const issueId = returnOrder.issueId
+        allReturnOrdersRes.data.forEach(returnOrder => {
+          const issueId = returnOrder.issueId || returnOrder.issue_id
           if (!returnOrdersMap.has(issueId)) {
             returnOrdersMap.set(issueId, [])
           }
           returnOrdersMap.get(issueId).push(returnOrder)
         })
-        
+
         // 确保所有发料单都有对应的数组（即使为空）
         issueOrderIds.forEach(issueId => {
           if (!returnOrdersMap.has(issueId)) {
@@ -329,81 +324,96 @@ Page({
           }
         })
       }
-      
+
       // 在内存中关联数据
       const activitiesWithDetails = allActivities.map(activity => {
         if (activity.type === 'issue') {
           // 发料单
-          const factory = factoriesMap.get(activity.factoryId)
-          const style = stylesMap.get(activity.styleId)
-          const returnOrders = returnOrdersMap.get(activity._id) || []
+          const factoryId = activity.factoryId || activity.factory_id
+          const styleId = activity.styleId || activity.style_id
+          const activityId = activity.id || activity._id
+          
+          const factory = factoriesMap.get(factoryId)
+          const style = stylesMap.get(styleId)
+          const returnOrders = returnOrdersMap.get(activityId) || []
           let totalReturnYarn = 0
           returnOrders.forEach(ro => {
-            totalReturnYarn += ro.actualYarnUsage || 0
+            totalReturnYarn += ro.actualYarnUsage || ro.actual_yarn_usage || 0
           })
-          const progressPercent = activity.issueWeight > 0 
-            ? (totalReturnYarn / activity.issueWeight * 100) 
+          const issueWeight = activity.issueWeight || activity.issue_weight || 0
+          const progressPercent = issueWeight > 0
+            ? (totalReturnYarn / issueWeight * 100)
             : 0
-          
+
+          const styleCode = style?.styleCode || style?.style_code || ''
+          const styleCodeStr = styleCode ? `[${styleCode}] ` : ''
           return {
             ...activity,
+            _id: activity._id || activity.id,
             factoryName: factory?.name || '未知工厂',
-            styleName: style?.styleName || style?.name || '未知款号',
-            styleCode: style?.styleCode || '',
-            styleImageUrl: style?.imageUrl || '',
+            styleName: style?.styleName || style?.style_name || style?.name || '未知款号',
+            styleCode: styleCode,
+            styleImageUrl: style?.imageUrl || style?.image_url || '',
             color: activity.color || '',
-            issueWeightFormatted: (activity.issueWeight || 0).toFixed(2),
-            dateFormatted: formatDate(activity.issueDate),
+            issueWeightFormatted: issueWeight.toFixed(2),
+            dateFormatted: formatDate(activity.issueDate || activity.issue_date),
             totalReturnYarn: totalReturnYarn,
             totalReturnYarnFormatted: totalReturnYarn.toFixed(2),
-            progressPercent: Math.min(progressPercent, 100)
+            progressPercent: Math.min(progressPercent, 100),
+            styleDisplay: `${styleCodeStr}${style?.styleName || style?.style_name || style?.name || '未知款号'}`,
+            actionInfo: `${issueWeight.toFixed(2)}kg · ${activity.color || '未设置'}`
           }
         } else {
           // 回货单
-          const issueOrder = issueOrdersMap.get(activity.issueId)
+          const issueId = activity.issueId || activity.issue_id
+          const issueOrder = issueOrdersMap.get(issueId)
           // 如果回货单没有 factoryId，从关联的发料单获取
-          const factoryId = activity.factoryId || issueOrder?.factoryId
+          const factoryId = activity.factoryId || activity.factory_id || issueOrder?.factoryId || issueOrder?.factory_id
           const factory = factoryId ? factoriesMap.get(factoryId) : null
           // 如果回货单没有 styleId，从关联的发料单获取
-          const styleId = activity.styleId || issueOrder?.styleId
+          const styleId = activity.styleId || activity.style_id || issueOrder?.styleId || issueOrder?.style_id
           const styleForReturn = styleId ? stylesMap.get(styleId) : null
-          
-          const styleCode = styleForReturn?.styleCode || ''
-          const styleName = styleForReturn?.styleName || styleForReturn?.name || '未知款号'
-          const processingFee = activity.processingFee || 0
-          const returnPieces = activity.returnPieces || 0
-          const returnQuantity = activity.returnQuantity || 0
-          const actualYarnUsage = activity.actualYarnUsage || 0
-          
+
+          const styleCode = styleForReturn?.styleCode || styleForReturn?.style_code || ''
+          const styleName = styleForReturn?.styleName || styleForReturn?.style_name || styleForReturn?.name || '未知款号'
+          const processingFee = activity.processingFee || activity.processing_fee || 0
+          const returnPieces = activity.returnPieces || activity.return_pieces || 0
+          const returnQuantity = activity.returnQuantity || activity.return_quantity || 0
+          const actualYarnUsage = activity.actualYarnUsage || activity.actual_yarn_usage || 0
+
+          const styleCodeStr = styleCode ? `[${styleCode}] ` : ''
           return {
             ...activity,
+            _id: activity._id || activity.id,
             factoryName: factory?.name || '未知工厂',
             styleName: styleName,
             styleCode: styleCode,
-            styleImageUrl: styleForReturn?.imageUrl || '',
-            issueNo: issueOrder?.issueNo || '未知',
+            styleImageUrl: styleForReturn?.imageUrl || styleForReturn?.image_url || '',
+            issueNo: issueOrder?.issueNo || issueOrder?.issue_no || '未知',
             color: activity.color || '',
             size: activity.size || '',
             returnQuantity: returnQuantity,
             returnPieces: returnPieces,
             returnQuantityFormatted: `${returnQuantity}打 ${returnPieces}件`,
-            dateFormatted: formatDate(activity.returnDate),
+            dateFormatted: formatDate(activity.returnDate || activity.return_date),
             actualYarnUsageFormatted: actualYarnUsage.toFixed(2),
-            processingFeeFormatted: processingFee.toFixed(2)
+            processingFeeFormatted: processingFee.toFixed(2),
+            styleDisplay: `${styleCodeStr}${styleName}`,
+            actionInfo: `${returnQuantity}打 ${returnPieces}件 · ${activity.color || '未设置'}`
           }
         }
       })
-      
+
       // 按时间排序
       activitiesWithDetails.sort((a, b) => {
         const dateA = a.date instanceof Date ? a.date : new Date(a.date)
         const dateB = b.date instanceof Date ? b.date : new Date(b.date)
         return dateB.getTime() - dateA.getTime()
       })
-      
+
       // 日期筛选已在数据库层面完成，这里直接使用
       let filteredData = activitiesWithDetails
-      
+
       // 搜索筛选（模糊查询单号、加工厂、款号）
       if (this.data.searchKeyword && this.data.searchKeyword.trim()) {
         const keyword = this.data.searchKeyword.trim().toLowerCase()
@@ -411,40 +421,40 @@ Page({
           // 搜索单号
           const searchNo = item.type === 'issue' ? item.issueNo : item.returnNo
           const noMatch = searchNo && searchNo.toLowerCase().includes(keyword)
-          
+
           // 搜索工厂名称
           const factoryMatch = item.factoryName && item.factoryName.toLowerCase().includes(keyword)
-          
+
           // 搜索款号名称或款号代码
           const styleNameMatch = item.styleName && item.styleName.toLowerCase().includes(keyword)
           const styleCodeMatch = item.styleCode && item.styleCode.toLowerCase().includes(keyword)
-          
+
           return noMatch || factoryMatch || styleNameMatch || styleCodeMatch
         })
       }
-      
+
       // 基于筛选后的数据计算统计数据
       let totalIssueWeight = 0
       let totalReturnPieces = 0
       let totalProcessingFee = 0
       let issueCount = 0
       let returnCount = 0
-      
+
       filteredData.forEach(item => {
         if (item.type === 'issue') {
-          totalIssueWeight += item.issueWeight || 0
+          totalIssueWeight += item.issueWeight || item.issue_weight || 0
           issueCount++
         } else {
-          totalReturnPieces += item.returnPieces || 0
-          totalProcessingFee += item.processingFee || 0
+          totalReturnPieces += item.returnPieces || item.return_pieces || 0
+          totalProcessingFee += item.processingFee || item.processing_fee || 0
           returnCount++
         }
       })
-      
+
       // 格式化统计数据
       const totalIssueWeightFormatted = totalIssueWeight.toFixed(1)
       const totalProcessingFeeFormatted = totalProcessingFee.toFixed(0)
-      
+
       console.log('统计数据:', {
         totalIssueWeight,
         totalIssueWeightFormatted,
@@ -455,7 +465,7 @@ Page({
         returnCount,
         filteredDataLength: filteredData.length
       })
-      
+
       this.setData({
         activities: filteredData,
         totalIssueWeight: totalIssueWeight,

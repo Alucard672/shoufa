@@ -1,22 +1,60 @@
 // pages/return/index.js
 import { getReturnOrders } from '../../utils/db.js'
-import { formatDate, formatAmount } from '../../utils/calc.js'
+import { formatDate, formatAmount, formatQuantity } from '../../utils/calc.js'
+import { query, queryByIds } from '../../utils/db.js'
+import { getTimeRange } from '../../utils/calc.js'
+const app = getApp()
 
 Page({
   data: {
     totalReturnPieces: 0,
+    totalReturnQuantityDisp: '', // 累计回货显示
     totalProcessingFee: 0,
+    timeFilter: 'all',
+    timeFilterIndex: 0,
     searchKeyword: '',
     returnOrders: [],
     filteredOrders: []
   },
 
   onLoad() {
+    // 检查租户
+    if (!this.checkTenant()) {
+      return
+    }
     this.loadData()
   },
 
   onShow() {
+    // 检查租户
+    if (!this.checkTenant()) {
+      return
+    }
     this.loadData()
+  },
+
+  checkTenant() {
+    const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
+    if (!tenantId) {
+      wx.showModal({
+        title: '未登录',
+        content: '请先登录',
+        showCancel: false,
+        success: () => {
+          wx.reLaunch({
+            url: '/pages/login/index'
+          })
+        }
+      })
+      return false
+    }
+    // 确保 globalData 中有 tenantId
+    if (!app.globalData.tenantId) {
+      app.globalData.tenantId = tenantId
+      app.globalData.userInfo = wx.getStorageSync('userInfo')
+      app.globalData.tenantInfo = wx.getStorageSync('tenantInfo')
+    }
+    return true
   },
 
   onPullDownRefresh() {
@@ -41,108 +79,144 @@ Page({
   },
 
   async loadStatistics() {
-    const db = wx.cloud.database()
-    const _ = db.command
-    
-    const orders = await db.collection('return_orders')
-      .where({
-        deleted: _.eq(false)
-      })
-      .get()
-    
+    const where = {}
+
+    if (this.data.timeFilter !== 'all') {
+      const timeRange = getTimeRange(this.data.timeFilter)
+      if (timeRange.startDate && timeRange.endDate) {
+        where.return_date = {
+          gte: timeRange.startDate,
+          lte: timeRange.endDate
+        }
+      }
+    }
+
+    const result = await query('return_orders', where, {
+      excludeDeleted: true
+    })
+
     let totalPieces = 0
     let totalFee = 0
-    
-    orders.data.forEach(order => {
-      totalPieces += order.returnPieces || 0
-      totalFee += order.processingFee || 0
+
+    result.data.forEach(order => {
+      totalPieces += Math.floor(order.returnPieces || order.return_pieces || 0)
+      totalFee += order.processingFee || order.processing_fee || 0
     })
-    
+
     this.setData({
       totalReturnPieces: totalPieces,
+      totalReturnQuantityDisp: formatQuantity(totalPieces),
       totalProcessingFee: totalFee,
       totalProcessingFeeFormatted: totalFee.toFixed(0)
     })
   },
 
   async loadReturnOrders() {
-    const db = wx.cloud.database()
-    const _ = db.command
-    
-    let query = db.collection('return_orders')
-      .where({
-        deleted: _.eq(false)
-      })
-    
+    const where = {}
+
+    if (this.data.timeFilter !== 'all') {
+      const timeRange = getTimeRange(this.data.timeFilter)
+      if (timeRange.startDate && timeRange.endDate) {
+        where.return_date = {
+          gte: timeRange.startDate,
+          lte: timeRange.endDate
+        }
+      }
+    }
+
+    // 查询回货单（搜索在客户端过滤）
+    const ordersRes = await query('return_orders', where, {
+      excludeDeleted: true,
+      orderBy: { field: 'return_date', direction: 'DESC' }
+    })
+
+    // 客户端过滤搜索关键词
+    let orders = ordersRes.data || []
     if (this.data.searchKeyword) {
-      query = query.where({
-        returnNo: _.regex({
-          regexp: this.data.searchKeyword,
-          options: 'i'
-        })
+      const keyword = this.data.searchKeyword.toLowerCase()
+      orders = orders.filter(order => {
+        const returnNo = (order.returnNo || order.return_no || '').toLowerCase()
+        return returnNo.includes(keyword)
       })
     }
-    
-    const orders = await query.orderBy('returnDate', 'desc').get()
-    
+
+    // 批量查询工厂、款号和发料单信息
+    const factoryIds = [...new Set(orders.map(order => order.factoryId || order.factory_id).filter(Boolean))]
+    const styleIds = [...new Set(orders.map(order => order.styleId || order.style_id).filter(Boolean))]
+    const issueIds = [...new Set(orders.map(order => order.issueId || order.issue_id).filter(Boolean))]
+
+    const [factoriesRes, stylesRes, issueOrdersRes] = await Promise.all([
+      factoryIds.length > 0 ? queryByIds('factories', factoryIds, { excludeDeleted: true }) : { data: [] },
+      styleIds.length > 0 ? queryByIds('styles', styleIds, { excludeDeleted: true }) : { data: [] },
+      issueIds.length > 0 ? queryByIds('issue_orders', issueIds, { excludeDeleted: true }) : { data: [] }
+    ])
+
+    const factoriesMap = Object.fromEntries(factoriesRes.data.map(f => [f._id || f.id, f]))
+    const stylesMap = Object.fromEntries(stylesRes.data.map(s => [s._id || s.id, s]))
+    const issueOrdersMap = Object.fromEntries(issueOrdersRes.data.map(o => [o._id || o.id, o]))
+
     // 关联查询工厂、款号和发料单信息
-    const ordersWithDetails = await Promise.all(
-      orders.data.map(async (order) => {
-        try {
-          const [factory, style, issueOrder] = await Promise.all([
-            db.collection('factories').doc(order.factoryId).get(),
-            db.collection('styles').doc(order.styleId).get(),
-            db.collection('issue_orders').doc(order.issueId).get()
-          ])
-          
-          const processingFee = order.processingFee || 0
-          const returnPieces = order.returnPieces || 1
-          const actualYarnUsage = order.actualYarnUsage || 0
-          const pricePerPiece = returnPieces > 0 ? (processingFee / returnPieces) : 0
-          
-          const styleCode = style.data?.styleCode || ''
-          const styleName = style.data?.styleName || style.data?.name || '未知款号'
-          const styleDisplay = styleCode ? `${styleCode} ${styleName}` : styleName
-          
-          return {
-            ...order,
-            factoryName: factory.data?.name || '未知工厂',
-            styleName: styleName,
-            styleCode: styleCode,
-            styleDisplay: styleDisplay,
-            styleImageUrl: style.data?.imageUrl || '',
-            issueNo: issueOrder.data?.issueNo || '未知',
-            color: order.color || '',
-            size: order.size || '',
-            returnDateFormatted: formatDate(order.returnDate),
-            processingFeeFormatted: formatAmount(processingFee),
-            pricePerPieceFormatted: pricePerPiece.toFixed(2),
-            actualYarnUsageFormatted: actualYarnUsage.toFixed(2)
-          }
-        } catch (error) {
-          console.error('加载回货单详情失败:', error)
-          const processingFee = order.processingFee || 0
-          const returnPieces = order.returnPieces || 1
-          const actualYarnUsage = order.actualYarnUsage || 0
-          const pricePerPiece = returnPieces > 0 ? (processingFee / returnPieces) : 0
-          
-          return {
-            ...order,
-            factoryName: '加载失败',
-            styleName: '加载失败',
-            styleCode: '',
-            styleDisplay: '加载失败',
-            styleImageUrl: '',
-            issueNo: '未知',
-            returnDateFormatted: formatDate(order.returnDate),
-            processingFeeFormatted: formatAmount(processingFee),
-            pricePerPieceFormatted: pricePerPiece.toFixed(2),
-            actualYarnUsageFormatted: actualYarnUsage.toFixed(2)
-          }
+    const ordersWithDetails = orders.map(order => {
+      try {
+        const factoryId = order.factoryId || order.factory_id
+        const styleId = order.styleId || order.style_id
+        const issueId = order.issueId || order.issue_id
+
+        const factory = factoriesMap[factoryId]
+        const style = stylesMap[styleId]
+        const issueOrder = issueOrdersMap[issueId]
+
+        const processingFee = order.processingFee || order.processing_fee || 0
+        const returnPieces = Math.floor(order.returnPieces || order.return_pieces || 0)
+        const actualYarnUsage = order.actualYarnUsage || order.actual_yarn_usage || 0
+        const pricePerPiece = returnPieces > 0 ? (processingFee / returnPieces) : 0
+
+        const styleCode = style?.styleCode || style?.style_code || ''
+        const styleName = style?.styleName || style?.style_name || '未知款号'
+        const styleDisplay = styleCode ? `${styleCode} ${styleName}` : styleName
+
+        return {
+          ...order,
+          factoryName: factory?.name || '未知工厂',
+          styleName: styleName,
+          styleCode: styleCode,
+          styleDisplay: styleDisplay,
+          styleImageUrl: style?.imageUrl || style?.image_url || '',
+          issueNo: issueOrder?.issueNo || issueOrder?.issue_no || '未知',
+          color: order.color || '',
+          size: order.size || '',
+          returnPieces: returnPieces,
+          quantityFormatted: formatQuantity(returnPieces),
+          returnDateFormatted: formatDate(order.returnDate || order.return_date),
+          processingFeeFormatted: formatAmount(processingFee),
+          pricePerPieceFormatted: pricePerPiece.toFixed(2),
+          actualYarnUsageFormatted: actualYarnUsage.toFixed(2)
         }
-      })
-    )
-    
+      } catch (error) {
+        console.error('加载回货单详情失败:', error)
+        const processingFee = order.processingFee || order.processing_fee || 0
+        const returnPieces = order.returnPieces || order.return_pieces || 1
+        const actualYarnUsage = order.actualYarnUsage || order.actual_yarn_usage || 0
+        const pricePerPiece = returnPieces > 0 ? (processingFee / returnPieces) : 0
+
+        return {
+          ...order,
+          factoryName: '加载失败',
+          styleName: '加载失败',
+          styleCode: '',
+          styleDisplay: '加载失败',
+          styleImageUrl: '',
+          issueNo: '未知',
+          returnPieces: Math.floor(returnPieces),
+          quantityFormatted: formatQuantity(Math.floor(returnPieces)),
+          returnDateFormatted: formatDate(order.returnDate || order.return_date),
+          processingFeeFormatted: formatAmount(processingFee),
+          pricePerPieceFormatted: pricePerPiece.toFixed(2),
+          actualYarnUsageFormatted: actualYarnUsage.toFixed(2)
+        }
+      }
+    })
+
     this.setData({
       returnOrders: ordersWithDetails,
       filteredOrders: ordersWithDetails
@@ -154,6 +228,16 @@ Page({
       searchKeyword: e.detail.value
     })
     this.loadReturnOrders()
+  },
+
+  onTimeFilterChange(e) {
+    const index = parseInt(e.detail.index) || 0
+    const filters = ['all', 'today', 'week', 'month']
+    this.setData({
+      timeFilter: filters[index] || 'all',
+      timeFilterIndex: index
+    })
+    this.loadData()
   },
 
   navigateToCreate() {
