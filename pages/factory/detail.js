@@ -77,6 +77,15 @@ Page({
       orderBy: { field: 'settlement_date', direction: 'DESC' }
     })
 
+    // 加载结算单
+    const settlements = await db.collection('settlements')
+      .where({
+        factoryId: this.data.factoryId,
+        deleted: _.neq(true)
+      })
+      .orderBy('settlementDate', 'desc')
+      .get()
+
     // 计算统计数据
     let totalIssueWeight = 0
     let totalUsedYarn = 0
@@ -141,6 +150,11 @@ Page({
         ...item,
         totalAmountFormatted: (item.totalAmount || item.total_amount || 0).toFixed(2),
         settlementDateFormatted: formatDate(item.settlementDate || item.settlement_date)
+      })),
+      settlements: settlements.data.map(item => ({
+        ...item,
+        totalAmountFormatted: (item.totalAmount || 0).toFixed(2),
+        settlementDateFormatted: formatDate(item.settlementDate)
       })),
       totalIssueWeight,
       totalIssueWeightFormatted: totalIssueWeight.toFixed(2),
