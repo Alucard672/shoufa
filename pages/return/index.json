@@ -1,8 +1,7 @@
 {
   "usingComponents": {
     "search-box": "/components/search-box/search-box",
-    "badge": "/components/badge/badge",
-    "card": "/components/card/card"
+    "badge": "/components/badge/badge"
   },
   "enablePullDownRefresh": true
 }

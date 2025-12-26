@@ -8,6 +8,7 @@ import {
   calculateProcessingFee,
   formatQuantity
 } from '../../utils/calc.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 
 Page({
@@ -31,6 +32,10 @@ Page({
   },
 
   async onLoad(options) {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     await this.loadDictionaries()
 
     if (options.issueId) {
@@ -85,30 +90,38 @@ Page({
   },
 
   async loadIssueOrder() {
-    const issueOrderRes = await query('issue_orders', {
-      id: this.data.issueId
-    }, {
-      excludeDeleted: true
-    })
-
-    if (issueOrderRes.data && issueOrderRes.data[0]) {
-      const issueOrder = issueOrderRes.data[0]
-      const factoryId = issueOrder.factoryId || issueOrder.factory_id
-      const styleId = issueOrder.styleId || issueOrder.style_id
-
-      const [factoryRes, styleRes] = await Promise.all([
-        getFactoryById(factoryId),
-        getStyleById(styleId)
-      ])
-
-      this.setData({
-        issueOrder: issueOrder,
-        factory: factoryRes.data,
-        style: styleRes.data
+    try {
+      const issueOrderRes = await query('issue_orders', {
+        _id: this.data.issueId
+      }, {
+        excludeDeleted: true
       })
 
-      // 如果发料单有颜色，默认选中该颜色
-      this.setDefaultColor()
+      if (issueOrderRes.data && issueOrderRes.data[0]) {
+        const issueOrder = issueOrderRes.data[0]
+        const factoryId = issueOrder.factoryId || issueOrder.factory_id
+        const styleId = issueOrder.styleId || issueOrder.style_id
+
+        console.log('加载关联信息:', { factoryId, styleId })
+
+        const [factoryRes, styleRes] = await Promise.all([
+          getFactoryById(factoryId),
+          getStyleById(styleId)
+        ])
+
+        this.setData({
+          issueOrder: issueOrder,
+          factory: factoryRes.data,
+          style: styleRes.data
+        })
+
+        // 重新计算一次，确保初始状态正确
+        this.calculate()
+        // 如果发料单有颜色，默认选中该颜色
+        this.setDefaultColor()
+      }
+    } catch (error) {
+      console.error('加载发料单信息失败:', error)
     }
   },
 
@@ -205,10 +218,17 @@ Page({
 
     const pieces = this.data.calculatedPieces
     if (pieces <= 0) {
-      wx.showToast({
-        title: '回货数量必须大于0',
-        icon: 'none'
-      })
+      if (!this.data.style || !this.data.factory) {
+        wx.showToast({
+          title: '基础信息加载中，请稍后',
+          icon: 'none'
+        })
+      } else {
+        wx.showToast({
+          title: '回货数量必须大于0',
+          icon: 'none'
+        })
+      }
       return
     }
 
@@ -238,19 +258,19 @@ Page({
 
       // 使用MySQL插入回货单
       await insert('return_orders', {
-        return_no: returnNo,
-        factory_id: factoryId,
-        issue_id: this.data.issueId,
-        style_id: styleId,
-        return_quantity: quantity,
-        return_pieces: pieces,
-        actual_yarn_usage: yarnUsage,
-        return_date: returnDate,
-        processing_fee: fee,
+        returnNo: returnNo,
+        factoryId: factoryId,
+        issueId: this.data.issueId,
+        styleId: styleId,
+        returnQuantity: quantity,
+        returnPieces: pieces,
+        actualYarnUsage: yarnUsage,
+        returnDate: returnDate,
+        processingFee: fee,
         color: color,
         size: size || '',
-        settlement_status: '未结算',
-        settled_amount: 0
+        settlementStatus: '未结算',
+        settledAmount: 0
       })
 
       wx.hideLoading()

@@ -40,7 +40,7 @@ Page({
 
             const result = await query('production_plans', whereClause, {
                 excludeDeleted: true,
-                orderBy: { field: 'create_time', direction: 'DESC' }
+                orderBy: { field: 'createTime', direction: 'DESC' }
             })
 
             // 批量查询款号和工厂名称

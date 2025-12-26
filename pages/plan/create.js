@@ -273,14 +273,14 @@ Page({
             const styleId = styles[selectedStyleIndex]._id || styles[selectedStyleIndex].id
             
             const data = {
-                plan_no: planNo,
-                factory_id: factoryId,
-                style_id: styleId,
+                planNo: planNo,
+                factoryId: factoryId,
+                styleId: styleId,
                 color: colorOptions[selectedColorIndex],
                 size: sizeOptions[selectedSizeIndex],
-                plan_quantity: parseFloat(planQuantity),
-                plan_yarn_usage: this.data.planYarnUsage,
-                plan_date: new Date(planDate),
+                planQuantity: parseFloat(planQuantity),
+                planYarnUsage: this.data.planYarnUsage,
+                planDate: new Date(planDate),
                 status
             }
 

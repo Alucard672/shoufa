@@ -15,9 +15,15 @@
         <text class="stats-label">累计发料</text>
         <text class="stats-value">{{totalIssueWeightFormatted}} kg</text>
       </view>
-      <view class="stats-divider"></view>
+      <view class="stats-divider-vertical"></view>
       <view class="stats-item">
-        <text class="stats-label">发料单数</text>
+        <text class="stats-label">累计回货</text>
+        <text class="stats-value">{{totalReturnPieces}} 件</text>
+        <text class="stats-sub-value">({{totalReturnWeightFormatted}}kg)</text>
+      </view>
+      <view class="stats-divider-vertical"></view>
+      <view class="stats-item">
+        <text class="stats-label">单据数量</text>
         <text class="stats-value">{{totalIssueCount}} 笔</text>
       </view>
     </view>

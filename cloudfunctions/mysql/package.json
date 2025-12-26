@@ -1,9 +1,0 @@
-{
-  "name": "mysql",
-  "version": "1.0.0",
-  "description": "MySQL数据库操作云函数（使用腾讯云开发RDB）",
-  "main": "index.js",
-  "dependencies": {
-    "wx-server-sdk": "~2.6.3"
-  }
-}

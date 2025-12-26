@@ -3,6 +3,7 @@ import { getReturnOrders } from '../../utils/db.js'
 import { formatDate, formatAmount, formatQuantity } from '../../utils/calc.js'
 import { query, queryByIds } from '../../utils/db.js'
 import { getTimeRange } from '../../utils/calc.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 
 Page({
@@ -18,43 +19,19 @@ Page({
   },
 
   onLoad() {
-    // 检查租户
-    if (!this.checkTenant()) {
+    // 检查登录状态
+    if (!checkLogin()) {
       return
     }
     this.loadData()
   },
 
   onShow() {
-    // 检查租户
-    if (!this.checkTenant()) {
+    // 检查登录状态
+    if (!checkLogin()) {
       return
     }
     this.loadData()
-  },
-
-  checkTenant() {
-    const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
-    if (!tenantId) {
-      wx.showModal({
-        title: '未登录',
-        content: '请先登录',
-        showCancel: false,
-        success: () => {
-          wx.reLaunch({
-            url: '/pages/login/index'
-          })
-        }
-      })
-      return false
-    }
-    // 确保 globalData 中有 tenantId
-    if (!app.globalData.tenantId) {
-      app.globalData.tenantId = tenantId
-      app.globalData.userInfo = wx.getStorageSync('userInfo')
-      app.globalData.tenantInfo = wx.getStorageSync('tenantInfo')
-    }
-    return true
   },
 
   onPullDownRefresh() {
@@ -84,7 +61,7 @@ Page({
     if (this.data.timeFilter !== 'all') {
       const timeRange = getTimeRange(this.data.timeFilter)
       if (timeRange.startDate && timeRange.endDate) {
-        where.return_date = {
+        where.returnDate = {
           gte: timeRange.startDate,
           lte: timeRange.endDate
         }
@@ -117,7 +94,7 @@ Page({
     if (this.data.timeFilter !== 'all') {
       const timeRange = getTimeRange(this.data.timeFilter)
       if (timeRange.startDate && timeRange.endDate) {
-        where.return_date = {
+        where.returnDate = {
           gte: timeRange.startDate,
           lte: timeRange.endDate
         }
@@ -127,7 +104,7 @@ Page({
     // 查询回货单（搜索在客户端过滤）
     const ordersRes = await query('return_orders', where, {
       excludeDeleted: true,
-      orderBy: { field: 'return_date', direction: 'DESC' }
+      orderBy: { field: 'returnDate', direction: 'DESC' }
     })
 
     // 客户端过滤搜索关键词
@@ -241,6 +218,10 @@ Page({
   },
 
   navigateToCreate() {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     wx.navigateTo({
       url: '/pages/return/create'
     })

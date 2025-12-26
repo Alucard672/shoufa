@@ -123,8 +123,8 @@ shoufa/
 ### 环境配置
 
 1. 在微信开发者工具中打开项目
-2. 在 `app.js` 中配置云开发环境ID（已配置：`cloud1-3g9cra4h71f647dd`）
-3. 在 `project.config.json` 中配置小程序AppID（已配置：`wx2e15114dc347c832`）
+2. 在 `app.js` 中配置云开发环境ID（已配置：`cloud1-1gzk1uq14c3065cb`）
+3. 在 `project.config.json` 中配置小程序AppID（已配置：`wx85e4109a73be8c46`）
 
 ### 数据库初始化（重要！）
 

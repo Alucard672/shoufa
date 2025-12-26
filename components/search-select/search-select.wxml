@@ -63,9 +63,9 @@
       </view>
 
       <!-- 显示快速新增提示 -->
-      <view class="add-tip" wx:if="{{allowAdd && searchKeyword && filteredOptions.length === 0 && !showAddForm}}">
-        <text class="add-tip-text">未找到"{{searchKeyword}}"，</text>
-        <text class="add-tip-link" bindtap="onShowAddForm">点击快速新增</text>
+      <view class="add-tip" wx:if="{{allowAdd && searchKeyword && !showAddForm}}">
+        <text class="add-tip-text">未找到所需？</text>
+        <text class="add-tip-link" bindtap="onShowAddForm">快速新增 "{{searchKeyword}}"</text>
       </view>
       
       <scroll-view class="options-list" scroll-y>

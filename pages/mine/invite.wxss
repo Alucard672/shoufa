@@ -1,0 +1,99 @@
+/* pages/mine/invite.wxss */
+.container {
+  padding: 32rpx;
+  min-height: 100vh;
+  background: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.invite-card {
+  width: 100%;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 64rpx 48rpx;
+  box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 64rpx;
+}
+
+.title {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #101828;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.subtitle {
+  font-size: 28rpx;
+  color: #667085;
+}
+
+.qr-container {
+  width: 480rpx;
+  height: 480rpx;
+  background: #f3f4f6;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 64rpx;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.qr-code {
+  width: 100%;
+  height: 100%;
+}
+
+.qr-placeholder {
+  color: #98a2b3;
+  font-size: 24rpx;
+}
+
+.info-section {
+  width: 100%;
+  margin-bottom: 64rpx;
+}
+
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 16rpx;
+}
+
+.dot {
+  color: #155DFC;
+  margin-right: 16rpx;
+  font-size: 20rpx;
+  margin-top: 8rpx;
+}
+
+.text {
+  font-size: 26rpx;
+  color: #475467;
+  line-height: 1.5;
+}
+
+.share-btn {
+  width: 100% !important;
+  height: 88rpx;
+  background: #155DFC;
+  color: #fff;
+  border-radius: 44rpx;
+  font-size: 32rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+

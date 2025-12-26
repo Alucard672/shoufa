@@ -77,6 +77,13 @@
   line-height: 16px;
 }
 
+.stats-sub-value {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  display: block;
+  margin-top: 2px;
+}
+
 .stats-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.2);

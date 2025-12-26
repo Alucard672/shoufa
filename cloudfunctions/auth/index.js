@@ -5,110 +5,49 @@ cloud.init({
     env: cloud.DYNAMIC_CURRENT_ENV
 })
 
-// 初始化CloudBase - 尝试使用wx-server-sdk的RDB API
-function getDB(context) {
-    try {
-        // 方法1: 尝试使用cloud.rdb
-        if (cloud.rdb && typeof cloud.rdb === 'function') {
-            return cloud.rdb({
-                instance: "default",
-                database: "cloud1-3g9cra4h71f647dd"
-            })
-        }
-        
-        // 方法2: 尝试使用cloud.database().rdb
-        const db = cloud.database()
-        if (db.rdb && typeof db.rdb === 'function') {
-            return db.rdb({
-                instance: "default",
-                database: "cloud1-3g9cra4h71f647dd"
-            })
-        }
-        
-        // 如果都不支持，抛出错误
-        throw new Error('wx-server-sdk不支持RDB API，需要使用@cloudbase/node-sdk')
-    } catch (error) {
-        console.error('auth云函数 - 初始化RDB连接失败:', error)
-        throw error
-    }
-}
-
-// 调用MySQL查询
-async function queryMySQL(db, table, where = {}, options = {}) {
-    let query = db.from(table)
-    
-    // 构建WHERE条件
-    Object.keys(where).forEach(key => {
-        const value = where[key]
-        if (Array.isArray(value)) {
-            query = query.whereIn(key, value)
-        } else {
-            query = query.where(key, '=', value)
-        }
-    })
-    
-    // 软删除过滤
-    if (options.excludeDeleted !== false) {
-        query = query.where('deleted', '=', 0)
-    }
-    
-    // 排序
-    if (options.orderBy) {
-        query = query.orderBy(options.orderBy.field, options.orderBy.direction || 'ASC')
-    }
-    
-    // 限制数量
-    if (options.limit) {
-        query = query.limit(options.limit)
-    }
-    
-    const result = await query.select()
-    
-    // 转换结果格式（添加_id字段）
-    return result.map(item => ({
-        ...item,
-        _id: item.id.toString()
-    }))
-}
+const db = cloud.database()
+const _ = db.command
 
 exports.main = async (event, context) => {
     const { action, code } = event
     const wxContext = cloud.getWXContext()
-    const db = getDB(context)
 
     if (action === 'mockLogin') {
         try {
             // 开发环境专用：获取第一个租户和第一个用户进行模拟登录
-            const tenants = await queryMySQL(db, 'tenants', {}, { limit: 1 })
+            const tenantsRes = await db.collection('tenants')
+                .limit(1)
+                .get()
             
-            if (tenants.length === 0) {
+            if (tenantsRes.data.length === 0) {
                 return { 
                     success: false, 
-                    msg: '数据库中尚无租户，请先创建租户',
-                    needInit: true
+                    msg: '数据库中尚无租户，请联系管理员创建租户'
                 }
             }
             
-            const tenant = tenants[0]
+            const tenant = tenantsRes.data[0]
 
             let user = {
                 _id: 'mock_user_id',
-                id: 0,
                 name: '测试管理员',
                 role: 'admin',
                 tenantId: tenant._id,
-                tenant_id: tenant.id,
                 openid: wxContext.OPENID
             }
 
             // 尝试找一个该租户下的真实用户记录，如果没有就用上面的 mock
-            const users = await queryMySQL(db, 'users', { tenant_id: tenant.id }, { limit: 1 })
-            if (users.length > 0) {
+            const usersRes = await db.collection('users')
+                .where({
+                    tenantId: tenant._id
+                })
+                .limit(1)
+                .get()
+            
+            if (usersRes.data.length > 0) {
                 user = {
-                    ...users[0],
-                    _id: users[0].id.toString(),
+                    ...usersRes.data[0],
                     tenantId: tenant._id,
-                    tenant_id: tenant.id,
                     openid: wxContext.OPENID
                 }
             }
@@ -127,70 +66,232 @@ exports.main = async (event, context) => {
         }
     }
 
-    if (action === 'login') {
+    if (action === 'getPhoneNumber') {
         try {
-            // 1. 获取真实手机号
+            const { code } = event
             const res = await cloud.openapi.phonenumber.getPhoneNumber({
                 code: code
             })
-
-            const phoneNumber = res.phoneInfo.phoneNumber
-            console.log('解析到手机号:', phoneNumber)
-
-            // 2. 在 users 表中查找手机号关联的租户
-            const userRecords = await queryMySQL(db, 'users', { phone: phoneNumber })
-            
-            if (userRecords.length === 0) {
-                return {
-                    success: false,
-                    msg: '该手机号未被任何租户登记，请联系管理员'
-                }
+            return {
+                success: true,
+                phoneNumber: res.phoneInfo.phoneNumber
             }
-
-            const userRecord = userRecords[0]
-            const tenantId = userRecord.tenant_id
-
-            // 3. 获取租户信息
-            const tenantRecords = await queryMySQL(db, 'tenants', { id: tenantId })
-            
-            if (tenantRecords.length === 0) {
-                return {
-                    success: false,
-                    msg: '租户信息不存在，请检查账号配置'
-                }
+        } catch (err) {
+            return {
+                success: false,
+                msg: err.message
             }
+        }
+    }
 
-            const tenant = tenantRecords[0]
+    if (action === 'getInviteQRCode') {
+        try {
+            const { scene, envVersion } = event
+            // 生成小程序码
+            const result = await cloud.openapi.wxacode.getUnlimited({
+                scene: scene,
+                page: 'pages/index/index', // 员工扫码后进入的页面
+                checkPath: false,
+                envVersion: envVersion || 'release' // 支持动态环境版本，默认 release
+            })
 
-            // 4. 更新用户的 openid 和最后登录时间
-            await db.from('users')
-                .where('id', '=', userRecord.id)
-                .update({
-                    openid: wxContext.OPENID,
-                    last_login_time: new Date(),
-                    update_time: new Date()
+            if (result.errCode === 0) {
+                // 将图片 Buffer 上传到云存储
+                const uploadRes = await cloud.uploadFile({
+                    cloudPath: `qrcode/invite_${scene}_${Date.now()}.png`,
+                    fileContent: result.buffer
                 })
+                return {
+                    success: true,
+                    qrCodeUrl: uploadRes.fileID
+                }
+            } else {
+                throw new Error(result.errMsg)
+            }
+        } catch (err) {
+            console.error('生成小程序码失败:', err)
+            return {
+                success: false,
+                msg: err.message
+            }
+        }
+    }
+
+    if (action === 'joinTenant') {
+        try {
+            const { tenantId, avatarUrl, nickName, phoneNumber } = event
+            const wxContext = cloud.getWXContext()
+            const openid = wxContext.OPENID
+
+            // 1. 检查用户是否已在其他租户中
+            const userCheck = await db.collection('users').where({
+                phone: phoneNumber
+            }).get()
+
+            if (userCheck.data.length > 0) {
+                // 如果已存在，更新其所属租户（或者提示已加入其他企业）
+                // 这里采用更新逻辑，允许迁移
+                await db.collection('users').doc(userCheck.data[0]._id).update({
+                    data: {
+                        tenantId: tenantId,
+                        role: 'staff', // 扫码加入的默认是员工
+                        avatarUrl: avatarUrl || userCheck.data[0].avatarUrl,
+                        nickName: nickName || userCheck.data[0].nickName,
+                        openid: openid,
+                        updateTime: db.serverDate()
+                    }
+                })
+            } else {
+                // 2. 新增用户记录
+                await db.collection('users').add({
+                    data: {
+                        tenantId: tenantId,
+                        phone: phoneNumber,
+                        role: 'staff',
+                        avatarUrl: avatarUrl || '',
+                        nickName: nickName || '微信用户',
+                        openid: openid,
+                        deleted: false,
+                        createTime: db.serverDate(),
+                        updateTime: db.serverDate()
+                    }
+                })
+            }
+
+            // 3. 获取租户详情返回
+            const tenantRes = await db.collection('tenants').doc(tenantId).get()
+
+            return {
+                success: true,
+                tenant: tenantRes.data
+            }
+        } catch (err) {
+            console.error('加入企业失败:', err)
+            return {
+                success: false,
+                msg: err.message
+            }
+        }
+    }
+
+    if (action === 'login') {
+        try {
+            const { code, avatarUrl, nickName, phoneNumber: manualPhoneNumber } = event
+            let phoneNumber = manualPhoneNumber
+
+            // 1. 获取手机号 (如果已通过前端解析传入则优先使用，否则尝试从 code 获取)
+            if (!phoneNumber && code) {
+                try {
+                    const res = await cloud.openapi.phonenumber.getPhoneNumber({ code })
+                    phoneNumber = res.phoneInfo.phoneNumber
+                } catch (e) {
+                    console.error('从 code 获取手机号失败:', e)
+                }
+            }
+
+            if (!phoneNumber) {
+                return { success: false, msg: '手机号不能为空' }
+            }
+
+            // 预处理：只保留数字
+            const purePhone = phoneNumber.replace(/\D/g, '')
+            // 提取最后11位作为匹配核心
+            const phoneSuffix = purePhone.length >= 11 ? purePhone.slice(-11) : purePhone
+
+            console.log('登录识别 - 原始号码:', phoneNumber, '匹配核心:', phoneSuffix)
+
+            // 2. 首先在 users 表中查找绑定关系 (支持模糊匹配末尾11位)
+            let userRecordsRes = await db.collection('users')
+                .where({
+                    phone: db.RegExp({
+                        regexp: phoneSuffix + '$',
+                        options: 'i'
+                    }),
+                    deleted: false
+                })
+                .get()
+            
+            let userRecord = userRecordsRes.data[0]
+
+            // 3. 如果未找到绑定，尝试从 tenants 表自动匹配（老板账号自动关联）
+            if (!userRecord) {
+                console.log('未找到 user 记录，尝试匹配 tenants 表...')
+                
+                const tenantMatchRes = await db.collection('tenants')
+                    .where({
+                        phone: db.RegExp({
+                            regexp: phoneSuffix + '$',
+                            options: 'i'
+                        })
+                    })
+                    .get()
+                
+                if (tenantMatchRes.data.length > 0) {
+                    const matchedTenant = tenantMatchRes.data[0]
+                    console.log('成功匹配到企业租户:', matchedTenant.name)
+                    
+                    if (matchedTenant.stopFlag === 1 || matchedTenant.stopFlag === true) {
+                        return { success: false, msg: '该企业已停用' }
+                    }
+
+                    // 自动创建绑定记录
+                    const newUser = {
+                        tenantId: matchedTenant._id,
+                        phone: phoneNumber,
+                        role: 'admin',
+                        nickName: nickName || matchedTenant.name,
+                        avatarUrl: avatarUrl || '',
+                        openid: wxContext.OPENID,
+                        deleted: false,
+                        createTime: db.serverDate(),
+                        updateTime: db.serverDate(),
+                        lastLoginTime: db.serverDate()
+                    }
+                    
+                    const addRes = await db.collection('users').add({ data: newUser })
+                    userRecord = { _id: addRes._id, ...newUser }
+                }
+            }
+            
+            if (!userRecord) {
+                return {
+                    success: false,
+                    msg: `手机号 ${phoneNumber} 尚未在系统中登记，请联系管理员。`
+                }
+            }
+
+            const tenantId = userRecord.tenantId
+            const tenantRes = await db.collection('tenants').doc(tenantId).get()
+            
+            if (!tenantRes.data) {
+                return { success: false, msg: '所属企业信息已丢失' }
+            }
+
+            // 4. 更新登录状态
+            const updateData = {
+                openid: wxContext.OPENID,
+                lastLoginTime: db.serverDate(),
+                updateTime: db.serverDate()
+            }
+            if (avatarUrl) updateData.avatarUrl = avatarUrl
+            if (nickName) updateData.nickName = nickName
+            
+            await db.collection('users').doc(userRecord._id).update({ data: updateData })
 
             return {
                 success: true,
                 user: {
                     ...userRecord,
-                    _id: userRecord.id.toString(),
-                    tenantId: tenant._id,
-                    tenant_id: tenant.id,
-                    openid: wxContext.OPENID
+                    tenantId: tenantRes.data._id,
+                    openid: wxContext.OPENID,
+                    avatarUrl: avatarUrl || userRecord.avatarUrl,
+                    nickName: nickName || userRecord.nickName
                 },
-                tenant: {
-                    ...tenant,
-                    _id: tenant.id.toString()
-                }
+                tenant: tenantRes.data
             }
         } catch (err) {
-            console.error('登录校验失败:', err)
-            return {
-                success: false,
-                msg: '手机号解析失败，请确保已配置云调用权限：' + (err.message || '未知错误')
-            }
+            console.error('登录异常:', err)
+            return { success: false, msg: '登录失败：' + (err.message || '系统错误') }
         }
     }
 

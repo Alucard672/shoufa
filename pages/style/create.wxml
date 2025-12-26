@@ -88,6 +88,25 @@
         </view>
       </view>
 
+      <view class="form-row">
+        <view class="form-item form-item-half">
+          <text class="form-label">加工费（元/打）</text>
+          <input 
+            class="form-input" 
+            type="digit"
+            placeholder="例：48"
+            value="{{processingFeePerDozen}}"
+            bindinput="onProcessingFeeInput"
+          />
+        </view>
+        <view class="form-item form-item-half" wx:if="{{processingFeePerPiece}}">
+          <text class="form-label">折合（元/件）</text>
+          <view class="form-input-readonly">
+            <text>{{processingFeePerPiece}}</text>
+          </view>
+        </view>
+      </view>
+
       <view class="form-hint">
         <text>系统将根据用纱量和损耗率自动计算实际用量</text>
       </view>

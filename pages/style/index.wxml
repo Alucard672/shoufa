@@ -67,6 +67,10 @@
               <text class="detail-label">类别</text>
               <text class="detail-value category">{{item.category}}</text>
             </view>
+            <view class="detail-row" wx:if="{{item.processingFeePerDozen}}">
+              <text class="detail-label">加工费</text>
+              <text class="detail-value fee">¥{{item.processingFeePerDozen}}/打</text>
+            </view>
           </view>
           
           <view class="detail-section" wx:if="{{item.actualUsageFormatted}}">

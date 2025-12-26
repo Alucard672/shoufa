@@ -11,6 +11,9 @@ const saveTenant = require('./saveTenant')
 const getTenant = require('./getTenant')
 const getTenantBySn = require('./getTenantBySn')
 const listTenants = require('./listTenants')
+const bindEmployee = require('./bindEmployee')
+const unbindEmployee = require('./unbindEmployee')
+const listEmployees = require('./listEmployees')
 
 exports.main = async (event, context) => {
   let code, msg, data;
@@ -42,6 +45,12 @@ async function dispatchAction(event, context) {
       return await getTenantBySn(db, payload, context);
     case "list":
       return await listTenants(db, payload, context);
+    case "bindEmployee":
+      return await bindEmployee(db, payload, context);
+    case "unbindEmployee":
+      return await unbindEmployee(db, payload, context);
+    case "listEmployees":
+      return await listEmployees(db, payload, context);
     default:
       return Promise.reject({ msg: `Unknown action ${action}` })
   }

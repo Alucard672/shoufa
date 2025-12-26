@@ -4,7 +4,13 @@ const app = getApp()
 Page({
     data: {
         loading: false,
-        hasLogo: true  // 默认尝试显示logo图片
+        hasLogo: true,  // 默认尝试显示logo图片
+        isDev: false,   // 是否为开发环境
+        hasUserInfo: false,  // 是否已有用户信息
+        avatarUrl: '',   // 头像URL
+        nickName: '',    // 昵称
+        phoneNumber: '', // 手机号
+        hasPhoneNumber: false // 是否已获取手机号
     },
 
     onLoad() {
@@ -15,18 +21,60 @@ Page({
                 url: '/pages/index/index'
             })
         }
+        
+        // 判断是否为开发环境
+        const accountInfo = wx.getAccountInfoSync()
+        this.setData({
+            isDev: accountInfo.miniProgram.envVersion === 'develop' || accountInfo.miniProgram.envVersion === 'trial'
+        })
+    },
+    
+    // 选择头像
+    onChooseAvatar(e) {
+        const { avatarUrl } = e.detail
+        this.setData({
+            avatarUrl: avatarUrl
+        })
+    },
+    
+    // 输入昵称
+    onNickNameInput(e) {
+        const nickName = e.detail.value
+        this.setData({
+            nickName: nickName
+        })
+    },
+    
+    // 输入手机号
+    onPhoneInput(e) {
+        const phoneNumber = e.detail.value
+        this.setData({
+            phoneNumber: phoneNumber
+        })
+    },
+    
+    // 获取微信手机号
+    onGetPhoneNumber(e) {
+        const { code, errMsg } = e.detail
+        if (errMsg !== 'getPhoneNumber:ok') {
+            wx.showToast({
+                title: '需要手机号授权',
+                icon: 'none'
+            })
+            return
+        }
+        // 手机号需要通过 code 在云函数中解密获取
+        // 这里先标记为已获取，实际手机号会在登录时从云函数返回
+        this.setData({
+            hasPhoneNumber: true,
+            phoneCode: code // 保存 code 用于登录
+        })
     },
 
     onLogoError() {
         // logo图片加载失败时，显示占位符
         this.setData({
             hasLogo: false
-        })
-    },
-
-    goToInit() {
-        wx.navigateTo({
-            url: '/pages/init/tenant'
         })
     },
 
@@ -68,15 +116,7 @@ Page({
                 wx.showModal({
                     title: '登录失败',
                     content: msg || '初始化失败，请检查数据库配置',
-                    showCancel: false,
-                    confirmText: res.result.needInit ? '去创建租户' : '确定',
-                    success: (modalRes) => {
-                        if (modalRes.confirm && res.result.needInit) {
-                            wx.navigateTo({
-                                url: '/pages/init/tenant'
-                            })
-                        }
-                    }
+                    showCancel: false
                 })
             }
         } catch (err) {
@@ -90,12 +130,21 @@ Page({
         }
     },
 
-    async getPhoneNumber(e) {
-        const { code, errMsg } = e.detail
-
-        if (errMsg !== 'getPhoneNumber:ok') {
+    // 微信登录
+    async handleWeChatLogin() {
+        // 检查是否填写了昵称
+        if (!this.data.nickName || this.data.nickName.trim() === '') {
             wx.showToast({
-                title: '需要手机号授权才能登录',
+                title: '请先输入昵称',
+                icon: 'none'
+            })
+            return
+        }
+
+        // 检查是否获取了手机号
+        if (!this.data.phoneNumber && !this.data.hasPhoneNumber) {
+            wx.showToast({
+                title: '请先获取或输入手机号',
                 icon: 'none'
             })
             return
@@ -104,12 +153,15 @@ Page({
         this.setData({ loading: true })
 
         try {
-            // 调用登录云函数
+            // 调用登录云函数，传递头像、昵称和手机号
             const res = await wx.cloud.callFunction({
                 name: 'auth',
                 data: {
                     action: 'login',
-                    code: code
+                    code: this.data.phoneCode || '', // 如果通过按钮获取，使用 code
+                    phoneNumber: this.data.phoneNumber || '', // 如果手动输入，使用手机号
+                    avatarUrl: this.data.avatarUrl,
+                    nickName: this.data.nickName
                 }
             })
 
@@ -123,6 +175,7 @@ Page({
 
                 app.globalData.userInfo = user
                 app.globalData.tenantId = tenant._id
+                app.globalData.tenantInfo = tenant
 
                 wx.showToast({
                     title: '登录成功',
@@ -151,5 +204,6 @@ Page({
         } finally {
             this.setData({ loading: false })
         }
-    }
+    },
+    
 })

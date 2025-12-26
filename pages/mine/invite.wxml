@@ -1,0 +1,34 @@
+<!--pages/mine/invite.wxml-->
+<view class="container">
+  <view class="invite-card">
+    <view class="header">
+      <text class="title">员工入职邀请</text>
+      <text class="subtitle">{{tenantInfo.name}}</text>
+    </view>
+    
+    <view class="qr-container">
+      <image class="qr-code" src="{{qrCodeUrl}}" mode="aspectFit" wx:if="{{qrCodeUrl}}"></image>
+      <view class="qr-placeholder" wx:else>
+        <text>正在生成二维码...</text>
+      </view>
+    </view>
+    
+    <view class="info-section">
+      <view class="info-item">
+        <text class="dot">●</text>
+        <text class="text">让员工使用微信扫一扫上方二维码</text>
+      </view>
+      <view class="info-item">
+        <text class="dot">●</text>
+        <text class="text">扫码后员工将自动加入您的企业</text>
+      </view>
+      <view class="info-item">
+        <text class="dot">●</text>
+        <text class="text">加入后，员工可进行发料、回货等操作</text>
+      </view>
+    </view>
+    
+    <button class="share-btn" open-type="share">转发给员工</button>
+  </view>
+</view>
+

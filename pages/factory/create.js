@@ -1,6 +1,7 @@
 // pages/factory/create.js
 import { formatAmount } from '../../utils/calc.js'
 import { queryByIds, insert, update } from '../../utils/db.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 Page({
   data: {
@@ -17,6 +18,10 @@ Page({
   },
 
   async onLoad(options) {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     if (options.id) {
       this.setData({
         factoryId: options.id,
@@ -44,14 +49,15 @@ Page({
           throw new Error('无权访问该加工厂')
         }
 
-        const settlementMethodIndex = this.data.settlementMethods.indexOf(factoryData.settlementMethod || factoryData.settlement_method)
+        const settlementMethod = factoryData.settlementMethod || factoryData.settlement_method || '月结'
+        const settlementMethodIndex = this.data.settlementMethods.indexOf(settlementMethod)
 
         this.setData({
           name: factoryData.name || '',
           contact: factoryData.contact || '',
           phone: factoryData.phone || '',
           defaultPrice: (factoryData.defaultPrice || factoryData.default_price) ? (factoryData.defaultPrice || factoryData.default_price).toString() : '',
-          settlementMethod: factoryData.settlementMethod || factoryData.settlement_method || '月结',
+          settlementMethod: settlementMethod,
           settlementMethodIndex: settlementMethodIndex >= 0 ? settlementMethodIndex : 0,
           remark: factoryData.remark || ''
         })
@@ -121,8 +127,8 @@ Page({
         name: this.data.name,
         contact: this.data.contact,
         phone: this.data.phone,
-        default_price: parseFloat(this.data.defaultPrice),
-        settlement_method: this.data.settlementMethod,
+        defaultPrice: parseFloat(this.data.defaultPrice) || 0,
+        settlementMethod: this.data.settlementMethod,
         remark: this.data.remark || ''
       }
 

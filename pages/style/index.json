@@ -1,7 +1,6 @@
 {
   "usingComponents": {
-    "search-box": "/components/search-box/search-box",
-    "card": "/components/card/card"
+    "search-box": "/components/search-box/search-box"
   },
   "navigationBarTitleText": "款式管理",
   "enablePullDownRefresh": true

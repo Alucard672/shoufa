@@ -1,6 +1,7 @@
 // pages/factory/detail.js
 import { formatDate, formatAmount, formatWeight } from '../../utils/calc.js'
 import { query, queryByIds } from '../../utils/db.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 
 Page({
@@ -18,6 +19,10 @@ Page({
   },
 
   onLoad(options) {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     if (options.id) {
       this.setData({
         factoryId: options.id
@@ -55,36 +60,27 @@ Page({
 
     // 加载发料单
     const issueOrdersRes = await query('issue_orders', {
-      factory_id: this.data.factoryId
+      factoryId: this.data.factoryId
     }, {
       excludeDeleted: true,
-      orderBy: { field: 'issue_date', direction: 'DESC' }
+      orderBy: { field: 'issueDate', direction: 'DESC' }
     })
 
     // 加载回货单
     const returnOrdersRes = await query('return_orders', {
-      factory_id: this.data.factoryId
+      factoryId: this.data.factoryId
     }, {
       excludeDeleted: true,
-      orderBy: { field: 'return_date', direction: 'DESC' }
+      orderBy: { field: 'returnDate', direction: 'DESC' }
     })
 
     // 加载结算单
     const settlementsRes = await query('settlements', {
-      factory_id: this.data.factoryId
+      factoryId: this.data.factoryId
     }, {
       excludeDeleted: true,
-      orderBy: { field: 'settlement_date', direction: 'DESC' }
+      orderBy: { field: 'settlementDate', direction: 'DESC' }
     })
-
-    // 加载结算单
-    const settlements = await db.collection('settlements')
-      .where({
-        factoryId: this.data.factoryId,
-        deleted: _.neq(true)
-      })
-      .orderBy('settlementDate', 'desc')
-      .get()
 
     // 计算统计数据
     let totalIssueWeight = 0
@@ -150,11 +146,6 @@ Page({
         ...item,
         totalAmountFormatted: (item.totalAmount || item.total_amount || 0).toFixed(2),
         settlementDateFormatted: formatDate(item.settlementDate || item.settlement_date)
-      })),
-      settlements: settlements.data.map(item => ({
-        ...item,
-        totalAmountFormatted: (item.totalAmount || 0).toFixed(2),
-        settlementDateFormatted: formatDate(item.settlementDate)
       })),
       totalIssueWeight,
       totalIssueWeightFormatted: totalIssueWeight.toFixed(2),

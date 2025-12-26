@@ -33,6 +33,8 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .avatar-text {
@@ -162,5 +164,343 @@
 .version-info text {
   font-size: 12px;
   color: #99A1AF;
+}
+
+/* 账号信息卡片 */
+.account-card {
+  padding: 16px;
+  background: #FFFFFF;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.account-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #DCFCE7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.account-avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #00A63E;
+}
+
+.account-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.account-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #4A5565;
+  text-align: center;
+}
+
+.account-subtitle {
+  font-size: 12px;
+  color: #99A1AF;
+  text-align: center;
+}
+
+/* 登录弹窗样式 */
+.login-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.login-modal-content {
+  width: 361px;
+  max-width: 90%;
+  max-height: 90vh; /* 增加最大高度 */
+  background: #FFFFFF;
+  border-radius: 10px;
+  overflow: visible; /* 允许按钮显示 */
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.login-modal-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 24px 24px 0 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.login-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0A0A0A;
+  text-align: center;
+}
+
+.login-modal-subtitle {
+  font-size: 14px;
+  color: #6A7282;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+/* 登录表单样式 */
+.login-form-section {
+  padding: 24px 0 24px 16px; /* 右边距彻底设为 0 */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  width: 100%;
+}
+
+/* 头像区域（放在最上面） */
+.avatar-section-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.avatar-wrapper-top {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  background: #F3F4F6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-btn-top {
+  width: 80px !important;
+  height: 80px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  display: block !important;
+  min-height: 0 !important;
+  line-height: 0 !important;
+}
+
+.avatar-btn-top::after {
+  border: none;
+}
+
+.avatar-img-top {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: block;
+}
+
+.avatar-placeholder-top {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #E5E7EB;
+}
+
+.avatar-label-top {
+  font-size: 14px;
+  font-weight: 500;
+  color: #0A0A0A;
+}
+
+/* 昵称输入项 */
+
+.form-item {
+  display: flex;
+  align-items: center;
+  padding: 16px 16px 16px 0; /* 右侧留出 16px，如果想更靠右可以设为 0 */
+  background: transparent;
+  border-bottom: 1rpx solid #F0F0F0; /* 使用下划线代替包裹框 */
+}
+
+.form-item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.form-item-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+  width: 70px; /* 固定宽度确保对齐 */
+  flex-shrink: 0;
+}
+
+.form-input {
+  flex: 1;
+  height: 30px;
+  padding: 0; /* 移除内边距，完全对齐 */
+  background: transparent; /* 去掉背景色包裹框 */
+  font-size: 15px;
+  color: #333;
+  box-sizing: border-box;
+}
+
+.phone-input-container {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.phone-input-field {
+  flex: 1;
+}
+
+.get-phone-link {
+  flex-shrink: 0;
+  background: transparent !important;
+  color: #155DFC !important;
+  font-size: 15px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  line-height: 30px !important;
+  font-weight: 500 !important;
+  min-height: 0 !important;
+  width: auto !important;
+  display: inline-block !important;
+}
+
+.phone-success-tag {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: #52C41A;
+  padding-left: 12px;
+}
+
+.get-phone-link::after {
+  display: none !important;
+}
+
+.phone-success-tag {
+  font-size: 12px;
+  color: #00A63E;
+  font-weight: 500;
+}
+
+.form-input::placeholder {
+  color: #717182;
+}
+
+.form-tip {
+  font-size: 12px;
+  line-height: 1.625;
+  color: #99A1AF;
+  margin-top: 4px;
+}
+
+.login-modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  background: #FFFFFF; /* 确保背景不透明 */
+  border-radius: 0 0 10px 10px;
+}
+
+.cancel-btn {
+  flex: 1;
+  height: 36px;
+  padding: 8px 16px;
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0A0A0A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cancel-btn::after {
+  border: none;
+}
+
+.allow-btn {
+  flex: 1;
+  height: 36px;
+  padding: 8px 16px;
+  background: #00A63E;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+}
+
+.allow-btn::after {
+  border: none;
+}
+
+.allow-btn[disabled] {
+  background: #E5E7EB;
+  color: #9CA3AF;
 }
 

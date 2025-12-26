@@ -1,0 +1,71 @@
+<!--pages/settings/employees.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-left">
+      <text class="page-title">员工管理</text>
+      <text class="page-subtitle">管理可登录的员工手机号</text>
+    </view>
+    <view class="btn btn-primary" bindtap="onAddEmployee">
+      <text>新增</text>
+    </view>
+  </view>
+
+  <!-- 员工列表 -->
+  <view class="list-container">
+    <view class="list-item card" wx:for="{{employees}}" wx:key="_id">
+      <view class="item-content">
+        <view class="item-main">
+          <text class="item-phone">{{item.phone}}</text>
+          <text class="item-role" wx:if="{{item.role}}">{{item.role === 'admin' ? '管理员' : '员工'}}</text>
+        </view>
+        <view class="item-actions">
+          <view class="btn-icon btn-danger" bindtap="onDelete" data-employee="{{item}}">
+            <text>解绑</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <view class="empty-tip" wx:if="{{employees.length === 0 && !loading}}">
+      <text>暂无员工数据</text>
+    </view>
+
+    <view class="loading-tip" wx:if="{{loading}}">
+      <text>加载中...</text>
+    </view>
+  </view>
+
+  <!-- 新增员工模态框 -->
+  <view class="modal-overlay" wx:if="{{showAddModal}}" bindtap="onCloseModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">绑定员工</text>
+        <view class="close-btn" bindtap="onCloseModal">
+          <image class="icon-close" src="/images/icons/close.svg" mode="aspectFit"></image>
+        </view>
+      </view>
+
+      <view class="modal-body">
+        <view class="form-item">
+          <text class="form-label">手机号 *</text>
+          <input 
+            class="form-input" 
+            type="number"
+            placeholder="请输入11位手机号"
+            maxlength="11"
+            value="{{phoneNumber}}"
+            bindinput="onPhoneInput"
+          />
+          <text class="form-tip">请输入员工的手机号，该手机号将用于登录系统</text>
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <view class="btn btn-cancel" bindtap="onCloseModal">取消</view>
+        <view class="btn btn-submit" bindtap="onSave">保存</view>
+      </view>
+    </view>
+  </view>
+</view>
+

@@ -10,19 +10,76 @@
   </view>
 
   <view class="login-section">
-    <button 
-      class="login-btn" 
-      bindtap="handleLogin"
-      loading="{{loading}}"
-    >
-      <image class="wx-icon" src="/images/icons/wechat-white.svg" mode="aspectFit"></image>
-      <text>开发环境直接登录</text>
-    </button>
-    <view class="init-section">
-      <view class="init-btn" bindtap="goToInit">
-        <text>首次使用？创建租户</text>
+    <!-- 用户信息填写区域 -->
+    <view class="user-info-section">
+      <view class="avatar-section">
+        <view class="avatar-wrapper">
+          <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+            <image class="avatar-img" src="{{avatarUrl}}" mode="aspectFill" wx:if="{{avatarUrl}}"></image>
+            <view class="avatar-placeholder" wx:else>
+              <text class="avatar-icon">👤</text>
+            </view>
+          </button>
+        </view>
+        <text class="avatar-tip">点击选择头像（可选）</text>
+      </view>
+      
+      <view class="nickname-section">
+        <input 
+          class="nickname-input" 
+          type="nickname" 
+          placeholder="请输入昵称"
+          value="{{nickName}}"
+          bindinput="onNickNameInput"
+          maxlength="20"
+        />
+      </view>
+      
+      <view class="phone-section">
+        <view class="phone-input-wrapper">
+          <input 
+            class="phone-input" 
+            type="number"
+            placeholder="请输入手机号"
+            value="{{phoneNumber}}"
+            bindinput="onPhoneInput"
+            maxlength="11"
+            disabled="{{hasPhoneNumber}}"
+          />
+          <button 
+            class="get-phone-btn" 
+            open-type="getPhoneNumber"
+            bindgetphonenumber="onGetPhoneNumber"
+            wx:if="{{!hasPhoneNumber}}"
+          >
+            获取手机号
+          </button>
+        </view>
+        <text class="phone-tip" wx:if="{{!hasPhoneNumber}}">或点击按钮获取微信手机号</text>
       </view>
     </view>
+    
+    <!-- 微信登录按钮 -->
+    <button 
+      class="login-btn" 
+      bindtap="handleWeChatLogin"
+      loading="{{loading}}"
+      disabled="{{!nickName || nickName.trim() === '' || (!phoneNumber && !hasPhoneNumber)}}"
+    >
+      <image class="wx-icon" src="/images/icons/wechat-white.svg" mode="aspectFit"></image>
+      <text>微信一键登录</text>
+    </button>
+    
+    <!-- 开发环境直接登录按钮 -->
+    <button 
+      class="dev-login-btn" 
+      bindtap="handleLogin"
+      loading="{{loading}}"
+      wx:if="{{isDev}}"
+    >
+      <text>开发环境直接登录</text>
+    </button>
+    
     <view class="login-tip">
       <text>登录即代表您同意并遵守</text>
       <text class="protocol">《用户服务协议》</text>
