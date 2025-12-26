@@ -9,10 +9,19 @@
   <!-- 结算信息 -->
   <view class="settlement-info card">
     <view class="info-row">
-      <text class="info-label">结算日期</text>
-      <picker mode="date" value="{{settlementDate}}" bindchange="onDateChange">
+      <text class="info-label">结算日期起</text>
+      <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
         <view class="info-value picker">
-          {{settlementDate}}
+          <text>{{startDate || '请选择开始日期'}}</text>
+          <text class="picker-arrow">›</text>
+        </view>
+      </picker>
+    </view>
+    <view class="info-row">
+      <text class="info-label">结算日期止</text>
+      <picker mode="date" value="{{endDate}}" bindchange="onEndDateChange">
+        <view class="info-value picker">
+          <text>{{endDate || '请选择结束日期'}}</text>
           <text class="picker-arrow">›</text>
         </view>
       </picker>

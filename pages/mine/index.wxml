@@ -4,27 +4,21 @@
   <view wx:if="{{!isLoggedIn}}">
     <!-- 用户信息卡片 -->
     <view class="profile-card card-gradient">
+      <view class="role-badge-top" wx:if="{{userInfo.role}}">{{userInfo.role === 'admin' || userInfo.role === 'boss' ? '管理员' : '员工'}}</view>
       <view class="profile-content">
         <view class="profile-avatar" bindtap="showLoginModal">
           <image class="avatar-image" src="{{userInfo.avatarUrl}}" mode="aspectFill" wx:if="{{userInfo && userInfo.avatarUrl}}"></image>
           <text class="avatar-text" wx:else>{{avatarText}}</text>
         </view>
         <view class="profile-info">
-          <text class="company-name">{{userInfo.nickName || '微信用户'}}</text>
+          <text class="user-name">{{userInfo.name || userInfo.nickName || '微信用户'}}</text>
           <view class="profile-details">
-            <view class="detail-item" wx:if="{{userInfo.phone}}">
-              <image class="detail-icon" src="/images/icons/phone.svg" mode="aspectFit"></image>
-              <text class="detail-text">{{userInfo.phone}}</text>
-            </view>
             <view class="detail-item" wx:if="{{tenantInfo.name}}">
               <image class="detail-icon" src="/images/icons/user.svg" mode="aspectFit"></image>
               <text class="detail-text">{{tenantInfo.name}}</text>
             </view>
-            <view class="detail-item" wx:if="{{tenantInfo.address}}">
-              <image class="detail-icon" src="/images/icons/location.svg" mode="aspectFit"></image>
-              <text class="detail-text">{{tenantInfo.address}}</text>
-            </view>
           </view>
+          <text class="user-phone" wx:if="{{userInfo.phone}}">{{userInfo.phone}}</text>
         </view>
       </view>
     </view>
@@ -147,27 +141,21 @@
   <view wx:if="{{isLoggedIn}}">
     <!-- 用户信息卡片 -->
     <view class="profile-card card-gradient">
+      <view class="role-badge-top" wx:if="{{userInfo.role}}">{{userInfo.role === 'admin' || userInfo.role === 'boss' ? '管理员' : '员工'}}</view>
       <view class="profile-content">
         <view class="profile-avatar" bindtap="showLoginModal">
           <image class="avatar-image" src="{{userInfo.avatarUrl}}" mode="aspectFill" wx:if="{{userInfo && userInfo.avatarUrl}}"></image>
           <text class="avatar-text" wx:else>{{avatarText}}</text>
         </view>
         <view class="profile-info">
-          <text class="company-name">{{userInfo.nickName || '微信用户'}}</text>
+          <text class="user-name">{{userInfo.name || userInfo.nickName || '微信用户'}}</text>
           <view class="profile-details">
-            <view class="detail-item" wx:if="{{userInfo.phone}}">
-              <image class="detail-icon" src="/images/icons/phone.svg" mode="aspectFit"></image>
-              <text class="detail-text">{{userInfo.phone}}</text>
-            </view>
             <view class="detail-item" wx:if="{{tenantInfo.name}}">
               <image class="detail-icon" src="/images/icons/user.svg" mode="aspectFit"></image>
               <text class="detail-text">{{tenantInfo.name}}</text>
             </view>
-            <view class="detail-item" wx:if="{{tenantInfo.address}}">
-              <image class="detail-icon" src="/images/icons/location.svg" mode="aspectFit"></image>
-              <text class="detail-text">{{tenantInfo.address}}</text>
-            </view>
           </view>
+          <text class="user-phone" wx:if="{{userInfo.phone}}">{{userInfo.phone}}</text>
         </view>
       </view>
     </view>

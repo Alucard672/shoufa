@@ -76,6 +76,13 @@
         </view>
       </picker>
     </view>
+
+    <view class="form-item">
+      <view class="switch-item">
+        <text class="form-label">保存后分享</text>
+        <switch checked="{{shareAfterSave}}" bindchange="onShareSwitchChange" color="#155DFC" />
+      </view>
+    </view>
   </view>
 
   <!-- 动态计算卡片 -->
@@ -101,7 +108,15 @@
   </view>
 
   <view class="bottom-actions">
+    <button class="btn-complete" wx:if="{{returnOrderId && status === '进行中'}}" bindtap="onMarkComplete">标记为完成</button>
     <button class="btn-submit" bindtap="onSubmit">确认提交回货单</button>
   </view>
+
+  <!-- 隐藏的画布用于生成分享图片 -->
+  <canvas 
+    canvas-id="shareCanvas" 
+    style="position: fixed; top: -9999px; left: -9999px; width: 750px; height: 1200px;"
+    disable-scroll="true"
+  ></canvas>
 </view>
 

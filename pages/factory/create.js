@@ -10,7 +10,6 @@ Page({
     name: '',
     contact: '',
     phone: '',
-    defaultPrice: '',
     settlementMethod: '月结',
     settlementMethodIndex: 0,
     remark: '',
@@ -56,7 +55,6 @@ Page({
           name: factoryData.name || '',
           contact: factoryData.contact || '',
           phone: factoryData.phone || '',
-          defaultPrice: (factoryData.defaultPrice || factoryData.default_price) ? (factoryData.defaultPrice || factoryData.default_price).toString() : '',
           settlementMethod: settlementMethod,
           settlementMethodIndex: settlementMethodIndex >= 0 ? settlementMethodIndex : 0,
           remark: factoryData.remark || ''
@@ -92,11 +90,6 @@ Page({
     })
   },
 
-  onPriceInput(e) {
-    this.setData({
-      defaultPrice: e.detail.value
-    })
-  },
 
   onSettlementMethodChange(e) {
     const index = parseInt(e.detail.value)
@@ -114,7 +107,7 @@ Page({
 
   async onSubmit() {
     // 验证必填字段
-    if (!this.data.name || !this.data.contact || !this.data.phone || !this.data.defaultPrice) {
+    if (!this.data.name || !this.data.contact || !this.data.phone) {
       wx.showToast({
         title: '请填写必填字段',
         icon: 'none'
@@ -127,7 +120,6 @@ Page({
         name: this.data.name,
         contact: this.data.contact,
         phone: this.data.phone,
-        defaultPrice: parseFloat(this.data.defaultPrice) || 0,
         settlementMethod: this.data.settlementMethod,
         remark: this.data.remark || ''
       }

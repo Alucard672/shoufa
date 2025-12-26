@@ -14,6 +14,7 @@ const listTenants = require('./listTenants')
 const bindEmployee = require('./bindEmployee')
 const unbindEmployee = require('./unbindEmployee')
 const listEmployees = require('./listEmployees')
+const updateEmployee = require('./updateEmployee')
 
 exports.main = async (event, context) => {
   let code, msg, data;
@@ -51,6 +52,8 @@ async function dispatchAction(event, context) {
       return await unbindEmployee(db, payload, context);
     case "listEmployees":
       return await listEmployees(db, payload, context);
+    case "updateEmployee":
+      return await updateEmployee(db, payload, context);
     default:
       return Promise.reject({ msg: `Unknown action ${action}` })
   }

@@ -516,3 +516,83 @@ export async function getProductionPlanById(planId) {
   const res = await query('production_plans', { _id: planId })
   return { data: res.data.length > 0 ? res.data[0] : null }
 }
+
+/**
+ * 获取款号-工厂的加工单价
+ */
+export async function getStyleFactoryPrice(styleId, factoryId) {
+  const tenantId = getTenantId()
+  if (!tenantId) {
+    return { data: null }
+  }
+  
+  try {
+    const res = await db.collection('style_factory_prices')
+      .where({
+        tenantId: tenantId,
+        styleId: styleId,
+        factoryId: factoryId,
+        deleted: false
+      })
+      .get()
+    
+    return { data: res.data.length > 0 ? res.data[0] : null }
+  } catch (error) {
+    console.error('获取款号-工厂加工单价失败:', error)
+    return { data: null }
+  }
+}
+
+/**
+ * 保存或更新款号-工厂的加工单价
+ */
+export async function saveStyleFactoryPrice(styleId, factoryId, processingFeePerDozen) {
+  const tenantId = getTenantId()
+  if (!tenantId) {
+    throw new Error('未登录')
+  }
+  
+  try {
+    // 先查询是否存在
+    const existingRes = await db.collection('style_factory_prices')
+      .where({
+        tenantId: tenantId,
+        styleId: styleId,
+        factoryId: factoryId,
+        deleted: false
+      })
+      .get()
+    
+    const data = {
+      styleId: styleId,
+      factoryId: factoryId,
+      processingFeePerDozen: processingFeePerDozen,
+      updateTime: db.serverDate()
+    }
+    
+    if (existingRes.data.length > 0) {
+      // 更新现有记录
+      await db.collection('style_factory_prices')
+        .doc(existingRes.data[0]._id)
+        .update({
+          data: data
+        })
+      return { data: { ...existingRes.data[0], ...data } }
+    } else {
+      // 创建新记录
+      const result = await db.collection('style_factory_prices')
+        .add({
+          data: {
+            ...data,
+            tenantId: tenantId,
+            deleted: false,
+            createTime: db.serverDate()
+          }
+        })
+      return { data: { _id: result._id, ...data } }
+    }
+  } catch (error) {
+    console.error('保存款号-工厂加工单价失败:', error)
+    throw error
+  }
+}

@@ -119,51 +119,98 @@ exports.main = async (event, context) => {
 
     if (action === 'joinTenant') {
         try {
-            const { tenantId, avatarUrl, nickName, phoneNumber } = event
+            const { tenantId, inviteCode, avatarUrl, nickName, phoneNumber } = event
             const wxContext = cloud.getWXContext()
             const openid = wxContext.OPENID
 
+            let targetTenantId = tenantId
+
+            // 如果传了邀请码（sn），先查出对应的 tenantId
+            if (inviteCode) {
+                const tenantRes = await db.collection('tenants').where({
+                    sn: inviteCode
+                }).get()
+                if (tenantRes.data.length === 0) {
+                    return { success: false, msg: '邀请码无效，请检查后重试' }
+                }
+                targetTenantId = tenantRes.data[0]._id
+            }
+
+            if (!targetTenantId) {
+                return { success: false, msg: '企业ID或邀请码不能为空' }
+            }
+
             // 1. 检查用户是否已在其他租户中
             const userCheck = await db.collection('users').where({
-                phone: phoneNumber
+                phone: phoneNumber,
+                deleted: false
             }).get()
 
+            let userRecord = null
             if (userCheck.data.length > 0) {
-                // 如果已存在，更新其所属租户（或者提示已加入其他企业）
-                // 这里采用更新逻辑，允许迁移
-                await db.collection('users').doc(userCheck.data[0]._id).update({
-                    data: {
-                        tenantId: tenantId,
-                        role: 'staff', // 扫码加入的默认是员工
-                        avatarUrl: avatarUrl || userCheck.data[0].avatarUrl,
-                        nickName: nickName || userCheck.data[0].nickName,
+                // 如果已存在且属于不同租户，更新其所属租户
+                const existingUser = userCheck.data[0]
+                if (existingUser.tenantId !== targetTenantId) {
+                    await db.collection('users').doc(existingUser._id).update({
+                        data: {
+                            tenantId: targetTenantId,
+                            role: 'staff',
+                            avatarUrl: avatarUrl || existingUser.avatarUrl,
+                            nickName: nickName || existingUser.nickName,
+                            openid: openid,
+                            updateTime: db.serverDate()
+                        }
+                    })
+                    // 获取更新后的用户记录
+                    const updatedRes = await db.collection('users').doc(existingUser._id).get()
+                    userRecord = updatedRes.data
+                } else {
+                    // 已在本租户中，更新头像和昵称（如果提供了）
+                    const updateData = {
                         openid: openid,
                         updateTime: db.serverDate()
                     }
-                })
+                    if (avatarUrl) updateData.avatarUrl = avatarUrl
+                    if (nickName) updateData.nickName = nickName
+                    await db.collection('users').doc(existingUser._id).update({ data: updateData })
+                    userRecord = { ...existingUser, ...updateData }
+                }
             } else {
-                // 2. 新增用户记录
-                await db.collection('users').add({
+                // 2. 新增用户记录（扫码加入的员工）
+                const now = db.serverDate()
+                const addRes = await db.collection('users').add({
                     data: {
-                        tenantId: tenantId,
+                        tenantId: targetTenantId,
                         phone: phoneNumber,
+                        name: '', // 扫码加入时姓名为空，后续可编辑
                         role: 'staff',
                         avatarUrl: avatarUrl || '',
                         nickName: nickName || '微信用户',
                         openid: openid,
                         deleted: false,
-                        createTime: db.serverDate(),
-                        updateTime: db.serverDate()
+                        createTime: now,
+                        updateTime: now,
+                        lastLoginTime: null
                     }
                 })
+                // 获取刚创建的用户记录
+                const newUserRes = await db.collection('users').doc(addRes._id).get()
+                userRecord = newUserRes.data
             }
 
             // 3. 获取租户详情返回
-            const tenantRes = await db.collection('tenants').doc(tenantId).get()
+            const finalTenantRes = await db.collection('tenants').doc(targetTenantId).get()
 
             return {
                 success: true,
-                tenant: tenantRes.data
+                tenant: finalTenantRes.data,
+                user: userRecord || {
+                    phone: phoneNumber,
+                    nickName: nickName,
+                    role: 'staff',
+                    tenantId: targetTenantId,
+                    avatarUrl: avatarUrl || ''
+                }
             }
         } catch (err) {
             console.error('加入企业失败:', err)

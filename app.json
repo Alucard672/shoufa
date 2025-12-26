@@ -21,7 +21,9 @@
     "pages/settings/color",
     "pages/settings/size",
     "pages/settings/employees",
-    "pages/mine/invite"
+    "pages/mine/invite",
+    "pages/accounting/index",
+    "pages/accounting/detail"
   ],
   "window": {
     "navigationBarTitleText": "纱线收发",

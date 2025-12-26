@@ -10,6 +10,7 @@
   background: linear-gradient(90deg, rgba(43, 127, 255, 1) 0%, rgba(152, 16, 250, 1) 100%);
   border-radius: 14px;
   color: #FFFFFF;
+  position: relative;
 }
 
 .profile-content {
@@ -47,19 +48,45 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  align-items: flex-start;
 }
 
-.company-name {
-  font-size: 18px;
+.user-name {
+  font-size: 20px;
   font-weight: 700;
   color: #FFFFFF;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.user-phone {
+  font-size: 14px;
+  color: #FFFFFF;
+  opacity: 0.9;
+  line-height: 1.4;
+  margin-top: 8px;
 }
 
 .profile-details {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.role-badge-top {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 12px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.3);
+  color: #FFFFFF;
+  border-radius: 12px;
+  font-weight: 500;
+  z-index: 1;
+  backdrop-filter: blur(10px);
 }
 
 .detail-item {
@@ -72,10 +99,11 @@
   width: 16px;
   height: 16px;
   font-size: 16px;
-  opacity: 0.8;
+  opacity: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  filter: brightness(0) invert(1);
 }
 
 .detail-text {

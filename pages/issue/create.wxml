@@ -52,6 +52,18 @@
       />
     </view>
 
+    <view class="form-item" wx:if="{{selectedStyleId && selectedFactoryId}}">
+      <text class="form-label">加工单价 (元/打)</text>
+      <input 
+        class="form-input" 
+        type="digit" 
+        placeholder="请输入加工单价"
+        value="{{processingFeePerDozen}}"
+        bindinput="onProcessingFeeInput"
+      />
+      <text class="form-hint" wx:if="{{processingFeePerPiece}}">约 {{processingFeePerPiece}} 元/件</text>
+    </view>
+
     <view class="form-item">
       <text class="form-label">发料日期</text>
       <picker 

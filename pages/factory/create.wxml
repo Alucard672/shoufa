@@ -41,17 +41,6 @@
       </view>
 
       <view class="form-item">
-        <text class="form-label">默认加工单价（元/打）*</text>
-        <input 
-          class="form-input" 
-          type="digit"
-          placeholder="例：4.2"
-          value="{{defaultPrice}}"
-          bindinput="onPriceInput"
-        />
-      </view>
-
-      <view class="form-item">
         <text class="form-label">结算方式 *</text>
         <picker 
           mode="selector" 

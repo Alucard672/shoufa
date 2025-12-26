@@ -1,0 +1,58 @@
+<!--pages/accounting/index.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-left">
+      <text class="page-title">账款管理</text>
+      <text class="page-subtitle">查看各加工厂的账款明细</text>
+    </view>
+  </view>
+
+  <!-- 加工厂列表 -->
+  <view class="factory-list">
+    <view 
+      class="factory-card card" 
+      wx:for="{{factories}}" 
+      wx:key="_id"
+      bindtap="onFactoryTap"
+      data-id="{{item._id || item.id}}"
+    >
+      <view class="factory-header">
+        <view class="factory-info">
+          <text class="factory-name">{{item.name}}</text>
+          <text class="factory-contact" wx:if="{{item.contact}}">{{item.contact}} {{item.phone}}</text>
+        </view>
+        <text class="factory-arrow">›</text>
+      </view>
+      
+      <view class="factory-summary">
+        <view class="summary-row">
+          <text class="summary-label">总金额</text>
+          <text class="summary-value total">¥{{item.summaryFormatted.totalAmount}}</text>
+        </view>
+        <view class="summary-row">
+          <text class="summary-label">已结算</text>
+          <text class="summary-value settled">¥{{item.summaryFormatted.settledAmount}}</text>
+        </view>
+        <view class="summary-row">
+          <text class="summary-label">未结算</text>
+          <text class="summary-value unpaid">¥{{item.summaryFormatted.unpaidAmount}}</text>
+        </view>
+        <view class="summary-row" wx:if="{{item.orderCount > 0}}">
+          <text class="summary-label">回货单数</text>
+          <text class="summary-value">{{item.orderCount}}单</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-tip" wx:if="{{factories.length === 0 && !loading}}">
+    <text>暂无加工厂数据</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading-tip" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

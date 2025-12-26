@@ -1,0 +1,10 @@
+{
+  "name": "syncDatabaseSchema",
+  "version": "1.0.0",
+  "description": "同步数据库集合和索引结构",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
+

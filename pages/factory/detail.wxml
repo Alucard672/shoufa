@@ -4,7 +4,6 @@
     <text class="factory-name">{{factory.name}}</text>
     <text class="factory-contact" wx:if="{{factory.contact}}">联系人：{{factory.contact}}</text>
     <text class="factory-phone" wx:if="{{factory.phone}}">联系方式：{{factory.phone}}</text>
-    <text class="factory-price">加工单价：¥{{factory.defaultPrice}}/打</text>
     <text class="factory-settlement">结算方式：{{factory.settlementMethod}}</text>
   </view>
 

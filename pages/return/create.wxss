@@ -181,9 +181,12 @@
   padding: 12px;
   background: #FFFFFF;
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+  display: flex;
+  gap: 8px;
 }
 
 .btn-submit {
+  flex: 1;
   background: #155DFC;
   color: #FFFFFF;
   height: 42px;
@@ -193,6 +196,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.btn-complete {
+  flex: 0 0 auto;
+  background: #10B981;
+  color: #FFFFFF;
+  height: 42px;
+  padding: 0 20px;
+  border-radius: 21px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.switch-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
 }
 
 

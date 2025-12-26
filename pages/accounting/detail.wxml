@@ -1,0 +1,113 @@
+<!--pages/accounting/detail.wxml-->
+<view class="container">
+  <!-- 加工厂信息 -->
+  <view class="factory-info card" wx:if="{{factory}}">
+    <text class="factory-name">{{factory.name}}</text>
+    <text class="factory-contact" wx:if="{{factory.contact}}">{{factory.contact}} {{factory.phone}}</text>
+  </view>
+
+  <!-- 汇总信息 -->
+  <view class="section">
+    <view class="summary-card card">
+      <view class="summary-title">账款汇总</view>
+      <view class="summary-list">
+        <view class="summary-item">
+          <text class="summary-label">总金额</text>
+          <text class="summary-value total">¥{{summaryFormatted.totalAmount}}</text>
+        </view>
+        <view class="summary-item">
+          <text class="summary-label">已结算</text>
+          <text class="summary-value settled">¥{{summaryFormatted.settledAmount}}</text>
+        </view>
+        <view class="summary-item">
+          <text class="summary-label">未结算</text>
+          <text class="summary-value unpaid">¥{{summaryFormatted.unpaidAmount}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="section">
+    <view class="action-buttons">
+      <view class="btn btn-share" bindtap="onShare">
+        <text>分享</text>
+      </view>
+      <view class="btn btn-primary" bindtap="onSettle">
+        <text>结算</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 回货单列表 -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">回货单明细</text>
+    </view>
+    <view class="order-list">
+      <view 
+        class="order-card card" 
+        wx:for="{{returnOrders}}" 
+        wx:key="_id"
+        bindtap="onReturnOrderTap"
+        data-id="{{item._id || item.id}}"
+      >
+        <view class="order-header">
+          <view class="order-info">
+            <text class="order-date">{{item.returnDateFormatted}}</text>
+            <text class="order-style">{{item.styleName}}{{item.styleCode ? ' · ' + item.styleCode : ''}}</text>
+          </view>
+          <text class="order-amount">¥{{item.processingFeeFormatted}}</text>
+        </view>
+        <view class="order-details">
+          <view class="detail-row">
+            <text class="detail-label">已结算</text>
+            <text class="detail-value">¥{{item.settledAmountFormatted}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">未结算</text>
+            <text class="detail-value unpaid">¥{{item.unpaidAmountFormatted}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 结算记录 -->
+  <view class="section" wx:if="{{settlements.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">结算记录</text>
+    </view>
+    <view class="settlement-list">
+      <view 
+        class="settlement-card card" 
+        wx:for="{{settlements}}" 
+        wx:key="_id"
+      >
+        <view class="settlement-header">
+          <text class="settlement-date">{{item.settlementDateFormatted}}</text>
+          <text class="settlement-amount">¥{{item.totalAmountFormatted}}</text>
+        </view>
+        <text class="settlement-no" wx:if="{{item.settlementNo}}">单号：{{item.settlementNo}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-tip" wx:if="{{returnOrders.length === 0 && !loading}}">
+    <text>暂无回货单数据</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading-tip" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+
+  <!-- 隐藏的画布用于生成分享图片 -->
+  <canvas 
+    canvas-id="shareCanvas" 
+    style="position: fixed; top: -9999px; left: -9999px; width: 750px; height: 1200px;"
+    disable-scroll="true"
+  ></canvas>
+</view>
+
