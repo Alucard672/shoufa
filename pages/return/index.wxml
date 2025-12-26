@@ -32,6 +32,13 @@
     bindchange="onTimeFilterChange"
   />
 
+  <!-- 状态筛选 -->
+  <filter-tabs 
+    options="{{['全部', '进行中', '已完成']}}"
+    current="{{statusFilterIndex}}"
+    bindchange="onStatusFilterChange"
+  />
+
   <!-- 搜索框 -->
   <view class="search-container">
     <search-box 
@@ -48,7 +55,12 @@
           <text class="factory-name">{{item.factoryName}}</text>
           <badge type="{{item.settlementStatus === '未结算' ? 'warning' : item.settlementStatus === '部分结算' ? 'info' : 'success'}}" text="{{item.settlementStatus}}" />
         </view>
-        <text class="order-no">{{item.returnNo}}</text>
+        <view class="order-header-right">
+          <text class="order-no">{{item.returnNo}}</text>
+          <view class="share-btn" bindtap="onShareReturnOrder" data-id="{{item._id}}" catchtap="stopPropagation">
+            <text>分享</text>
+          </view>
+        </view>
       </view>
       
       <view class="order-info">
@@ -90,6 +102,32 @@
           <text class="meta-separator">·</text>
           <text class="meta-text">{{item.returnDateFormatted}}</text>
         </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 隐藏的画布用于生成分享图片 -->
+  <canvas 
+    canvas-id="shareCanvas" 
+    style="position: fixed; top: -9999px; left: -9999px; width: 750px; height: 1200px;"
+    disable-scroll="true"
+  ></canvas>
+
+  <!-- 分享选项弹窗 -->
+  <view class="share-modal" wx:if="{{showShareModal}}" catchtouchmove="true">
+    <view class="share-modal-content">
+      <view class="share-options">
+        <view class="share-option" bindtap="saveImageToAlbum">
+          <text class="share-option-icon">📷</text>
+          <text class="share-option-text">保存到相册</text>
+        </view>
+        <view class="share-option" bindtap="previewImage">
+          <text class="share-option-icon">👁️</text>
+          <text class="share-option-text">预览图片</text>
+        </view>
+      </view>
+      <view class="share-modal-close" bindtap="closeShareModal">
+        <text>取消</text>
       </view>
     </view>
   </view>

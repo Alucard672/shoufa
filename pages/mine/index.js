@@ -53,12 +53,29 @@ Page({
         adminOnly: true // 标记仅管理员可见
       },
       {
+        id: 'employees',
+        title: '员工管理',
+        desc: '查看和管理所有员工',
+        icon: '/images/icons/user.svg',
+        bgColor: '#F0FDF4',
+        path: '/pages/settings/employees',
+        adminOnly: true // 标记仅管理员可见
+      },
+      {
         id: 'settings',
         title: '基础信息设置',
         desc: '管理颜色、尺码等基础数据',
         icon: '/images/icons/settings.png',
         bgColor: '#FFF7ED',
         path: '/pages/settings/index'
+      },
+      {
+        id: 'accounting',
+        title: '账款管理',
+        desc: '查看和管理加工账款',
+        icon: '/images/icons/user.svg',
+        bgColor: '#F0FDF4',
+        path: '/pages/accounting/index'
       }
     ]
   },

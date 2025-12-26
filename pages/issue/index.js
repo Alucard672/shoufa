@@ -227,7 +227,7 @@ Page({
       try {
         const _ = wx.cloud.database().command
         const allReturnOrdersRes = await query('return_orders', {
-          issue_id: _.in(issueIds)
+          issueId: _.in(issueIds)
         }, {
           excludeDeleted: true
         })

@@ -285,7 +285,7 @@ Page({
           lossRate: (styleData.lossRate || styleData.loss_rate) ? (styleData.lossRate || styleData.loss_rate).toString() : '',
           actualUsage: (styleData.actualUsage || styleData.actual_usage) ? (styleData.actualUsage || styleData.actual_usage).toString() : '',
           processingFeePerDozen: (styleData.processingFeePerDozen || styleData.processing_fee_per_dozen) ? (styleData.processingFeePerDozen || styleData.processing_fee_per_dozen).toString() : '',
-          processingFeePerPiece: (styleData.processingFeePerPiece || styleData.processing_fee_per_piece) ? (styleData.processingFeePerPiece || styleData.processing_fee_per_piece).toString() : '',
+          processingFeePerPiece: (styleData.processingFeePerDozen || styleData.processing_fee_per_dozen) ? ((parseFloat(styleData.processingFeePerDozen || styleData.processing_fee_per_dozen) / 12).toFixed(2)) : '0.00',
           availableColors: availableColors || [],
           availableSizes: availableSizes || [],
           selectedColors: selectedColors,
@@ -636,9 +636,9 @@ Page({
 
   async onSubmit() {
     // 验证必填字段
-    if (!this.data.styleCode || !this.data.styleName || !this.data.yarnUsagePerPiece) {
+    if (!this.data.styleCode || !this.data.styleName || !this.data.yarnUsagePerPiece || !this.data.processingFeePerDozen) {
       wx.showToast({
-        title: '请填写必填字段',
+        title: '请填写必填字段（款号、名称、用纱量、加工单价）',
         icon: 'none'
       })
       return

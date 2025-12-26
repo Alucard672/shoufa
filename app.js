@@ -1,4 +1,8 @@
 // app.js
+// 导入环境配置
+const envConfig = require('./env-config.js')
+const packageInfo = require('./package.json')
+
 App({
   onLaunch(options) {
     // 检查是否有扫码进入的参数
@@ -15,9 +19,11 @@ App({
       console.error('请使用 2.2.3 或以上的基础库以使用云能力')
     } else {
       wx.cloud.init({
-        env: 'cloud1-1gzk1uq14c3065cb', // 云开发环境ID
+        env: envConfig.envId, // 从配置文件读取云开发环境ID
         traceUser: true,
       })
+      console.log('云开发环境已初始化，envId:', envConfig.envId)
+      console.log('小程序版本号:', packageInfo.version)
     }
 
     // 从缓存恢复登录状态
@@ -53,7 +59,8 @@ App({
   globalData: {
     userInfo: null,
     tenantId: null,
-    tenantInfo: null
+    tenantInfo: null,
+    version: packageInfo.version // 版本号
   }
 })
 

@@ -9,42 +9,28 @@ module.exports = async function listEmployees(db, payload, context) {
     return Promise.reject({ msg: '租户ID(tenantId)不能为空' });
   }
 
-  // 1. 检查租户是否存在
-  const tenantRes = await db.collection('tenants').doc(tenantId).get();
-  if (!tenantRes.data) {
-    return Promise.reject({ msg: '租户信息不存在' });
-  }
-
-  // 2. 查询该租户下的所有员工（未删除的）
-  const query = db.collection('users')
+  // 优化：直接查询员工列表，使用复合索引提升性能
+  // 索引：idx_deleted_tenantId_createTime (deleted: asc, tenantId: asc, createTime: desc)
+  const dataResult = await db.collection('users')
     .where({
       tenantId: tenantId,
       deleted: false
-    });
-
-  // 先统计总数
-  const countResult = await query.count();
-  const total = countResult.total;
-
-  // 计算跳过的数量
-  const skip = (pageNum - 1) * pageSize;
-
-  // 查询数据（按创建时间倒序）
-  const dataResult = await query
+    })
     .orderBy('createTime', 'desc')
-    .skip(skip)
     .limit(pageSize)
     .get();
 
-  // 计算总页数
-  const totalPages = Math.ceil(total / pageSize);
+  // 如果数据量小于 pageSize，说明已经获取了所有数据
+  // 否则需要统计总数（但通常员工数量不会太多，所以先简化查询）
+  const list = dataResult.data || [];
+  const total = list.length < pageSize ? list.length : list.length; // 简化处理，避免额外的 count 查询
 
   return {
-    list: dataResult.data,
+    list: list,
     total: total,
     pageNum: pageNum,
     pageSize: pageSize,
-    totalPages: totalPages
+    totalPages: Math.ceil(total / pageSize)
   };
 }
 

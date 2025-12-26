@@ -12,7 +12,9 @@ Page({
     returnOrders: [], // 未结算的回货单列表
     selectedOrders: [], // 选中的回货单ID列表
     totalSelectedQuantityDisp: '0件', // 选中合计显示
-    settlementDate: '', // 结算日期
+    startDate: '', // 结算开始日期
+    endDate: '', // 结算结束日期
+    settlementDate: '', // 结算日期（用于保存，取结束日期）
     settlementAmount: 0, // 结算总金额
     settlementAmountFormatted: '0.00',
     totalSettledAmount: 0, // 总已结算金额
@@ -26,10 +28,14 @@ Page({
     if (!checkLogin()) {
       return
     }
-    if (options.factoryId) {
+    const factoryId = options.factoryId || options.id
+    if (factoryId) {
+      const today = this.getTodayDate()
       this.setData({
-        factoryId: options.factoryId,
-        settlementDate: this.getTodayDate()
+        factoryId: factoryId,
+        startDate: today,
+        endDate: today,
+        settlementDate: today // 默认使用结束日期作为结算日期
       })
       this.loadData()
     }
@@ -229,9 +235,31 @@ Page({
     })
   },
 
-  onDateChange(e) {
+  onStartDateChange(e) {
+    const startDate = e.detail.value
+    // 如果开始日期晚于结束日期，自动调整结束日期
+    let endDate = this.data.endDate
+    if (endDate && startDate > endDate) {
+      endDate = startDate
+    }
     this.setData({
-      settlementDate: e.detail.value
+      startDate: startDate,
+      endDate: endDate,
+      settlementDate: endDate || startDate // 使用结束日期作为结算日期
+    })
+  },
+
+  onEndDateChange(e) {
+    const endDate = e.detail.value
+    // 如果结束日期早于开始日期，自动调整开始日期
+    let startDate = this.data.startDate
+    if (startDate && endDate < startDate) {
+      startDate = endDate
+    }
+    this.setData({
+      startDate: startDate,
+      endDate: endDate,
+      settlementDate: endDate // 使用结束日期作为结算日期
     })
   },
 
@@ -287,7 +315,9 @@ Page({
         settlementNo: settlementNo,
         factoryId: this.data.factoryId,
         factoryName: this.data.factory?.name || '未知工厂',
-        settlementDate: new Date(this.data.settlementDate),
+        startDate: new Date(this.data.startDate),
+        endDate: new Date(this.data.endDate),
+        settlementDate: new Date(this.data.settlementDate || this.data.endDate),
         totalAmount: this.data.settlementAmount,
         remark: this.data.remark,
         returnOrderIds: selectedOrders.map(order => order._id || order.id)

@@ -1,5 +1,5 @@
 // pages/issue/create.js
-import { createIssueOrder, getFactories, getStyles, query } from '../../utils/db.js'
+import { createIssueOrder, getFactories, getStyles, query, getStyleFactoryPrice } from '../../utils/db.js'
 import { generateIssueNo, formatDate } from '../../utils/calc.js'
 import { checkLogin } from '../../utils/auth.js'
 
@@ -16,7 +16,9 @@ Page({
     selectedColors: [],
     issueWeight: '',
     issueDate: '',
-    planId: ''
+    planId: '',
+    processingFeePerDozen: '',
+    processingFeePerPiece: ''
   },
 
   async onLoad(options) {
@@ -81,7 +83,7 @@ Page({
     }
   },
 
-  onFactoryChange(e) {
+  async onFactoryChange(e) {
     const factory = e.detail.value
     // 单选模式下，value 可能是一个对象或对象数组
     const selectedFactory = Array.isArray(factory) ? factory[0] : factory
@@ -89,9 +91,12 @@ Page({
       selectedFactory: selectedFactory,
       selectedFactoryId: selectedFactory?._id || ''
     })
+    
+    // 当工厂和款号都选择后，加载上次价格
+    await this.loadLastProcessingFee()
   },
 
-  onStyleChange(e) {
+  async onStyleChange(e) {
     const style = e.detail.value
     // 单选模式下，value 可能是一个对象或对象数组
     const selectedStyle = Array.isArray(style) ? style[0] : style
@@ -100,6 +105,53 @@ Page({
       selectedStyleId: selectedStyle?._id || '',
       selectedColor: null,
       selectedColors: []
+    })
+    
+    // 当工厂和款号都选择后，加载上次价格
+    await this.loadLastProcessingFee()
+  },
+
+  async loadLastProcessingFee() {
+    const styleId = this.data.selectedStyleId
+    const factoryId = this.data.selectedFactoryId
+    
+    if (!styleId || !factoryId) {
+      return
+    }
+    
+    try {
+      // 先查询款号-工厂的历史价格
+      const priceRes = await getStyleFactoryPrice(styleId, factoryId)
+      
+      let processingFeePerDozen = ''
+      
+      if (priceRes.data && priceRes.data.processingFeePerDozen) {
+        // 使用历史价格
+        processingFeePerDozen = priceRes.data.processingFeePerDozen.toString()
+      } else if (this.data.selectedStyle && this.data.selectedStyle.processingFeePerDozen) {
+        // 使用款号的默认价格
+        processingFeePerDozen = this.data.selectedStyle.processingFeePerDozen.toString()
+      }
+      
+      const processingFeePerPiece = processingFeePerDozen ? (parseFloat(processingFeePerDozen) / 12).toFixed(2) : ''
+      
+      this.setData({
+        processingFeePerDozen: processingFeePerDozen,
+        processingFeePerPiece: processingFeePerPiece
+      })
+    } catch (error) {
+      console.error('加载上次加工价失败:', error)
+    }
+  },
+
+  onProcessingFeeInput(e) {
+    const value = e.detail.value
+    const processingFeePerDozen = value ? parseFloat(value) : 0
+    const processingFeePerPiece = processingFeePerDozen > 0 ? (processingFeePerDozen / 12).toFixed(2) : ''
+    
+    this.setData({
+      processingFeePerDozen: value,
+      processingFeePerPiece: processingFeePerPiece
     })
   },
 
@@ -152,6 +204,14 @@ Page({
       return
     }
 
+    if (!this.data.processingFeePerDozen || parseFloat(this.data.processingFeePerDozen) <= 0) {
+      wx.showToast({
+        title: '请输入加工单价',
+        icon: 'none'
+      })
+      return
+    }
+
     try {
       wx.showLoading({
         title: '创建中...'
@@ -173,6 +233,7 @@ Page({
             issueWeight: parseFloat(this.data.issueWeight),
             issueDate: issueDate,
             planId: this.data.planId || '',
+            processingFeePerDozen: parseFloat(this.data.processingFeePerDozen),
             tenantId: app.globalData.tenantId
           }
         }

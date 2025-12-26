@@ -101,6 +101,51 @@ exports.main = async (event, context) => {
       }
     })
     
+    // 保存或更新款号-工厂的加工单价（在事务外执行）
+    if (issueOrder.processingFeePerDozen && issueOrder.styleId && issueOrder.factoryId) {
+      try {
+        // 先查询是否存在
+        const existingRes = await db.collection('style_factory_prices')
+          .where({
+            tenantId: issueOrder.tenantId,
+            styleId: issueOrder.styleId,
+            factoryId: issueOrder.factoryId,
+            deleted: false
+          })
+          .get()
+        
+        const priceData = {
+          styleId: issueOrder.styleId,
+          factoryId: issueOrder.factoryId,
+          processingFeePerDozen: issueOrder.processingFeePerDozen,
+          updateTime: db.serverDate()
+        }
+        
+        if (existingRes.data.length > 0) {
+          // 更新现有记录
+          await db.collection('style_factory_prices')
+            .doc(existingRes.data[0]._id)
+            .update({
+              data: priceData
+            })
+        } else {
+          // 创建新记录
+          await db.collection('style_factory_prices')
+            .add({
+              data: {
+                ...priceData,
+                tenantId: issueOrder.tenantId,
+                deleted: false,
+                createTime: db.serverDate()
+              }
+            })
+        }
+      } catch (error) {
+        console.error('保存款号-工厂加工单价失败:', error)
+        // 不阻断主流程，仅记录错误
+      }
+    }
+    
     return {
       success: true,
       data: result

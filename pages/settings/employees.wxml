@@ -14,13 +14,24 @@
   <!-- 员工列表 -->
   <view class="list-container">
     <view class="list-item card" wx:for="{{employees}}" wx:key="_id">
+      <view class="item-role-badge-top" wx:if="{{item.role === 'admin' || item.role === 'boss'}}">管理员</view>
       <view class="item-content">
+        <view class="item-avatar-wrapper">
+          <image class="item-avatar" src="{{item.avatarUrl}}" mode="aspectFill" wx:if="{{item.avatarUrl}}"></image>
+          <view class="item-avatar-placeholder" wx:else>
+            <text class="avatar-text">{{item.nickName ? item.nickName.charAt(0) : '员'}}</text>
+          </view>
+        </view>
         <view class="item-main">
+          <text class="item-name">{{item.name || item.nickName || '未设置姓名'}}</text>
           <text class="item-phone">{{item.phone}}</text>
-          <text class="item-role" wx:if="{{item.role}}">{{item.role === 'admin' ? '管理员' : '员工'}}</text>
+          <text class="item-time" wx:if="{{item.createTimeFormatted}}">加入时间：{{item.createTimeFormatted}}</text>
         </view>
         <view class="item-actions">
-          <view class="btn-icon btn-danger" bindtap="onDelete" data-employee="{{item}}">
+          <view class="btn-icon btn-edit" bindtap="onEditEmployee" data-employee="{{item}}">
+            <text>编辑</text>
+          </view>
+          <view class="btn-icon btn-danger" bindtap="onDelete" data-employee="{{item}}" wx:if="{{item.role !== 'admin' && item.role !== 'boss'}}">
             <text>解绑</text>
           </view>
         </view>
@@ -48,6 +59,16 @@
 
       <view class="modal-body">
         <view class="form-item">
+          <text class="form-label">姓名</text>
+          <input 
+            class="form-input" 
+            placeholder="请输入员工姓名"
+            value="{{addName}}"
+            bindinput="onAddNameInput"
+            maxlength="20"
+          />
+        </view>
+        <view class="form-item">
           <text class="form-label">手机号 *</text>
           <input 
             class="form-input" 
@@ -64,6 +85,57 @@
       <view class="modal-footer">
         <view class="btn btn-cancel" bindtap="onCloseModal">取消</view>
         <view class="btn btn-submit" bindtap="onSave">保存</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 编辑员工模态框 -->
+  <view class="modal-overlay" wx:if="{{showEditModal}}" bindtap="onCloseEditModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">编辑员工</text>
+        <view class="close-btn" bindtap="onCloseEditModal">
+          <image class="icon-close" src="/images/icons/close.svg" mode="aspectFit"></image>
+        </view>
+      </view>
+
+      <view class="modal-body">
+        <view class="form-item">
+          <text class="form-label">姓名</text>
+          <input 
+            class="form-input" 
+            placeholder="请输入员工姓名"
+            value="{{editName}}"
+            bindinput="onEditNameInput"
+            maxlength="20"
+          />
+        </view>
+        <view class="form-item">
+          <text class="form-label">昵称</text>
+          <input 
+            class="form-input" 
+            placeholder="请输入昵称"
+            value="{{editNickName}}"
+            bindinput="onEditNickNameInput"
+            maxlength="20"
+          />
+        </view>
+        <view class="form-item">
+          <text class="form-label">手机号 *</text>
+          <input 
+            class="form-input" 
+            type="number"
+            placeholder="请输入11位手机号"
+            maxlength="11"
+            value="{{editPhone}}"
+            bindinput="onEditPhoneInput"
+          />
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <view class="btn btn-cancel" bindtap="onCloseEditModal">取消</view>
+        <view class="btn btn-submit" bindtap="onUpdateEmployee">保存</view>
       </view>
     </view>
   </view>

@@ -1,0 +1,770 @@
+{
+  "version": "2.0",
+  "envId": "shoufa-prod-3g0umt9fbba2f52b",
+  "functionRoot": "./cloudfunctions",
+  "functions": [
+    {
+      "name": "auth",
+      "installDependency": true
+    },
+    {
+      "name": "tenants",
+      "installDependency": true
+    },
+    {
+      "name": "initDatabase",
+      "installDependency": true
+    },
+    {
+      "name": "cleanupInvalidColorsAndSizes",
+      "installDependency": true
+    },
+    {
+      "name": "createIssueOrder",
+      "installDependency": true
+    },
+    {
+      "name": "createReturnOrder",
+      "installDependency": true
+    },
+    {
+      "name": "updateStyle",
+      "installDependency": true
+    },
+    {
+      "name": "migrateDates",
+      "installDependency": true
+    },
+    {
+      "name": "syncDatabaseSchema",
+      "installDependency": true
+    }
+  ],
+  "database": {
+    "collections": [
+      {
+        "name": "tenants",
+        "aclTag": "ADMINONLY",
+        "indexes": [
+          {
+            "indexName": "idx_sn",
+            "fields": [
+              {
+                "field": "sn",
+                "direction": "asc"
+              }
+            ],
+            "unique": true
+          }
+        ]
+      },
+      {
+        "name": "users",
+        "aclTag": "ADMINONLY",
+        "indexes": [
+          {
+            "indexName": "idx_phone",
+            "fields": [
+              {
+                "field": "phone",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_tenantId",
+            "fields": [
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId_createTime",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "createTime",
+                "direction": "desc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "styles",
+        "aclTag": "PRIVATE",
+        "indexes": [
+          {
+            "indexName": "idx_deleted",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId_createTime",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "createTime",
+                "direction": "desc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_styleCode",
+            "fields": [
+              {
+                "field": "styleCode",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_createTime",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "createTime",
+                "direction": "desc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "factories",
+        "aclTag": "PRIVATE",
+        "indexes": [
+          {
+            "indexName": "idx_deleted",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId_createTime",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "createTime",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_tenantId_deleted_id",
+            "fields": [
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "_id",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_name",
+            "fields": [
+              {
+                "field": "name",
+                "direction": "asc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "yarn_inventory",
+        "aclTag": "PRIVATE",
+        "indexes": [
+          {
+            "indexName": "idx_deleted",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_yarnName",
+            "fields": [
+              {
+                "field": "yarnName",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_createTime",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "createTime",
+                "direction": "desc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "issue_orders",
+        "aclTag": "PRIVATE",
+        "indexes": [
+          {
+            "indexName": "idx_deleted",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_issueNo",
+            "fields": [
+              {
+                "field": "issueNo",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId_issueDate",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "issueDate",
+                "direction": "desc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_factoryId_tenantId_createTime",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "factoryId",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "createTime",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_factoryId_tenantId_issueDate",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "factoryId",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "issueDate",
+                "direction": "desc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "return_orders",
+        "aclTag": "PRIVATE",
+        "indexes": [
+          {
+            "indexName": "idx_deleted",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId_returnDate",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "returnDate",
+                "direction": "desc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId_createTime",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "createTime",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_factoryId_tenantId_createTime",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "factoryId",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "createTime",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_issueId",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "issueId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_factoryId_tenantId_returnDate",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "factoryId",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "returnDate",
+                "direction": "desc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_settlementStatus",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "settlementStatus",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId_settlementStatus_createTime",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "settlementStatus",
+                "direction": "asc"
+              },
+              {
+                "field": "createTime",
+                "direction": "asc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "color_dict",
+        "aclTag": "READONLY",
+        "indexes": [
+          {
+            "indexName": "idx_tenantId_name",
+            "fields": [
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "name",
+                "direction": "asc"
+              }
+            ],
+            "unique": true
+          }
+        ]
+      },
+      {
+        "name": "size_dict",
+        "aclTag": "READONLY",
+        "indexes": [
+          {
+            "indexName": "idx_tenantId_name",
+            "fields": [
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "name",
+                "direction": "asc"
+              }
+            ],
+            "unique": true
+          },
+          {
+            "indexName": "idx_tenantId_order_createTime",
+            "fields": [
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "order",
+                "direction": "asc"
+              },
+              {
+                "field": "createTime",
+                "direction": "desc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "production_plans",
+        "aclTag": "PRIVATE",
+        "indexes": [
+          {
+            "indexName": "idx_deleted",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_tenantId_createTime",
+            "fields": [
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "createTime",
+                "direction": "desc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "settlements",
+        "aclTag": "PRIVATE",
+        "indexes": [
+          {
+            "indexName": "idx_deleted",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_factoryId",
+            "fields": [
+              {
+                "field": "factoryId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_settlementDate",
+            "fields": [
+              {
+                "field": "settlementDate",
+                "direction": "desc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "style_factory_prices",
+        "aclTag": "PRIVATE",
+        "indexes": [
+          {
+            "indexName": "idx_deleted",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_deleted_tenantId",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_styleId_factoryId",
+            "fields": [
+              {
+                "field": "styleId",
+                "direction": "asc"
+              },
+              {
+                "field": "factoryId",
+                "direction": "asc"
+              }
+            ],
+            "unique": true
+          },
+          {
+            "indexName": "idx_deleted_tenantId_styleId_factoryId",
+            "fields": [
+              {
+                "field": "deleted",
+                "direction": "asc"
+              },
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              },
+              {
+                "field": "styleId",
+                "direction": "asc"
+              },
+              {
+                "field": "factoryId",
+                "direction": "asc"
+              }
+            ],
+            "unique": true
+          }
+        ]
+      }
+    ]
+  }
+}
+

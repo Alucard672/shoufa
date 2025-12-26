@@ -21,3 +21,15 @@ npm-debug.log*
 
 api_key_config.sh
 api_key_config_bak.sh
+
+# 云环境配置备份文件
+cloudbaserc.json.bak
+
+# 当前云环境配置文件（由部署脚本动态切换，不应提交）
+cloudbaserc.json
+
+# 小程序环境配置文件（由部署脚本生成）
+env-config.js
+
+# 数据库同步临时文件
+.sync-db-params.json

@@ -30,14 +30,9 @@ Page({
     this.loadData()
   },
 
-  onPullDownRefresh() {
-    this.loadData().then(() => {
-      wx.stopPullDownRefresh()
-    })
-  },
-
   async loadData() {
     try {
+      wx.showLoading({ title: '加载中...' })
       await Promise.all([
         this.loadStatistics(),
         this.loadStatisticsList()
@@ -48,6 +43,8 @@ Page({
         title: '加载失败',
         icon: 'none'
       })
+    } finally {
+      wx.hideLoading()
     }
   },
 
@@ -69,22 +66,37 @@ Page({
     })
 
     const issueIds = issueOrdersRes.data.map(order => order.id || order._id)
+    console.log('统计页面loadStatistics - 发料单IDs:', issueIds)
     let totalReturnPieces = 0
     let totalReturnWeight = 0
     let returnedCount = 0
 
     if (issueIds.length > 0) {
       const _ = wx.cloud.database().command
-      const returnOrdersRes = await query('return_orders', {
-        issue_id: _.in(issueIds)
-      }, {
-        excludeDeleted: true
-      })
+      // 先尝试使用 issueId，如果失败再尝试 issue_id
+      let returnOrdersRes
+      try {
+        returnOrdersRes = await query('return_orders', {
+          issueId: _.in(issueIds)
+        }, {
+          excludeDeleted: true
+        })
+        console.log('统计页面loadStatistics - 使用issueId查询回货单:', returnOrdersRes.data.length, '条')
+      } catch (e) {
+        console.log('统计页面loadStatistics - issueId查询失败，尝试issue_id:', e)
+        returnOrdersRes = await query('return_orders', {
+          issue_id: _.in(issueIds)
+        }, {
+          excludeDeleted: true
+        })
+        console.log('统计页面loadStatistics - 使用issue_id查询回货单:', returnOrdersRes.data.length, '条')
+      }
 
       returnOrdersRes.data.forEach(order => {
         totalReturnPieces += order.returnPieces || order.return_pieces || 0
         totalReturnWeight += order.actualYarnUsage || order.actual_yarn_usage || 0
       })
+      console.log('统计页面loadStatistics - 总计回货件数:', totalReturnPieces, '重量:', totalReturnWeight)
     }
 
     issueOrdersRes.data.forEach(order => {
@@ -133,22 +145,77 @@ Page({
 
     // 批量查询回货单
     const issueIds = issueOrders.data.map(order => order.id || order._id)
+    console.log('统计页面 - 发料单IDs:', issueIds)
+    
     const returnOrdersMap = new Map()
     if (issueIds.length > 0) {
-      const _ = wx.cloud.database().command
-      const returnOrdersRes = await query('return_orders', {
-        issue_id: _.in(issueIds)
-      }, {
+      // 先查询所有回货单，看看实际的 issueId 值
+      const allReturnOrdersRes = await query('return_orders', {}, {
         excludeDeleted: true
       })
+      console.log('统计页面 - 所有回货单:', allReturnOrdersRes.data.length, '条')
+      allReturnOrdersRes.data.forEach(ro => {
+        console.log('统计页面 - 回货单详情:', {
+          returnNo: ro.returnNo || ro.return_no,
+          issueId: ro.issueId || ro.issue_id,
+          issueIdType: typeof (ro.issueId || ro.issue_id),
+          issueIdStr: String(ro.issueId || ro.issue_id)
+        })
+      })
       
-      returnOrdersRes.data.forEach(order => {
-        const issueId = order.issueId || order.issue_id
+      const _ = wx.cloud.database().command
+      // 先尝试使用 issueId，如果失败再尝试 issue_id
+      let returnOrdersRes
+      try {
+        returnOrdersRes = await query('return_orders', {
+          issueId: _.in(issueIds)
+        }, {
+          excludeDeleted: true
+        })
+        console.log('统计页面 - 使用issueId查询回货单:', returnOrdersRes.data.length, '条', returnOrdersRes.data.map(o => ({ id: o._id, issueId: o.issueId || o.issue_id, returnNo: o.returnNo || o.return_no })))
+      } catch (e) {
+        console.log('统计页面 - issueId查询失败，尝试issue_id:', e)
+        returnOrdersRes = await query('return_orders', {
+          issue_id: _.in(issueIds)
+        }, {
+          excludeDeleted: true
+        })
+        console.log('统计页面 - 使用issue_id查询回货单:', returnOrdersRes.data.length, '条', returnOrdersRes.data.map(o => ({ id: o._id, issueId: o.issueId || o.issue_id, returnNo: o.returnNo || o.return_no })))
+      }
+      
+      // 如果查询结果为空，尝试在内存中过滤
+      if (returnOrdersRes.data.length === 0 && allReturnOrdersRes.data.length > 0) {
+        console.log('统计页面 - 尝试在内存中匹配回货单')
+        const issueIdsStr = issueIds.map(id => String(id))
+        returnOrdersRes.data = allReturnOrdersRes.data.filter(ro => {
+          const roIssueId = ro.issueId || ro.issue_id
+          const roIssueIdStr = String(roIssueId)
+          const matched = issueIdsStr.includes(roIssueIdStr) || issueIds.includes(roIssueId)
+          if (matched) {
+            console.log('统计页面 - 内存匹配成功:', roIssueIdStr, '匹配到发料单ID')
+          }
+          return matched
+        })
+        console.log('统计页面 - 内存匹配结果:', returnOrdersRes.data.length, '条')
+      }
+      
+      // 按 issueId 分组（直接使用原始issueId作为key，与首页动态页面保持一致）
+      returnOrdersRes.data.forEach(returnOrder => {
+        const issueId = returnOrder.issueId || returnOrder.issue_id
         if (!returnOrdersMap.has(issueId)) {
           returnOrdersMap.set(issueId, [])
         }
-        returnOrdersMap.get(issueId).push(order)
+        returnOrdersMap.get(issueId).push(returnOrder)
       })
+
+      // 确保所有发料单都有对应的数组（即使为空）
+      issueIds.forEach(issueId => {
+        if (!returnOrdersMap.has(issueId)) {
+          returnOrdersMap.set(issueId, [])
+        }
+      })
+      
+      console.log('统计页面 - 回货单Map:', Array.from(returnOrdersMap.entries()).map(([k, v]) => [k, v.length]))
     }
 
     // 批量查询款号
@@ -166,7 +233,9 @@ Page({
       issueOrders.data.map(async (issueOrder) => {
         const styleId = issueOrder.styleId || issueOrder.style_id
         const style = stylesMap.get(styleId) || {}
-        const returnOrders = returnOrdersMap.get(issueOrder.id || issueOrder._id) || []
+        const issueOrderId = issueOrder.id || issueOrder._id
+        // 直接使用原始ID作为key，与首页动态页面保持一致
+        const returnOrders = returnOrdersMap.get(issueOrderId) || []
 
         let totalReturnQuantity = 0
         let totalReturnPieces = 0
@@ -297,4 +366,3 @@ Page({
     this.loadStatisticsList()
   }
 })
-
