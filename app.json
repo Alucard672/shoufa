@@ -1,7 +1,5 @@
 {
   "pages": [
-    "pages/login/index",
-    "pages/init/tenant",
     "pages/index/index",
     "pages/index/activities",
     "pages/issue/index",
@@ -19,15 +17,14 @@
     "pages/style/create",
     "pages/yarn/index",
     "pages/yarn/create",
-    "pages/plan/index",
-    "pages/plan/create",
     "pages/settings/index",
     "pages/settings/color",
     "pages/settings/size",
-    "pages/settings/tenant"
+    "pages/settings/employees",
+    "pages/mine/invite"
   ],
   "window": {
-    "navigationBarTitleText": "纱线收发加工",
+    "navigationBarTitleText": "纱线收发",
     "navigationBarBackgroundColor": "#FFFFFF",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#F9FAFB",

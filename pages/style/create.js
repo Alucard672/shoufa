@@ -1,5 +1,6 @@
 // pages/style/create.js
 import { query, getStyleById, insert, update } from '../../utils/db.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 
 Page({
@@ -13,6 +14,8 @@ Page({
     yarnUsagePerPiece: '',
     lossRate: '',
     actualUsage: '',
+    processingFeePerDozen: '',
+    processingFeePerPiece: '',
     availableColors: [],
     availableSizes: [],
     selectedColors: [],
@@ -26,6 +29,10 @@ Page({
   },
 
   async onLoad(options) {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     // 先加载字典数据（包括纱线列表）
     await this.loadDictionaries()
 
@@ -277,6 +284,8 @@ Page({
           yarnUsagePerPiece: (styleData.yarnUsagePerPiece || styleData.yarn_usage_per_piece) ? (styleData.yarnUsagePerPiece || styleData.yarn_usage_per_piece).toString() : '',
           lossRate: (styleData.lossRate || styleData.loss_rate) ? (styleData.lossRate || styleData.loss_rate).toString() : '',
           actualUsage: (styleData.actualUsage || styleData.actual_usage) ? (styleData.actualUsage || styleData.actual_usage).toString() : '',
+          processingFeePerDozen: (styleData.processingFeePerDozen || styleData.processing_fee_per_dozen) ? (styleData.processingFeePerDozen || styleData.processing_fee_per_dozen).toString() : '',
+          processingFeePerPiece: (styleData.processingFeePerPiece || styleData.processing_fee_per_piece) ? (styleData.processingFeePerPiece || styleData.processing_fee_per_piece).toString() : '',
           availableColors: availableColors || [],
           availableSizes: availableSizes || [],
           selectedColors: selectedColors,
@@ -378,10 +387,21 @@ Page({
     this.calculateActualUsage()
   },
 
+  onProcessingFeeInput(e) {
+    const value = e.detail.value
+    const feePerDozen = parseFloat(value) || 0
+    const feePerPiece = (feePerDozen / 12).toFixed(2)
+    this.setData({
+      processingFeePerDozen: value,
+      processingFeePerPiece: feePerPiece
+    })
+  },
+
   calculateActualUsage() {
     const yarnUsage = parseFloat(this.data.yarnUsagePerPiece) || 0
     const lossRate = parseFloat(this.data.lossRate) || 0
-    const actualUsage = yarnUsage * (1 + lossRate / 100)
+    // 实际用量 = (单件克数 / 1000) * (1 + 损耗率%)
+    const actualUsage = (yarnUsage / 1000) * (1 + lossRate / 100)
     this.setData({
       actualUsage: actualUsage.toFixed(3)
     })
@@ -662,28 +682,19 @@ Page({
 
       // 确保 colors 和 sizes 是数组，即使为空也要保存
       const styleData = {
-        style_code: this.data.styleCode,
-        style_name: this.data.styleName,
+        styleCode: this.data.styleCode,
+        styleName: this.data.styleName,
         category: this.data.category || '',
-        yarn_usage_per_piece: parseFloat(this.data.yarnUsagePerPiece),
-        loss_rate: parseFloat(this.data.lossRate) || 0,
-        actual_usage: parseFloat(this.data.actualUsage) || parseFloat(this.data.yarnUsagePerPiece),
-        available_colors: Array.isArray(colors) ? JSON.stringify(colors) : JSON.stringify([]),
-        available_sizes: Array.isArray(sizes) ? JSON.stringify(sizes) : JSON.stringify([]),
-        yarn_ids: Array.isArray(yarnIds) ? JSON.stringify(yarnIds) : JSON.stringify([]),
+        yarnUsagePerPiece: parseFloat(this.data.yarnUsagePerPiece),
+        lossRate: parseFloat(this.data.lossRate) || 0,
+        actualUsage: parseFloat(this.data.actualUsage) || 0,
+        processingFeePerDozen: parseFloat(this.data.processingFeePerDozen) || 0,
+        processingFeePerPiece: parseFloat(this.data.processingFeePerPiece) || 0,
+        availableColors: colors,
+        availableSizes: sizes,
+        yarnIds: yarnIds,
         remark: this.data.remark || '',
-        image_url: this.data.imageUrl || ''
-      }
-
-      // 确保数组字段不为 undefined
-      if (!styleData.available_colors) {
-        styleData.available_colors = JSON.stringify([])
-      }
-      if (!styleData.available_sizes) {
-        styleData.available_sizes = JSON.stringify([])
-      }
-      if (!styleData.yarn_ids) {
-        styleData.yarn_ids = JSON.stringify([])
+        imageUrl: this.data.imageUrl || ''
       }
 
       let result

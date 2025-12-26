@@ -18,6 +18,7 @@
         <text class="stats-label">回货总量</text>
         <text class="stats-value">{{totalReturnPieces}}</text>
         <text class="stats-unit">件</text>
+        <text class="stats-sub-value">({{totalReturnWeightFormatted}}kg)</text>
       </view>
       <view class="stats-item">
         <text class="stats-label">加工费</text>

@@ -30,8 +30,8 @@ var formatDisplay = function(item, displayKey, formatType) {
   // 如果指定了格式化类型
   if (formatType === 'style') {
     // 款号格式：款号编号 + 款号名称
-    var styleCode = item.styleCode || ''
-    var styleName = item.styleName || item.name || ''
+    var styleCode = item.styleCode || item.style_code || ''
+    var styleName = item.styleName || item.style_name || item.name || ''
     if (styleCode && styleName) {
       return styleCode + ' ' + styleName
     } else if (styleCode) {

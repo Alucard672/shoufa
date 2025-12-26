@@ -29,21 +29,5 @@
       </view>
     </view>
   </view>
-
-  <!-- 数据清理 -->
-  <view class="section">
-    <view class="card">
-      <view class="section-title">数据清理</view>
-      <view class="cleanup-item">
-        <view class="cleanup-content">
-          <text class="cleanup-title">清理无效颜色和尺码</text>
-          <text class="cleanup-desc">清理所有款号中不在字典中的颜色和尺码</text>
-        </view>
-        <view class="btn btn-primary" bindtap="onCleanupInvalidColorsAndSizes">
-          <text>开始清理</text>
-        </view>
-      </view>
-    </view>
-  </view>
 </view>
 

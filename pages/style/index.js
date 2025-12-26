@@ -1,5 +1,6 @@
 // pages/style/index.js
 import { query } from '../../utils/db.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 
 Page({
@@ -9,10 +10,18 @@ Page({
   },
 
   onLoad() {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     this.loadStyles()
   },
 
   onShow() {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     this.loadStyles()
   },
 
@@ -26,17 +35,24 @@ Page({
     try {
       const result = await query('styles', {}, {
         excludeDeleted: true,
-        orderBy: { field: 'create_time', direction: 'DESC' }
+        orderBy: { field: 'createTime', direction: 'DESC' }
       })
       const styles = { data: result.data }
 
-        // 格式化数据，确保颜色和尺码是字符串数组
+      // 格式化数据
       const formattedStyles = styles.data.map(style => {
+        // 兼容旧字段名
+        const styleCode = style.styleCode || style.style_code || ''
+        const styleName = style.styleName || style.style_name || ''
+        const imageUrl = style.imageUrl || style.image_url || ''
         const yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
+        const lossRate = style.lossRate || style.loss_rate || 0
+        const processingFeePerDozen = style.processingFeePerDozen || style.processing_fee_per_dozen || 0
+        
         const yarnUsageKg = yarnUsagePerPiece / 1000
+        const actualUsage = style.actualUsage || style.actual_usage || (yarnUsageKg * (1 + lossRate / 100))
 
-        // 确保 availableColors 和 availableSizes 是字符串数组
-        // MySQL中JSON字段需要解析
+        // 处理颜色和尺码
         let availableColors = style.availableColors || style.available_colors || []
         let availableSizes = style.availableSizes || style.available_sizes || []
         
@@ -83,12 +99,12 @@ Page({
           availableSizes = availableSizes.map(s => s.name || s._id || String(s))
         }
 
-        // 计算实际用量（含损耗）
-        const lossRate = style.lossRate || style.loss_rate || 0
-        const actualUsage = yarnUsageKg * (1 + lossRate / 100)
-
         return {
           ...style,
+          styleCode,
+          styleName,
+          imageUrl,
+          processingFeePerDozen,
           yarnUsagePerPieceFormatted: yarnUsageKg.toFixed(2) + ' kg',
           actualUsageFormatted: actualUsage.toFixed(3),
           availableColors: availableColors,
@@ -117,12 +133,20 @@ Page({
   },
 
   navigateToCreate() {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     wx.navigateTo({
       url: '/pages/style/create'
     })
   },
 
   onEditStyle(e) {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     const styleId = e.currentTarget.dataset.id
     wx.navigateTo({
       url: `/pages/style/create?id=${styleId}`

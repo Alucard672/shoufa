@@ -1,7 +1,9 @@
 // pages/index/index.js
 import { formatDate, formatQuantity } from '../../utils/calc.js'
-import { count, query } from '../../utils/db.js'
+import { count, query, queryByIds } from '../../utils/db.js'
 const app = getApp()
+const db = wx.cloud.database()
+const _ = db.command
 
 Page({
   data: {
@@ -13,44 +15,13 @@ Page({
   },
 
   onLoad() {
-    // 检查租户
-    if (!this.checkTenant()) {
-      return
-    }
     this.loadData()
   },
 
   onShow() {
-    // 检查租户
-    if (!this.checkTenant()) {
-      return
-    }
     this.loadData()
   },
 
-  checkTenant() {
-    const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
-    if (!tenantId) {
-      wx.showModal({
-        title: '未登录',
-        content: '请先登录',
-        showCancel: false,
-        success: () => {
-          wx.reLaunch({
-            url: '/pages/login/index'
-          })
-        }
-      })
-      return false
-    }
-    // 确保 globalData 中有 tenantId
-    if (!app.globalData.tenantId) {
-      app.globalData.tenantId = tenantId
-      app.globalData.userInfo = wx.getStorageSync('userInfo')
-      app.globalData.tenantInfo = wx.getStorageSync('tenantInfo')
-    }
-    return true
-  },
 
   onPullDownRefresh() {
     this.loadData().then(() => {
@@ -101,7 +72,7 @@ Page({
   async loadUnpaidAmount() {
     // 查询未结算的回货单（使用IN查询）
     const result = await query('return_orders', {
-      settlement_status: ['未结算', '部分结算']
+      settlementStatus: _.in(['未结算', '部分结算'])
     }, {
       excludeDeleted: true
     })
@@ -125,12 +96,12 @@ Page({
       const [issueRes, returnRes] = await Promise.all([
         query('issue_orders', {}, {
           excludeDeleted: true,
-          orderBy: { field: 'issue_date', direction: 'DESC' },
+          orderBy: { field: 'issueDate', direction: 'DESC' },
           limit: 10
         }),
         query('return_orders', {}, {
           excludeDeleted: true,
-          orderBy: { field: 'return_date', direction: 'DESC' },
+          orderBy: { field: 'returnDate', direction: 'DESC' },
           limit: 10
         })
       ])
@@ -169,8 +140,8 @@ Page({
       const styleIds = [...new Set(topActivities.map(a => a.styleId).filter(Boolean))]
 
       const [factoriesRes, stylesRes] = await Promise.all([
-        factoryIds.length ? query('factories', { id: factoryIds }, { excludeDeleted: true }) : { data: [] },
-        styleIds.length ? query('styles', { id: styleIds }, { excludeDeleted: true }) : { data: [] }
+        factoryIds.length ? queryByIds('factories', factoryIds) : { data: [] },
+        styleIds.length ? queryByIds('styles', styleIds) : { data: [] }
       ])
 
       const factoriesMap = Object.fromEntries(factoriesRes.data.map(f => [f._id || f.id, f]))

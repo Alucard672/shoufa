@@ -25,6 +25,10 @@
 .stats-cards {
   display: flex;
   gap: 8px;
+  margin-bottom: 8px;
+}
+
+.stats-cards.second-row {
   margin-bottom: 16px;
 }
 

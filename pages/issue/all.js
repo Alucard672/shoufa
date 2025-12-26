@@ -1,6 +1,7 @@
 // pages/issue/all.js
 import { query, queryByIds, update, count } from '../../utils/db.js'
 import { getTimeRange, formatDate, formatWeight, formatQuantity } from '../../utils/calc.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 
 Page({
@@ -17,6 +18,8 @@ Page({
     // 统计数据
     totalIssueWeight: 0,
     totalIssueWeightFormatted: '0.0',
+    totalReturnPieces: 0,
+    totalReturnWeightFormatted: '0.0',
     totalIssueCount: 0
   },
 
@@ -32,6 +35,10 @@ Page({
   },
 
   onLoad() {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     this.loadData()
   },
 
@@ -57,7 +64,7 @@ Page({
   },
 
   async loadStatistics() {
-    // 计算累计发料总量
+    // 1. 获取所有发料单计算发料总量
     const ordersRes = await query('issue_orders', null, {
       excludeDeleted: true
     })
@@ -67,9 +74,23 @@ Page({
       totalWeight += order.issueWeight || 0
     })
 
+    // 2. 获取所有回货单计算回货总量
+    const returnRes = await query('return_orders', null, {
+      excludeDeleted: true
+    })
+
+    let totalReturnPieces = 0
+    let totalReturnWeight = 0
+    returnRes.data.forEach(order => {
+      totalReturnPieces += order.returnPieces || 0
+      totalReturnWeight += order.actualYarnUsage || 0
+    })
+
     this.setData({
       totalIssueWeight: totalWeight,
       totalIssueWeightFormatted: totalWeight.toFixed(2),
+      totalReturnPieces: totalReturnPieces,
+      totalReturnWeightFormatted: totalReturnWeight.toFixed(2),
       totalIssueCount: ordersRes.data.length
     })
   },
@@ -86,12 +107,12 @@ Page({
 
     // 搜索
     if (this.data.searchKeyword) {
-      whereClause.issue_no = this.data.searchKeyword
+      whereClause.issueNo = this.data.searchKeyword
     }
 
     const ordersRes = await query('issue_orders', whereClause, {
       excludeDeleted: true,
-      orderBy: { field: 'issue_date', direction: 'DESC' }
+      orderBy: { field: 'issueDate', direction: 'DESC' }
     })
     const orders = ordersRes.data || []
     console.log('查询到的订单数量:', orders.length)
@@ -105,27 +126,28 @@ Page({
         const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
 
         filteredData = filteredData.filter(order => {
-          if (!order.issueDate) return false
+          const date = order.issueDate || order.issue_date
+          if (!date) return false
 
           let orderDate
           try {
-            if (order.issueDate instanceof Date) {
-              orderDate = order.issueDate
-            } else if (typeof order.issueDate === 'string') {
-              const dateStr = order.issueDate.replace(/\//g, '-')
+            if (date instanceof Date) {
+              orderDate = date
+            } else if (typeof date === 'string') {
+              const dateStr = date.replace(/\//g, '-')
               orderDate = new Date(dateStr)
-            } else if (order.issueDate && typeof order.issueDate === 'object') {
-              if (typeof order.issueDate.getTime === 'function') {
-                orderDate = new Date(order.issueDate.getTime())
-              } else if (order.issueDate._seconds) {
-                orderDate = new Date(order.issueDate._seconds * 1000)
-              } else if (typeof order.issueDate === 'number') {
-                orderDate = new Date(order.issueDate)
+            } else if (date && typeof date === 'object') {
+              if (typeof date.getTime === 'function') {
+                orderDate = new Date(date.getTime())
+              } else if (date._seconds) {
+                orderDate = new Date(date._seconds * 1000)
+              } else if (typeof date === 'number') {
+                orderDate = new Date(date)
               } else {
-                orderDate = new Date(order.issueDate)
+                orderDate = new Date(date)
               }
             } else {
-              orderDate = new Date(order.issueDate)
+              orderDate = new Date(date)
             }
 
             if (isNaN(orderDate.getTime())) {
@@ -133,7 +155,7 @@ Page({
             }
 
             const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
-            const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.start())
+            const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
             const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
 
             return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
@@ -148,14 +170,14 @@ Page({
     // 批量查询工厂和款号信息
     const factoryIds = [...new Set(filteredData.map(order => order.factoryId || order.factory_id).filter(Boolean))]
     const styleIds = [...new Set(filteredData.map(order => order.styleId || order.style_id).filter(Boolean))]
-    const issueIds = filteredData.map(order => order.id || order._id)
+    const issueIds = filteredData.map(order => order._id || order.id)
 
     // 批量查询工厂信息
     const factoriesMap = new Map()
     if (factoryIds.length > 0) {
       const factoriesRes = await queryByIds('factories', factoryIds)
       factoriesRes.data.forEach(factory => {
-        factoriesMap.set(factory.id || factory._id, factory)
+        factoriesMap.set(factory._id || factory.id, factory)
       })
     }
 
@@ -164,7 +186,7 @@ Page({
     if (styleIds.length > 0) {
       const stylesRes = await queryByIds('styles', styleIds)
       stylesRes.data.forEach(style => {
-        stylesMap.set(style.id || style._id, style)
+        stylesMap.set(style._id || style.id, style)
       })
     }
 
@@ -176,8 +198,9 @@ Page({
       })
 
       try {
+        const _ = wx.cloud.database().command
         const allReturnOrdersRes = await query('return_orders', {
-          issue_id: issueIds
+          issueId: _.in(issueIds)
         }, {
           excludeDeleted: true
         })

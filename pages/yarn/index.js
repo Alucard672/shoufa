@@ -1,5 +1,6 @@
 // pages/yarn/index.js
 import { query } from '../../utils/db.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 
 Page({
@@ -9,10 +10,18 @@ Page({
   },
 
   onLoad() {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     this.loadYarnList()
   },
 
   onShow() {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     this.loadYarnList()
   },
 
@@ -32,7 +41,7 @@ Page({
 
       const result = await query('yarn_inventory', whereClause, {
         excludeDeleted: true,
-        orderBy: { field: 'create_time', direction: 'DESC' }
+        orderBy: { field: 'createTime', direction: 'DESC' }
       })
 
       this.setData({
@@ -55,12 +64,20 @@ Page({
   },
 
   navigateToCreate() {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     wx.navigateTo({
       url: '/pages/yarn/create'
     })
   },
 
   onEditYarn(e) {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     const yarnId = e.currentTarget.dataset.id
     wx.navigateTo({
       url: `/pages/yarn/create?id=${yarnId}`

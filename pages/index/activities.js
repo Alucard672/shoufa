@@ -202,11 +202,11 @@ Page({
 
       // 日期筛选（数据库层面）
       if (this.data.timeFilter !== 'all' && this.data.startDate && this.data.endDate) {
-        issueWhere.issue_date = {
+        issueWhere.issueDate = {
           gte: this.data.startDate,
           lte: this.data.endDate
         }
-        returnWhere.return_date = {
+        returnWhere.returnDate = {
           gte: this.data.startDate,
           lte: this.data.endDate
         }
@@ -219,7 +219,7 @@ Page({
       if (this.data.typeFilter !== 'return') {
         const issueRes = await query('issue_orders', issueWhere, {
           excludeDeleted: true,
-          orderBy: { field: 'issue_date', direction: 'DESC' }
+          orderBy: { field: 'issueDate', direction: 'DESC' }
         })
         issueOrders = { data: issueRes.data || [] }
       }
@@ -227,7 +227,7 @@ Page({
       if (this.data.typeFilter !== 'issue') {
         const returnRes = await query('return_orders', returnWhere, {
           excludeDeleted: true,
-          orderBy: { field: 'return_date', direction: 'DESC' }
+          orderBy: { field: 'returnDate', direction: 'DESC' }
         })
         returnOrders = { data: returnRes.data || [] }
       }
@@ -265,7 +265,7 @@ Page({
       if (issueIds.length > 0) {
         const issueRes = await queryByIds('issue_orders', issueIds)
         issueRes.data.forEach(issueOrder => {
-          const issueId = issueOrder.id || issueOrder._id
+          const issueId = issueOrder._id || issueOrder.id
           issueOrdersMap.set(issueId, issueOrder)
           // 将发料单的 factoryId 和 styleId 也加入查询列表
           const factoryId = issueOrder.factoryId || issueOrder.factory_id
@@ -284,7 +284,7 @@ Page({
       if (factoryIds.length > 0) {
         const factoriesRes = await queryByIds('factories', factoryIds)
         factoriesRes.data.forEach(factory => {
-          factoriesMap.set(factory.id || factory._id, factory)
+          factoriesMap.set(factory._id || factory.id, factory)
         })
       }
 
@@ -293,17 +293,18 @@ Page({
       if (styleIds.length > 0) {
         const stylesRes = await queryByIds('styles', styleIds)
         stylesRes.data.forEach(style => {
-          stylesMap.set(style.id || style._id, style)
+          stylesMap.set(style._id || style.id, style)
         })
       }
 
       // 为所有发料单批量加载回货进度信息（使用批量查询，避免 N+1 查询）
-      const issueOrderIds = allActivities.filter(a => a.type === 'issue').map(a => a.id || a._id)
+      const issueOrderIds = allActivities.filter(a => a.type === 'issue').map(a => a._id || a.id)
       const returnOrdersMap = new Map()
       if (issueOrderIds.length > 0) {
         // 批量查询所有相关的回货单（一次查询，而不是 N 次）
+        const _ = wx.cloud.database().command
         const allReturnOrdersRes = await query('return_orders', {
-          issue_id: issueOrderIds
+          issueId: _.in(issueOrderIds)
         }, {
           excludeDeleted: true
         })
@@ -331,7 +332,7 @@ Page({
           // 发料单
           const factoryId = activity.factoryId || activity.factory_id
           const styleId = activity.styleId || activity.style_id
-          const activityId = activity.id || activity._id
+          const activityId = activity._id || activity.id
           
           const factory = factoriesMap.get(factoryId)
           const style = stylesMap.get(styleId)
@@ -433,9 +434,10 @@ Page({
         })
       }
 
-      // 基于筛选后的数据计算统计数据
+      // 基于筛选后的活动数据计算统计数据
       let totalIssueWeight = 0
       let totalReturnPieces = 0
+      let totalReturnWeight = 0
       let totalProcessingFee = 0
       let issueCount = 0
       let returnCount = 0
@@ -446,6 +448,7 @@ Page({
           issueCount++
         } else {
           totalReturnPieces += item.returnPieces || item.return_pieces || 0
+          totalReturnWeight += item.actualYarnUsage || item.actual_yarn_usage || 0
           totalProcessingFee += item.processingFee || item.processing_fee || 0
           returnCount++
         }
@@ -453,24 +456,16 @@ Page({
 
       // 格式化统计数据
       const totalIssueWeightFormatted = totalIssueWeight.toFixed(1)
+      const totalReturnWeightFormatted = totalReturnWeight.toFixed(1)
       const totalProcessingFeeFormatted = totalProcessingFee.toFixed(0)
-
-      console.log('统计数据:', {
-        totalIssueWeight,
-        totalIssueWeightFormatted,
-        totalReturnPieces,
-        totalProcessingFee,
-        totalProcessingFeeFormatted,
-        issueCount,
-        returnCount,
-        filteredDataLength: filteredData.length
-      })
 
       this.setData({
         activities: filteredData,
         totalIssueWeight: totalIssueWeight,
         totalIssueWeightFormatted: totalIssueWeightFormatted,
         totalReturnPieces: totalReturnPieces,
+        totalReturnWeight: totalReturnWeight,
+        totalReturnWeightFormatted: totalReturnWeightFormatted,
         totalProcessingFee: totalProcessingFee,
         totalProcessingFeeFormatted: totalProcessingFeeFormatted,
         issueCount: issueCount,

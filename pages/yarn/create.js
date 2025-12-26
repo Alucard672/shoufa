@@ -1,5 +1,6 @@
 // pages/yarn/create.js
 import { query, insert, update } from '../../utils/db.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 
 Page({
@@ -15,6 +16,10 @@ Page({
   },
 
   async onLoad(options) {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     await this.loadColorDict()
 
     if (options.id) {

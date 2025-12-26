@@ -70,6 +70,21 @@
   color: #FFFFFF;
   font-size: 16px;
   font-weight: 600;
+  margin-bottom: 12px;
+  border: none;
+}
+
+.dev-login-btn {
+  width: 100% !important;
+  height: 44px;
+  background: #F3F4F6;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6A7282;
+  font-size: 14px;
+  font-weight: 500;
   margin-bottom: 20px;
   border: none;
 }
@@ -78,6 +93,149 @@
   width: 24px;
   height: 24px;
   margin-right: 10px;
+}
+
+.user-info-section {
+  width: 100%;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: #F9FAFB;
+  border-radius: 16px;
+}
+
+.avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.avatar-wrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 2px dashed #D1D5DB;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+}
+
+.avatar-btn {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  overflow: hidden;
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-btn::after {
+  border: none;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F3F4F6;
+}
+
+.avatar-icon {
+  font-size: 40px;
+}
+
+.avatar-tip {
+  font-size: 12px;
+  color: #6A7282;
+  margin-top: 8px;
+}
+
+.nickname-section {
+  width: 100%;
+}
+
+.nickname-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #101828;
+}
+
+.nickname-input::placeholder {
+  color: #9CA3AF;
+}
+
+.phone-section {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.phone-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.phone-input {
+  flex: 1;
+  height: 44px;
+  padding: 0 16px;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #101828;
+}
+
+.phone-input::placeholder {
+  color: #9CA3AF;
+}
+
+.get-phone-btn {
+  height: 44px;
+  padding: 0 16px;
+  background: #155DFC;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.get-phone-btn::after {
+  border: none;
+}
+
+.phone-tip {
+  font-size: 12px;
+  color: #6A7282;
+  margin-top: 8px;
+  display: block;
 }
 
 .init-section {

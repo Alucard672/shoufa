@@ -238,6 +238,10 @@
   color: #364153;
 }
 
+.detail-value.fee {
+  color: #0052D9;
+}
+
 .detail-value.remark {
   font-weight: 400;
   color: #4A5565;

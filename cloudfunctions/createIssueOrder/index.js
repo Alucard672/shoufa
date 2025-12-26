@@ -78,9 +78,17 @@ exports.main = async (event, context) => {
       }
       
       // 3. 创建发料单
+      const issueData = { ...issueOrder }
+      // 确保日期是 Date 对象
+      if (issueData.issueDate && typeof issueData.issueDate === 'string') {
+        issueData.issueDate = new Date(issueData.issueDate.replace(/\//g, '-'))
+      } else if (issueData.issueDate) {
+        issueData.issueDate = new Date(issueData.issueDate)
+      }
+
       const issueResult = await transaction.collection('issue_orders').add({
         data: {
-          ...issueOrder,
+          ...issueData,
           status: '未回货',
           createTime: db.serverDate(),
           updateTime: db.serverDate(),

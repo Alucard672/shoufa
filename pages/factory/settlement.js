@@ -1,6 +1,9 @@
 import { formatDate, formatAmount, formatQuantity } from '../../utils/calc.js'
 import { query, queryByIds, insert, update } from '../../utils/db.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
+const db = wx.cloud.database()
+const _ = db.command
 
 Page({
   data: {
@@ -19,6 +22,10 @@ Page({
   },
 
   onLoad(options) {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     if (options.factoryId) {
       this.setData({
         factoryId: options.factoryId,
@@ -71,16 +78,16 @@ Page({
 
     // 查询未结算的回货单
     const returnOrdersRes = await query('return_orders', {
-      factory_id: this.data.factoryId,
-      settlement_status: ['未结算', '部分结算']
+      factoryId: this.data.factoryId,
+      settlementStatus: _.in(['未结算', '部分结算'])
     }, {
       excludeDeleted: true,
-      orderBy: { field: 'return_date', direction: 'DESC' }
+      orderBy: { field: 'returnDate', direction: 'DESC' }
     })
 
     // 查询该工厂的所有结算单，计算每个回货单的已结算金额
     const settlementsRes = await query('settlements', {
-      factory_id: this.data.factoryId
+      factoryId: this.data.factoryId
     }, {
       excludeDeleted: true
     })
@@ -277,13 +284,13 @@ Page({
 
       // 创建结算单
       const settlementResult = await insert('settlements', {
-        settlement_no: settlementNo,
-        factory_id: this.data.factoryId,
-        factory_name: this.data.factory?.name || '未知工厂',
-        settlement_date: new Date(this.data.settlementDate),
-        total_amount: this.data.settlementAmount,
+        settlementNo: settlementNo,
+        factoryId: this.data.factoryId,
+        factoryName: this.data.factory?.name || '未知工厂',
+        settlementDate: new Date(this.data.settlementDate),
+        totalAmount: this.data.settlementAmount,
         remark: this.data.remark,
-        return_order_ids: selectedOrders.map(order => order._id || order.id)
+        returnOrderIds: selectedOrders.map(order => order._id || order.id)
       })
 
       // 更新回货单的结算状态
@@ -302,10 +309,10 @@ Page({
         }
 
         return update('return_orders', {
-          settled_amount: newSettledAmount,
-          settlement_status: settlementStatus
+          settledAmount: newSettledAmount,
+          settlementStatus: settlementStatus
         }, {
-          id: id
+          _id: id
         })
       })
 

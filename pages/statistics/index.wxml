@@ -18,6 +18,24 @@
 
     <view class="stats-card card-gradient" style="background: linear-gradient(135deg, rgba(0, 201, 80, 1) 0%, rgba(0, 166, 62, 1) 100%);">
       <view class="stats-content">
+        <text class="stats-label">累计回货件数</text>
+        <text class="stats-value">{{totalReturnPieces}}</text>
+        <text class="stats-unit">件</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="stats-cards second-row">
+    <view class="stats-card card-gradient" style="background: linear-gradient(135deg, rgba(255, 166, 0, 1) 0%, rgba(255, 140, 0, 1) 100%);">
+      <view class="stats-content">
+        <text class="stats-label">累计回货重量</text>
+        <text class="stats-value">{{totalReturnWeightFormatted}}</text>
+        <text class="stats-unit">kg</text>
+      </view>
+    </view>
+
+    <view class="stats-card card-gradient" style="background: linear-gradient(135deg, rgba(153, 102, 255, 1) 0%, rgba(131, 82, 253, 1) 100%);">
+      <view class="stats-content">
         <text class="stats-label">已回货单数</text>
         <text class="stats-value">{{returnedCount}}</text>
         <text class="stats-unit">笔</text>

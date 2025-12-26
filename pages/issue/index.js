@@ -2,6 +2,7 @@
 import { getIssueOrders, calculateIssueProgress, getReturnOrdersByIssueId, update } from '../../utils/db.js'
 import { getTimeRange, formatDate, formatWeight, formatQuantity } from '../../utils/calc.js'
 import { query, queryByIds } from '../../utils/db.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 
 Page({
@@ -31,44 +32,19 @@ Page({
   },
 
   onLoad() {
-    // 检查租户
-    if (!this.checkTenant()) {
+    // 检查登录状态
+    if (!checkLogin()) {
       return
     }
     this.loadData()
   },
 
   onShow() {
-    // 检查租户
-    if (!this.checkTenant()) {
+    // 检查登录状态
+    if (!checkLogin()) {
       return
     }
     this.loadData()
-  },
-
-  checkTenant() {
-    const app = getApp()
-    const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
-    if (!tenantId) {
-      wx.showModal({
-        title: '未登录',
-        content: '请先登录',
-        showCancel: false,
-        success: () => {
-          wx.reLaunch({
-            url: '/pages/login/index'
-          })
-        }
-      })
-      return false
-    }
-    // 确保 globalData 中有 tenantId
-    if (!app.globalData.tenantId) {
-      app.globalData.tenantId = tenantId
-      app.globalData.userInfo = wx.getStorageSync('userInfo')
-      app.globalData.tenantInfo = wx.getStorageSync('tenantInfo')
-    }
-    return true
   },
 
   onPullDownRefresh() {
@@ -151,7 +127,7 @@ Page({
     if (this.data.timeFilter !== 'all') {
       const timeRange = getTimeRange(this.data.timeFilter)
       if (timeRange.startDate && timeRange.endDate) {
-        where.issue_date = {
+        where.issueDate = {
           gte: timeRange.startDate,
           lte: timeRange.endDate
         }
@@ -187,7 +163,7 @@ Page({
     if (this.data.timeFilter !== 'all') {
       const timeRange = getTimeRange(this.data.timeFilter)
       if (timeRange.startDate && timeRange.endDate) {
-        where.issue_date = {
+        where.issueDate = {
           gte: timeRange.startDate,
           lte: timeRange.endDate
         }
@@ -198,7 +174,7 @@ Page({
     // 如果搜索关键词存在，需要在客户端过滤
     const ordersRes = await query('issue_orders', where, {
       excludeDeleted: true,
-      orderBy: { field: 'issue_date', direction: 'DESC' }
+      orderBy: { field: 'issueDate', direction: 'DESC' }
     })
 
     // 客户端过滤搜索关键词
@@ -249,8 +225,9 @@ Page({
 
       // 批量查询回货单
       try {
+        const _ = wx.cloud.database().command
         const allReturnOrdersRes = await query('return_orders', {
-          issue_id: issueIds
+          issue_id: _.in(issueIds)
         }, {
           excludeDeleted: true
         })
@@ -465,19 +442,32 @@ Page({
   },
 
   navigateToCreate() {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     wx.navigateTo({
       url: '/pages/issue/create'
     })
   },
 
   navigateToReturn(e) {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     const issueId = e.currentTarget.dataset.id
     wx.navigateTo({
-      url: `/ pages /return/create?issueId=${issueId}`
+      url: `/pages/return/create?issueId=${issueId}`
     })
   },
 
   async onCompleteIssue(e) {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
+    
     const issueId = e.currentTarget.dataset.id
 
     wx.showModal({

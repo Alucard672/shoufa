@@ -1,6 +1,7 @@
 // pages/issue/create.js
-import { createIssueOrder } from '../../utils/db.js'
+import { createIssueOrder, getFactories, getStyles, query } from '../../utils/db.js'
 import { generateIssueNo, formatDate } from '../../utils/calc.js'
+import { checkLogin } from '../../utils/auth.js'
 
 const app = getApp()
 
@@ -19,6 +20,10 @@ Page({
   },
 
   async onLoad(options) {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
     if (options.planId) {
       this.setData({
         planId: options.planId
@@ -35,21 +40,29 @@ Page({
   },
 
   async loadFactories() {
-    const result = await query('factories', {}, {
-      excludeDeleted: true
-    })
-    this.setData({
-      factories: result.data
-    })
+    try {
+      console.log('开始加载加工厂, tenantId:', app.globalData.tenantId)
+      const result = await getFactories()
+      console.log('加载加工厂结果:', result)
+      this.setData({
+        factories: result.data || []
+      })
+    } catch (error) {
+      console.error('加载加工厂失败:', error)
+    }
   },
 
   async loadStyles() {
-    const result = await query('styles', {}, {
-      excludeDeleted: true
-    })
-    this.setData({
-      styles: result.data
-    })
+    try {
+      console.log('开始加载款号, tenantId:', app.globalData.tenantId)
+      const result = await getStyles()
+      console.log('加载款号结果:', result)
+      this.setData({
+        styles: result.data || []
+      })
+    } catch (error) {
+      console.error('加载款号失败:', error)
+    }
   },
 
   async loadColorDict() {
@@ -131,14 +144,6 @@ Page({
       return
     }
 
-    if (!this.data.selectedColor) {
-      wx.showToast({
-        title: '请选择颜色',
-        icon: 'none'
-      })
-      return
-    }
-
     if (!this.data.issueWeight || parseFloat(this.data.issueWeight) <= 0) {
       wx.showToast({
         title: '请输入有效的发料重量',
@@ -154,19 +159,19 @@ Page({
 
       const issueNo = generateIssueNo()
       const issueDate = new Date(this.data.issueDate)
-      const colorName = this.data.selectedColor.name || this.data.selectedColor
+      const colorName = this.data.selectedColor ? (this.data.selectedColor.name || this.data.selectedColor) : ''
 
       // 使用云函数创建发料单（支持事务操作）
       const result = await wx.cloud.callFunction({
         name: 'createIssueOrder',
         data: {
           issueOrder: {
-            issueNo,
+            issueNo: issueNo,
             factoryId: this.data.selectedFactoryId,
             styleId: this.data.selectedStyleId,
             color: colorName,
             issueWeight: parseFloat(this.data.issueWeight),
-            issueDate,
+            issueDate: issueDate,
             planId: this.data.planId || '',
             tenantId: app.globalData.tenantId
           }

@@ -1,6 +1,5 @@
 {
   "usingComponents": {
-    "card": "/components/card/card",
     "badge": "/components/badge/badge",
     "search-box": "/components/search-box/search-box"
   },

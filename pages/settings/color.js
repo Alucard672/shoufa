@@ -24,7 +24,7 @@ Page({
     try {
       const colorsRes = await query('color_dict', null, {
         excludeDeleted: true,
-        orderBy: { field: 'create_time', direction: 'DESC' }
+        orderBy: { field: 'createTime', direction: 'DESC' }
       })
 
       this.setData({

@@ -1,6 +1,7 @@
 // pages/statistics/index.js
 import { query, queryByIds, getStyleById } from '../../utils/db.js'
 import { getTimeRange, formatDate, formatWeight, formatQuantity } from '../../utils/calc.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 
 Page({
@@ -14,43 +15,19 @@ Page({
   },
 
   onLoad() {
-    // 检查租户
-    if (!this.checkTenant()) {
+    // 检查登录状态
+    if (!checkLogin()) {
       return
     }
     this.loadData()
   },
 
   onShow() {
-    // 检查租户
-    if (!this.checkTenant()) {
+    // 检查登录状态
+    if (!checkLogin()) {
       return
     }
     this.loadData()
-  },
-
-  checkTenant() {
-    const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
-    if (!tenantId) {
-      wx.showModal({
-        title: '未登录',
-        content: '请先登录',
-        showCancel: false,
-        success: () => {
-          wx.reLaunch({
-            url: '/pages/login/index'
-          })
-        }
-      })
-      return false
-    }
-    // 确保 globalData 中有 tenantId
-    if (!app.globalData.tenantId) {
-      app.globalData.tenantId = tenantId
-      app.globalData.userInfo = wx.getStorageSync('userInfo')
-      app.globalData.tenantInfo = wx.getStorageSync('tenantInfo')
-    }
-    return true
   },
 
   onPullDownRefresh() {
@@ -80,7 +57,7 @@ Page({
     if (this.data.timeFilter !== 'all') {
       const timeRange = getTimeRange(this.data.timeFilter)
       if (timeRange.startDate && timeRange.endDate) {
-        whereClause.issue_date = {
+        whereClause.issueDate = {
           gte: timeRange.startDate,
           lte: timeRange.endDate
         }
@@ -91,9 +68,26 @@ Page({
       excludeDeleted: true
     })
 
+    const issueIds = issueOrdersRes.data.map(order => order.id || order._id)
+    let totalReturnPieces = 0
+    let totalReturnWeight = 0
     let returnedCount = 0
+
+    if (issueIds.length > 0) {
+      const _ = wx.cloud.database().command
+      const returnOrdersRes = await query('return_orders', {
+        issue_id: _.in(issueIds)
+      }, {
+        excludeDeleted: true
+      })
+
+      returnOrdersRes.data.forEach(order => {
+        totalReturnPieces += order.returnPieces || order.return_pieces || 0
+        totalReturnWeight += order.actualYarnUsage || order.actual_yarn_usage || 0
+      })
+    }
+
     issueOrdersRes.data.forEach(order => {
-      // 这里的逻辑依然保持 check status，但订单池已经按时间过滤过了
       if (order.status === '已回货' || order.status === '已完成') {
         returnedCount++
       }
@@ -101,7 +95,9 @@ Page({
 
     this.setData({
       totalIssueCount: issueOrdersRes.data.length,
-      returnedCount
+      returnedCount,
+      totalReturnPieces: Math.floor(totalReturnPieces),
+      totalReturnWeightFormatted: totalReturnWeight.toFixed(2)
     })
   },
 
@@ -112,7 +108,7 @@ Page({
     if (this.data.timeFilter !== 'all') {
       const timeRange = getTimeRange(this.data.timeFilter)
       if (timeRange.startDate && timeRange.endDate) {
-        whereClause.issue_date = {
+        whereClause.issueDate = {
           gte: timeRange.startDate,
           lte: timeRange.endDate
         }
@@ -131,7 +127,7 @@ Page({
 
     const issueOrdersRes = await query('issue_orders', whereClause, {
       excludeDeleted: true,
-      orderBy: { field: 'issue_date', direction: 'DESC' }
+      orderBy: { field: 'issueDate', direction: 'DESC' }
     })
     const issueOrders = { data: issueOrdersRes.data || [] }
 
@@ -139,8 +135,9 @@ Page({
     const issueIds = issueOrders.data.map(order => order.id || order._id)
     const returnOrdersMap = new Map()
     if (issueIds.length > 0) {
+      const _ = wx.cloud.database().command
       const returnOrdersRes = await query('return_orders', {
-        issue_id: issueIds
+        issue_id: _.in(issueIds)
       }, {
         excludeDeleted: true
       })
@@ -199,9 +196,24 @@ Page({
         const lossAmount = actualYarnUsage - planYarnUsage // 损耗量（kg）
         const actualLossRate = planYarnUsage > 0 ? ((lossAmount / planYarnUsage) * 100) : 0 // 实际损耗率（%）
 
+        // 动态判断状态
+        let displayStatus = issueOrder.status
+        if (issueOrder.status !== '已完成') {
+          if (totalReturnYarn > 0) {
+            if (remainingYarn <= 0.01) {
+              displayStatus = '已回货'
+            } else {
+              displayStatus = '部分回货'
+            }
+          } else {
+            displayStatus = '未回货'
+          }
+        }
+
         return {
           ...issueOrder,
           _id: issueOrder._id || issueOrder.id,
+          status: displayStatus,
           styleName: style.styleName || style.style_name || style.name || '未知款号',
           styleCode: style.styleCode || style.style_code || '',
           styleImageUrl: style.imageUrl || style.image_url || '',

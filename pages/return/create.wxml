@@ -5,7 +5,7 @@
     <view class="info-grid">
       <view class="info-cell full-width">
         <text class="info-tag">发料单号</text>
-        <text class="info-content">{{issueOrder.issueNo}}</text>
+        <text class="info-content">{{issueOrder.issueNo || issueOrder.issue_no}}</text>
       </view>
       <view class="info-cell">
         <text class="info-tag">加工厂</text>
@@ -13,60 +13,58 @@
       </view>
       <view class="info-cell">
         <text class="info-tag">款号</text>
-        <text class="info-content">{{style.styleName}}</text>
+        <text class="info-content">{{style.styleCode || style.style_code}} - {{style.styleName || style.style_name}}</text>
       </view>
     </view>
   </view>
 
   <view class="form-section card">
-    <view class="form-row">
-      <view class="form-item half">
-        <text class="form-label">颜色 *</text>
-        <search-select 
-          placeholder="颜色"
-          options="{{colorOptions}}"
-          display-key="name"
-          value-key="_id"
-          selected-values="{{selectedColors}}"
-          multiple="{{false}}"
-          bindchange="onColorChange"
-        />
-      </view>
-      <view class="form-item half">
-        <text class="form-label">尺码</text>
-        <search-select 
-          placeholder="尺码(可选)"
-          options="{{sizeOptions}}"
-          display-key="name"
-          value-key="_id"
-          selected-values="{{selectedSizes}}"
-          multiple="{{false}}"
-          bindchange="onSizeChange"
-        />
-      </view>
+    <view class="form-item">
+      <text class="form-label">颜色 *</text>
+      <search-select 
+        placeholder="请选择颜色"
+        options="{{colorOptions}}"
+        display-key="name"
+        value-key="_id"
+        selected-values="{{selectedColors}}"
+        multiple="{{false}}"
+        bindchange="onColorChange"
+      />
     </view>
 
-    <view class="form-row">
-      <view class="form-item half">
-        <text class="form-label">回货打数</text>
-        <input 
-          class="form-input" 
-          type="number" 
-          placeholder="0"
-          value="{{returnDozens}}"
-          bindinput="onDozensInput"
-        />
-      </view>
-      <view class="form-item half">
-        <text class="form-label">零散件数</text>
-        <input 
-          class="form-input" 
-          type="number" 
-          placeholder="0"
-          value="{{returnPieces}}"
-          bindinput="onPiecesInput"
-        />
-      </view>
+    <view class="form-item">
+      <text class="form-label">尺码</text>
+      <search-select 
+        placeholder="尺码(可选)"
+        options="{{sizeOptions}}"
+        display-key="name"
+        value-key="_id"
+        selected-values="{{selectedSizes}}"
+        multiple="{{false}}"
+        bindchange="onSizeChange"
+      />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">回货打数</text>
+      <input 
+        class="form-input" 
+        type="number" 
+        placeholder="请输入打数"
+        value="{{returnDozens}}"
+        bindinput="onDozensInput"
+      />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">零散件数</text>
+      <input 
+        class="form-input" 
+        type="number" 
+        placeholder="请输入件数"
+        value="{{returnPieces}}"
+        bindinput="onPiecesInput"
+      />
     </view>
 
     <view class="form-item">
