@@ -67,7 +67,7 @@
       disabled="{{!nickName || nickName.trim() === '' || (!phoneNumber && !hasPhoneNumber)}}"
     >
       <image class="wx-icon" src="/images/icons/wechat-white.svg" mode="aspectFit"></image>
-      <text>微信一键登录</text>
+      <text>{{isInvite ? '加入企业' : '微信一键登录'}}</text>
     </button>
     
     <!-- 开发环境直接登录按钮 -->

@@ -33,6 +33,31 @@
   margin-top: 4px;
 }
 
+.form-hint-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  gap: 4px;
+}
+
+.form-hint-label {
+  font-size: 12px;
+  color: #155DFC;
+  font-weight: 500;
+}
+
+.form-hint-value {
+  font-size: 12px;
+  color: #667085;
+}
+
+.form-hint-separator {
+  font-size: 12px;
+  color: #99A1AF;
+  margin: 0 2px;
+}
+
 .form-input {
   width: 100%;
   height: 44px;

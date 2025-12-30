@@ -1,7 +1,9 @@
 // app.js
 // 导入环境配置
 const envConfig = require('./env-config.js')
-const packageInfo = require('./package.json')
+
+// 版本号配置
+const VERSION = '1.0.0'
 
 App({
   onLaunch(options) {
@@ -23,7 +25,7 @@ App({
         traceUser: true,
       })
       console.log('云开发环境已初始化，envId:', envConfig.envId)
-      console.log('小程序版本号:', packageInfo.version)
+      console.log('小程序版本号:', VERSION)
     }
 
     // 从缓存恢复登录状态
@@ -60,7 +62,7 @@ App({
     userInfo: null,
     tenantId: null,
     tenantInfo: null,
-    version: packageInfo.version // 版本号
+    version: VERSION // 版本号
   }
 })
 

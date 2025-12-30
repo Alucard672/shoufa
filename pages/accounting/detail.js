@@ -1,7 +1,7 @@
 // pages/accounting/detail.js
 import { queryByIds } from '../../utils/db.js'
 import { checkLogin, getTenantId } from '../../utils/auth.js'
-import { formatAmount, formatDate, formatQuantity, formatWeight } from '../../utils/calc.js'
+import { formatAmount, formatDate, formatQuantity, formatWeight, formatDateTime } from '../../utils/calc.js'
 const app = getApp()
 const db = wx.cloud.database()
 const _ = db.command
@@ -21,14 +21,22 @@ Page({
     summaryFormatted: {
       totalAmount: '0.00',
       settledAmount: '0.00',
-      unpaidAmount: '0.00'
-    }
+      unpaidAmount: '0.00',
+      totalIssueWeight: '0.00',
+      totalReturnWeight: '0.00',
+      totalReturnPieces: '0打0件'
+    },
+    currentTime: ''
   },
 
   async onLoad(options) {
     if (!checkLogin()) {
       return
     }
+
+    this.setData({
+      currentTime: formatDateTime(new Date())
+    })
 
     if (options.id) {
       this.setData({
@@ -49,6 +57,17 @@ Page({
   async onShow() {
     if (this.data.factoryId) {
       await this.loadData()
+    }
+  },
+
+  // 预览图片
+  onPreviewImage(e) {
+    const url = e.currentTarget.dataset.url
+    if (url) {
+      wx.previewImage({
+        urls: [url],
+        current: url
+      })
     }
   },
 
@@ -147,24 +166,32 @@ Page({
         // 回货数量
         const returnQuantity = order.returnQuantity || 0 // 打数
         const returnPieces = order.returnPieces || 0 // 件数
+        // 回货重量（实际用纱量）
+        const returnWeight = order.actualYarnUsage || order.actual_yarn_usage || 0
+
+        const styleImageUrl = (style?.imageUrl || style?.image_url || style?.image || '').trim()
 
         return {
           ...order,
           styleName: style?.styleName || '未知款号',
           styleCode: style?.styleCode || '',
+          styleImageUrl: styleImageUrl,
+          employeeName: order.employeeName || order.operatorName || '系统管理员',
           processingFee: processingFee,
           settledAmount: settledAmount,
           unpaidAmount: unpaidAmount,
           issueWeight: issueWeight,
           returnQuantity: returnQuantity,
           returnPieces: returnPieces,
+          returnWeight: returnWeight,
           returnDateFormatted: formatDate(order.returnDate),
           processingFeeFormatted: formatAmount(processingFee),
           settledAmountFormatted: formatAmount(settledAmount),
           unpaidAmountFormatted: formatAmount(unpaidAmount),
           issueWeightFormatted: formatWeight(issueWeight),
           returnQuantityFormatted: returnQuantity > 0 ? `${returnQuantity.toFixed(1)}打` : '0打',
-          returnPiecesFormatted: formatQuantity(returnPieces)
+          returnPiecesFormatted: formatQuantity(returnPieces),
+          returnWeightFormatted: formatWeight(returnWeight)
         }
       })
 
@@ -176,6 +203,7 @@ Page({
         acc.totalIssueWeight += order.issueWeight
         acc.totalReturnQuantity += order.returnQuantity
         acc.totalReturnPieces += order.returnPieces
+        acc.totalReturnWeight += order.returnWeight
         return acc
       }, { 
         totalAmount: 0, 
@@ -183,7 +211,8 @@ Page({
         unpaidAmount: 0,
         totalIssueWeight: 0,
         totalReturnQuantity: 0,
-        totalReturnPieces: 0
+        totalReturnPieces: 0,
+        totalReturnWeight: 0
       })
 
       this.setData({
@@ -195,8 +224,10 @@ Page({
           unpaidAmount: formatAmount(summary.unpaidAmount),
           totalIssueWeight: formatWeight(summary.totalIssueWeight),
           totalReturnQuantity: summary.totalReturnQuantity > 0 ? `${summary.totalReturnQuantity.toFixed(1)}打` : '0打',
-          totalReturnPieces: formatQuantity(summary.totalReturnPieces)
-        }
+          totalReturnPieces: formatQuantity(summary.totalReturnPieces),
+          totalReturnWeight: formatWeight(summary.totalReturnWeight)
+        },
+        currentTime: formatDateTime(new Date())
       })
     } catch (error) {
       console.error('加载回货单失败:', error)
@@ -362,166 +393,194 @@ Page({
   async generateShareImage() {
     return new Promise((resolve, reject) => {
       const ctx = wx.createCanvasContext('shareCanvas')
-      const { factory, returnOrders, settlements, summaryFormatted } = this.data
+      const { factory, returnOrders, summaryFormatted, currentTime } = this.data
+
+      if (!factory) {
+        reject(new Error('数据加载中，请稍后再试'))
+        return
+      }
 
       // 画布尺寸
       const canvasWidth = 750
-      const canvasHeight = 1200
+      const canvasHeight = 1600
       const padding = 40
-      const contentWidth = canvasWidth - padding * 2
-
-      // 背景
-      ctx.setFillStyle('#ffffff')
+      const cardPadding = 24
+      
+      // 1. 背景
+      ctx.setFillStyle('#F8FAFC')
       ctx.fillRect(0, 0, canvasWidth, canvasHeight)
 
-      let y = padding
+      // 2. 蓝色头部
+      ctx.setFillStyle('#155DFC')
+      ctx.fillRect(0, 0, canvasWidth, 320)
 
-      // 标题
-      ctx.setFillStyle('#333333')
-      ctx.setFontSize(36)
+      // 头部标题和图标
+      // 模拟图标盒子
+      ctx.save()
+      ctx.setGlobalAlpha(0.2)
+      ctx.setFillStyle('#FFFFFF')
+      this.drawRoundedRect(ctx, padding, 60, 96, 96, 20)
+      ctx.fill()
+      ctx.restore()
+      
+      // 图标文字占位
+      ctx.setFillStyle('#FFFFFF')
+      ctx.setFontSize(40)
       ctx.setTextAlign('center')
-      ctx.fillText(`${factory?.name || '加工厂'} 账款明细`, canvasWidth / 2, y)
-      y += 60
+      ctx.fillText('账', padding + 48, 125)
 
-      // 汇总信息
-      ctx.setFillStyle('#666666')
-      ctx.setFontSize(28)
       ctx.setTextAlign('left')
-      y += 20
-
-      ctx.fillText('总金额：', padding, y)
-      ctx.setFillStyle('#2b7fff')
-      ctx.setFontSize(32)
-      ctx.fillText(`¥${summaryFormatted.totalAmount}`, padding + 120, y)
-      y += 50
-
-      ctx.setFillStyle('#666666')
-      ctx.setFontSize(28)
-      ctx.fillText('已结算：', padding, y)
-      ctx.setFillStyle('#10b981')
-      ctx.setFontSize(32)
-      ctx.fillText(`¥${summaryFormatted.settledAmount}`, padding + 120, y)
-      y += 50
-
-      ctx.setFillStyle('#666666')
-      ctx.setFontSize(28)
-      ctx.fillText('未结算：', padding, y)
-      ctx.setFillStyle('#f59e0b')
-      ctx.setFontSize(32)
-      ctx.fillText(`¥${summaryFormatted.unpaidAmount}`, padding + 120, y)
-      y += 50
-
-      ctx.setFillStyle('#666666')
-      ctx.setFontSize(28)
-      ctx.fillText('发毛数：', padding, y)
-      ctx.setFillStyle('#333333')
-      ctx.setFontSize(32)
-      ctx.fillText(`${summaryFormatted.totalIssueWeight}`, padding + 120, y)
-      y += 50
-
-      ctx.setFillStyle('#666666')
-      ctx.setFontSize(28)
-      ctx.fillText('回货数：', padding, y)
-      ctx.setFillStyle('#333333')
-      ctx.setFontSize(32)
-      ctx.fillText(`${summaryFormatted.totalReturnQuantity} ${summaryFormatted.totalReturnPieces}`, padding + 120, y)
-      y += 60
-
-      // 分隔线
-      ctx.setStrokeStyle('#e5e5e5')
-      ctx.setLineWidth(2)
-      ctx.beginPath()
-      ctx.moveTo(padding, y)
-      ctx.lineTo(canvasWidth - padding, y)
-      ctx.stroke()
-      y += 40
-
-      // 回货单明细标题
-      ctx.setFillStyle('#333333')
-      ctx.setFontSize(32)
-      ctx.fillText('回货单明细', padding, y)
-      y += 50
-
-      // 回货单列表
+      ctx.setFontSize(44)
+      ctx.fillText(factory.name || '加工厂', padding + 120, 105)
       ctx.setFontSize(24)
-      returnOrders.forEach((order, index) => {
-        if (y > canvasHeight - 200) {
-          return // 超出画布范围，不继续绘制
-        }
+      ctx.setGlobalAlpha(0.8)
+      ctx.fillText('账款明细', padding + 120, 145)
+      ctx.setGlobalAlpha(1)
 
-        ctx.setFillStyle('#666666')
-        ctx.setTextAlign('left')
+      // 头部日期
+      ctx.setFontSize(24)
+      ctx.setGlobalAlpha(0.9)
+      ctx.fillText(`📅 ${currentTime || formatDateTime(new Date())}`, padding, 240)
+      ctx.setGlobalAlpha(1)
+
+      // 3. 汇总统计网格 (3x2)
+      const gridY = 280
+      const itemWidth = (canvasWidth - padding * 2 - 20) / 2
+      const itemHeight = 160
+      const gap = 20
+
+      const summaryItems = [
+        { label: '总金额', value: `¥${summaryFormatted.totalAmount}`, color: '#E0E7FF' },
+        { label: '已结算', value: `¥${summaryFormatted.settledAmount}`, color: '#DCFCE7' },
+        { label: '未结算', value: `¥${summaryFormatted.unpaidAmount}`, color: '#FFEDD5' },
+        { label: '发毛数', value: summaryFormatted.totalIssueWeight, color: '#F3E8FF' },
+        { label: '回货重量', value: summaryFormatted.totalReturnWeight, color: '#FCE7F3' },
+        { label: '回货数量', value: summaryFormatted.totalReturnPieces, color: '#DBEAFE' }
+      ]
+
+      summaryItems.forEach((item, index) => {
+        const col = index % 2
+        const row = Math.floor(index / 2)
+        const x = padding + col * (itemWidth + gap)
+        const y = gridY + row * (itemHeight + gap)
+
+        // 卡片背景
+        ctx.setFillStyle('#FFFFFF')
+        this.drawRoundedRect(ctx, x, y, itemWidth, itemHeight, 24)
+        ctx.fill()
+
+        // 标签
+        ctx.setFillStyle('#64748B')
+        ctx.setFontSize(24)
+        ctx.fillText(item.label, x + cardPadding, y + 50)
+
+        // 数值
+        ctx.setFillStyle('#1E293B')
+        ctx.setFontSize(36)
+        ctx.fillText(item.value, x + cardPadding, y + 110)
+      });
+
+      // 4. 回货单明细标题
+      let currentY = gridY + 3 * (itemHeight + gap) + 40
+      ctx.setFillStyle('#155DFC')
+      ctx.fillRect(padding, currentY, 8, 32)
+      ctx.setFillStyle('#1E293B')
+      ctx.setFontSize(32)
+      ctx.fillText('回货单明细', padding + 24, currentY + 28)
+      currentY += 70
+
+      // 5. 明细列表
+      const listItems = returnOrders.slice(0, 5)
+      listItems.forEach((order) => {
+        const cardHeight = 300
+        const x = padding
+        const y = currentY
+
+        // 卡片背景
+        ctx.setFillStyle('#FFFFFF')
+        this.drawRoundedRect(ctx, x, y, canvasWidth - padding * 2, cardHeight, 24)
+        ctx.fill()
+
+        // 日期
+        ctx.setFillStyle('#1E293B')
+        ctx.setFontSize(32)
+        ctx.fillText(order.returnDateFormatted, x + 100, y + 60)
         
-        // 日期和款号
-        const dateText = order.returnDateFormatted
-        const styleText = `${order.styleName}${order.styleCode ? ' ' + order.styleCode : ''}`
-        ctx.fillText(`${dateText} ${styleText}`, padding, y)
-        y += 35
+        // 日期图标背景
+        ctx.setFillStyle('#EFF6FF')
+        this.drawRoundedRect(ctx, x + cardPadding, y + 24, 56, 56, 12)
+        ctx.fill()
 
-        // 发毛数和回货数
-        if (order.issueWeight > 0 || order.returnQuantity > 0) {
-          ctx.fillText(`发毛：${order.issueWeightFormatted}  回货：${order.returnQuantityFormatted} ${order.returnPiecesFormatted}`, padding + 20, y)
-          y += 30
-        }
+        // 状态标签
+        const isSettled = order.settlementStatus === '已结算'
+        ctx.setFillStyle(isSettled ? '#DCFCE7' : '#FFEDD5')
+        this.drawRoundedRect(ctx, canvasWidth - padding - 120, y + 24, 90, 40, 10)
+        ctx.fill()
+        ctx.setFillStyle(isSettled ? '#166534' : '#9A3412')
+        ctx.setFontSize(22)
+        ctx.setTextAlign('center')
+        ctx.fillText(order.settlementStatus || '未结算', canvasWidth - padding - 75, y + 52)
+        ctx.setTextAlign('left')
 
-        // 金额信息
-        ctx.fillText(`加工费：¥${order.processingFeeFormatted}`, padding + 20, y)
-        y += 30
-
-        if (order.settledAmount > 0) {
-          ctx.fillText(`已结算：¥${order.settledAmountFormatted}`, padding + 20, y)
-          y += 30
-        }
-
-        ctx.setFillStyle('#f59e0b')
-        ctx.fillText(`未结算：¥${order.unpaidAmountFormatted}`, padding + 20, y)
-        y += 40
+        // 二级信息 (操作人 + 款号)
+        ctx.setFillStyle('#64748B')
+        ctx.setFontSize(24)
+        const subText = `${order.employeeName || '管理员'}  ·  ${order.styleCode || order.styleName}`
+        ctx.fillText(subText, x + cardPadding, y + 110)
 
         // 分隔线
-        if (index < returnOrders.length - 1) {
-          ctx.setStrokeStyle('#f5f5f5')
-          ctx.setLineWidth(1)
-          ctx.beginPath()
-          ctx.moveTo(padding, y)
-          ctx.lineTo(canvasWidth - padding, y)
-          ctx.stroke()
-          y += 20
-        }
+        ctx.setStrokeStyle('#F1F5F9')
+        ctx.setLineWidth(1)
+        ctx.beginPath()
+        ctx.moveTo(x + cardPadding, y + 140)
+        ctx.lineTo(canvasWidth - padding - cardPadding, y + 140)
+        ctx.stroke()
+
+        // 2x2 指标
+        const metricGapX = (canvasWidth - padding * 2 - cardPadding * 2) / 2
+        const metricY1 = y + 190
+        const metricY2 = y + 250
+
+        // 发毛
+        ctx.setFillStyle('#94A3B8')
+        ctx.setFontSize(22)
+        ctx.fillText('发毛', x + cardPadding, metricY1 - 5)
+        ctx.setFillStyle('#1E293B')
+        ctx.setFontSize(28)
+        ctx.fillText(order.issueWeightFormatted, x + cardPadding, metricY1 + 35)
+
+        // 回货重量
+        ctx.setFillStyle('#94A3B8')
+        ctx.setFontSize(22)
+        ctx.fillText('回货重量', x + cardPadding + metricGapX, metricY1 - 5)
+        ctx.setFillStyle('#1E293B')
+        ctx.setFontSize(28)
+        ctx.fillText(order.returnWeightFormatted, x + cardPadding + metricGapX, metricY1 + 35)
+
+        // 回货数量
+        ctx.setFillStyle('#94A3B8')
+        ctx.setFontSize(22)
+        ctx.fillText('回货数量', x + cardPadding, metricY2 - 5)
+        ctx.setFillStyle('#1E293B')
+        ctx.setFontSize(28)
+        ctx.fillText(order.returnPiecesFormatted, x + cardPadding, metricY2 + 35)
+
+        // 加工费
+        ctx.setFillStyle('#94A3B8')
+        ctx.setFontSize(22)
+        ctx.fillText('加工费', x + cardPadding + metricGapX, metricY2 - 5)
+        ctx.setFillStyle('#1E293B')
+        ctx.setFontSize(28)
+        ctx.fillText(`¥${order.processingFeeFormatted}`, x + cardPadding + metricGapX, metricY2 + 35)
+
+        currentY += cardHeight + gap
       })
 
-      // 结算记录
-      if (settlements.length > 0 && y < canvasHeight - 200) {
-        y += 20
-        ctx.setStrokeStyle('#e5e5e5')
-        ctx.setLineWidth(2)
-        ctx.beginPath()
-        ctx.moveTo(padding, y)
-        ctx.lineTo(canvasWidth - padding, y)
-        ctx.stroke()
-        y += 40
-
-        ctx.setFillStyle('#333333')
-        ctx.setFontSize(32)
-        ctx.fillText('结算记录', padding, y)
-        y += 50
-
-        ctx.setFontSize(24)
-        settlements.forEach((settlement) => {
-          if (y > canvasHeight - 100) {
-            return
-          }
-
-          ctx.setFillStyle('#666666')
-          ctx.fillText(`${settlement.settlementDateFormatted} 结算¥${settlement.totalAmountFormatted}`, padding, y)
-          y += 40
-        })
-      }
-
-      // 底部信息
-      ctx.setFillStyle('#999999')
+      // 6. 底部说明
+      ctx.setFillStyle('#94A3B8')
       ctx.setFontSize(20)
       ctx.setTextAlign('center')
-      ctx.fillText(`生成时间：${new Date().toLocaleString('zh-CN')}`, canvasWidth / 2, canvasHeight - 40)
+      ctx.fillText('—— 由 首发 纱线管理系统 生成 ——', canvasWidth / 2, canvasHeight - 60)
 
       ctx.draw(false, () => {
         setTimeout(() => {
@@ -542,6 +601,21 @@ Page({
         }, 800)
       })
     })
+  },
+
+  // 辅助函数：绘制圆角矩形
+  drawRoundedRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath()
+    ctx.moveTo(x + radius, y)
+    ctx.lineTo(x + width - radius, y)
+    ctx.arcTo(x + width, y, x + width, y + radius, radius)
+    ctx.lineTo(x + width, y + height - radius)
+    ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius)
+    ctx.lineTo(x + radius, y + height)
+    ctx.arcTo(x, y + height, x, y + height - radius, radius)
+    ctx.lineTo(x, y + radius)
+    ctx.arcTo(x, y, x + radius, y, radius)
+    ctx.closePath()
   },
 
   async onSettle() {

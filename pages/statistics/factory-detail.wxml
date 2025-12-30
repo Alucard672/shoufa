@@ -1,0 +1,93 @@
+<!--pages/statistics/factory-detail.wxml-->
+<view class="container">
+  <!-- 工厂汇总 -->
+  <view class="summary-card card">
+    <view class="summary-header">
+      <text class="factory-name-title">{{factoryName}}</text>
+    </view>
+    <view class="summary-grid">
+      <view class="summary-item">
+        <text class="summary-label">发料单数</text>
+        <text class="summary-value">{{summary.totalIssueCount}}笔</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-label">发料重量</text>
+        <text class="summary-value">{{summary.totalIssueWeightFormatted}}</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-label">回货件数</text>
+        <text class="summary-value return">{{summary.totalReturnPiecesFormatted}}</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-label">回货重量</text>
+        <text class="summary-value return">{{summary.totalReturnWeightFormatted}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 查询条件 -->
+  <view class="filter-section">
+    <view class="filter-item filter-item-row" hover-class="none">
+      <text class="filter-label-inline">款号</text>
+      <input 
+        class="search-input" 
+        type="text" 
+        placeholder="请输入款号代码或名称"
+        value="{{styleKeyword}}"
+        bindinput="onStyleKeywordInput"
+      />
+    </view>
+    <view class="filter-item filter-item-row" hover-class="none">
+      <text class="filter-label-inline">日期</text>
+      <filter-tabs 
+        options="{{['全部时间', '今天', '本周', '本月']}}"
+        current="{{timeFilter === 'all' ? 0 : timeFilter === 'today' ? 1 : timeFilter === 'week' ? 2 : 3}}"
+        bindchange="onTimeFilterChange"
+      />
+    </view>
+  </view>
+
+  <!-- 明细列表 -->
+  <view class="order-list">
+    <view class="order-card card" wx:for="{{filteredIssueOrders}}" wx:key="_id">
+      <view class="order-header">
+        <view class="order-title">
+          <text class="order-no">{{item.issueNo}}</text>
+          <badge type="{{item.status === '未回货' ? 'warning' : item.status === '部分回货' ? 'info' : 'success'}}" text="{{item.status}}" />
+        </view>
+        <view class="style-info">
+          <text class="style-code" wx:if="{{item.styleCode}}">[{{item.styleCode}}] </text>
+          <text class="style-name">{{item.styleName}}</text>
+        </view>
+      </view>
+
+      <view class="order-data">
+        <view class="data-row">
+          <text class="data-label">发料日期</text>
+          <text class="data-value">{{item.issueDateFormatted}}</text>
+        </view>
+        <view class="data-row">
+          <text class="data-label">发料重量</text>
+          <text class="data-value">{{item.issueWeightFormatted}} kg</text>
+        </view>
+        <view class="data-row">
+          <text class="data-label">回货进度</text>
+          <text class="data-value return">{{item.totalReturnPiecesFormatted}} ({{item.totalReturnWeightFormatted}}kg)</text>
+        </view>
+        <view class="data-row" wx:if="{{item.status === '部分回货'}}">
+          <text class="data-label">剩余待回</text>
+          <text class="data-value warning">{{item.remainingYarnFormatted}} kg</text>
+        </view>
+        <view class="data-row">
+          <text class="data-label">最近回货</text>
+          <text class="data-value">{{item.latestReturnDateFormatted}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty-tip" wx:if="{{filteredIssueOrders.length === 0}}">
+      <text>暂无相关明细</text>
+    </view>
+  </view>
+</view>
+

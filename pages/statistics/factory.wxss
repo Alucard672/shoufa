@@ -1,0 +1,147 @@
+/* pages/statistics/factory.wxss */
+.container {
+  padding: 16px;
+  background: #F9FAFB;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.filter-section {
+  margin-bottom: 12px;
+}
+
+.filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #FFFFFF;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-item {
+  background: #FFFFFF;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.stat-header {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.factory-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.style-count {
+  font-size: 12px;
+  color: #6A7282;
+}
+
+.stat-data-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.data-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.data-label {
+  font-size: 12px;
+  color: #6A7282;
+}
+
+.data-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #101828;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.data-value.return {
+  color: #00A63E;
+}
+
+.filter-section {
+  margin-bottom: 12px;
+  background: #FFFFFF;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.filter-item {
+  margin-bottom: 16px;
+}
+
+.filter-item:last-child {
+  margin-bottom: 0;
+}
+
+.filter-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-label-inline {
+  font-size: 14px;
+  color: #101828;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 42px;
+  line-height: 1;
+  margin-bottom: 0;
+}
+
+.style-search-input {
+  flex: 1;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 12px;
+  background: #F3F3F5;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  color: #101828;
+  line-height: 32px;
+}
+
+/* 日期筛选在 filter-item 中的样式 */
+.filter-item-row filter-tabs {
+  flex: 1;
+  --filter-tabs-margin-bottom: 0px;
+}
+
+.empty-tip {
+  padding: 80rpx 32rpx;
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+}
+

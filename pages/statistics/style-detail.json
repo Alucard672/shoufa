@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "款号统计明细",
+  "usingComponents": {
+    "filter-tabs": "/components/filter-tabs/filter-tabs",
+    "badge": "/components/badge/badge"
+  }
+}
+

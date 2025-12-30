@@ -1,6 +1,6 @@
 // pages/return/index.js
 import { getReturnOrders } from '../../utils/db.js'
-import { formatDate, formatAmount, formatQuantity, formatWeight } from '../../utils/calc.js'
+import { formatDate, formatDateTime, formatAmount, formatQuantity, formatWeight } from '../../utils/calc.js'
 import { query, queryByIds } from '../../utils/db.js'
 import { getTimeRange } from '../../utils/calc.js'
 import { checkLogin } from '../../utils/auth.js'
@@ -23,11 +23,19 @@ Page({
     sharingReturnOrder: null
   },
 
-  onLoad() {
+  onLoad(options) {
     // 检查登录状态
     if (!checkLogin()) {
       return
     }
+
+    // 处理从统计页面跳转过来的筛选条件
+    if (options.timeFilter) {
+      this.setData({
+        timeFilter: decodeURIComponent(options.timeFilter)
+      })
+    }
+
     this.loadData()
   },
 
@@ -61,26 +69,64 @@ Page({
   },
 
   async loadStatistics() {
-    const where = {}
+    // 查询所有数据，然后在客户端进行时间筛选
+    const result = await query('return_orders', {}, {
+      excludeDeleted: true
+    })
 
+    let orders = result.data || []
+    
+    // 客户端进行时间筛选
     if (this.data.timeFilter !== 'all') {
       const timeRange = getTimeRange(this.data.timeFilter)
       if (timeRange.startDate && timeRange.endDate) {
-        where.returnDate = {
-          gte: timeRange.startDate,
-          lte: timeRange.endDate
-        }
+        const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
+        const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
+
+        orders = orders.filter(order => {
+          // 使用创建时间进行筛选
+          const date = order.createTime || order.create_time
+          if (!date) return false
+
+          let orderDate
+          try {
+            if (date instanceof Date) {
+              orderDate = date
+            } else if (typeof date === 'string') {
+              const dateStr = date.replace(/\//g, '-')
+              orderDate = new Date(dateStr)
+            } else if (date && typeof date === 'object') {
+              if (typeof date.getTime === 'function') {
+                orderDate = new Date(date.getTime())
+              } else if (date._seconds) {
+                orderDate = new Date(date._seconds * 1000)
+              } else {
+                orderDate = new Date(date)
+              }
+            } else {
+              orderDate = new Date(date)
+            }
+
+            if (isNaN(orderDate.getTime())) {
+              return false
+            }
+
+            const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
+            const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
+            const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
+
+            return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
+          } catch (e) {
+            return false
+          }
+        })
       }
     }
-
-    const result = await query('return_orders', where, {
-      excludeDeleted: true
-    })
 
     let totalPieces = 0
     let totalFee = 0
 
-    result.data.forEach(order => {
+    orders.forEach(order => {
       totalPieces += Math.floor(order.returnPieces || order.return_pieces || 0)
       totalFee += order.processingFee || order.processing_fee || 0
     })
@@ -94,26 +140,62 @@ Page({
   },
 
   async loadReturnOrders() {
-    const where = {}
+    // 查询所有回货单，然后在客户端进行时间筛选（更可靠）
+    const ordersRes = await query('return_orders', {}, {
+      excludeDeleted: true,
+      orderBy: { field: 'createTime', direction: 'DESC' }
+    })
 
+    // 客户端进行时间筛选
+    let orders = ordersRes.data || []
     if (this.data.timeFilter !== 'all') {
       const timeRange = getTimeRange(this.data.timeFilter)
       if (timeRange.startDate && timeRange.endDate) {
-        where.returnDate = {
-          gte: timeRange.startDate,
-          lte: timeRange.endDate
-        }
+        const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
+        const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
+
+        orders = orders.filter(order => {
+          // 使用创建时间进行筛选
+          const date = order.createTime || order.create_time
+          if (!date) return false
+
+          let orderDate
+          try {
+            if (date instanceof Date) {
+              orderDate = date
+            } else if (typeof date === 'string') {
+              const dateStr = date.replace(/\//g, '-')
+              orderDate = new Date(dateStr)
+            } else if (date && typeof date === 'object') {
+              if (typeof date.getTime === 'function') {
+                orderDate = new Date(date.getTime())
+              } else if (date._seconds) {
+                orderDate = new Date(date._seconds * 1000)
+              } else {
+                orderDate = new Date(date)
+              }
+            } else {
+              orderDate = new Date(date)
+            }
+
+            if (isNaN(orderDate.getTime())) {
+              return false
+            }
+
+            const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
+            const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
+            const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
+
+            return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
+          } catch (e) {
+            console.error('日期解析错误:', order.createTime, e)
+            return false
+          }
+        })
       }
     }
 
-    // 查询回货单（搜索在客户端过滤）
-    const ordersRes = await query('return_orders', where, {
-      excludeDeleted: true,
-      orderBy: { field: 'returnDate', direction: 'DESC' }
-    })
-
     // 客户端过滤搜索关键词
-    let orders = ordersRes.data || []
     if (this.data.searchKeyword) {
       const keyword = this.data.searchKeyword.toLowerCase()
       orders = orders.filter(order => {
@@ -161,18 +243,20 @@ Page({
         const returnQuantity = order.returnQuantity || order.return_quantity || 0
         const pricePerDozen = returnQuantity > 0 ? (processingFee / returnQuantity) : 0
 
+        const styleImageUrl = (style?.imageUrl || style?.image_url || style?.image || '').trim()
+
         return {
           ...order,
           factoryName: factory?.name || '未知工厂',
           styleName: styleName,
           styleCode: styleCode,
           styleDisplay: styleDisplay,
-          styleImageUrl: style?.imageUrl || style?.image_url || '',
+          styleImageUrl: styleImageUrl,
           issueNo: issueOrder?.issueNo || issueOrder?.issue_no || '未知',
           issueWeight: issueOrder?.issueWeight || issueOrder?.issue_weight || 0,
           issueWeightFormatted: formatWeight(issueOrder?.issueWeight || issueOrder?.issue_weight || 0),
           issueDate: issueOrder?.issueDate || issueOrder?.issue_date,
-          issueDateFormatted: formatDate(issueOrder?.issueDate || issueOrder?.issue_date),
+          issueDateFormatted: formatDateTime(issueOrder?.createTime || issueOrder?.create_time || issueOrder?.issueDate || issueOrder?.issue_date),
           color: order.color || '',
           size: order.size || '',
           returnPieces: returnPieces,
@@ -180,7 +264,7 @@ Page({
           returnQuantityFormatted: formatQuantity(returnQuantity),
           quantityFormatted: formatQuantity(returnPieces),
           returnPiecesFormatted: `${Math.floor(returnPieces / 12)}打${returnPieces % 12}件`,
-          returnDateFormatted: formatDate(order.returnDate || order.return_date),
+          returnDateFormatted: formatDateTime(order.createTime || order.create_time || order.returnDate || order.return_date),
           processingFeeFormatted: formatAmount(processingFee),
           pricePerPieceFormatted: pricePerPiece.toFixed(2),
           pricePerDozenFormatted: pricePerDozen.toFixed(2),
@@ -207,7 +291,7 @@ Page({
           issueNo: '未知',
           returnPieces: Math.floor(returnPieces),
           quantityFormatted: formatQuantity(Math.floor(returnPieces)),
-          returnDateFormatted: formatDate(order.returnDate || order.return_date),
+          returnDateFormatted: formatDateTime(order.createTime || order.create_time || order.returnDate || order.return_date),
           processingFeeFormatted: formatAmount(processingFee),
           pricePerPieceFormatted: pricePerPiece.toFixed(2),
           actualYarnUsageFormatted: actualYarnUsage.toFixed(2)
@@ -255,17 +339,8 @@ Page({
       statusFilter: selectedFilter,
       statusFilterIndex: index
     })
-    // 重新过滤订单列表
-    let finalOrders = this.data.returnOrders || []
-    if (selectedFilter !== 'all') {
-      finalOrders = this.data.returnOrders.filter(order => {
-        const orderStatus = order.status || '进行中'
-        return orderStatus === selectedFilter
-      })
-    }
-    this.setData({
-      filteredOrders: finalOrders
-    })
+    // 重新加载数据以应用状态筛选
+    this.loadReturnOrders()
   },
 
   navigateToCreate() {
@@ -284,7 +359,15 @@ Page({
 
   async onShareReturnOrder(e) {
     const returnOrderId = e.currentTarget.dataset.id
-    const returnOrder = this.data.returnOrders.find(order => (order._id || order.id) === returnOrderId)
+    console.log('分享回货单，ID:', returnOrderId)
+    console.log('当前 returnOrders 数量:', this.data.returnOrders.length)
+    
+    const returnOrder = this.data.returnOrders.find(order => {
+      const orderId = order._id || order.id
+      return orderId === returnOrderId || String(orderId) === String(returnOrderId)
+    })
+    
+    console.log('找到的回货单:', returnOrder)
     
     if (!returnOrder) {
       wx.showToast({
@@ -315,8 +398,9 @@ Page({
       wx.hideLoading()
       console.error('生成分享图片失败:', error)
       wx.showToast({
-        title: '生成失败',
-        icon: 'none'
+        title: '生成失败: ' + (error.message || '未知错误'),
+        icon: 'none',
+        duration: 3000
       })
     }
   },
@@ -447,11 +531,9 @@ Page({
       ctx.fillText('回货数量：', padding, y)
       ctx.setFillStyle('#333333')
       ctx.setFontSize(32)
-      if (returnOrder.returnQuantity > 0) {
-        ctx.fillText(`${returnOrder.returnQuantityFormatted} (${returnOrder.returnPiecesFormatted})`, padding + 140, y)
-      } else {
-        ctx.fillText(returnOrder.quantityFormatted || '', padding + 140, y)
-      }
+      // 只显示一种格式：打件格式（如 "30打5件"）
+      const quantityText = returnOrder.returnPiecesFormatted || returnOrder.quantityFormatted || '0件'
+      ctx.fillText(quantityText, padding + 140, y)
       y += 45
 
       // 实际用纱量
@@ -494,7 +576,7 @@ Page({
       ctx.fillText('加工费总额：', padding, y)
       ctx.setFillStyle('#2b7fff')
       ctx.setFontSize(36)
-      ctx.fillText(`¥${returnOrder.processingFeeFormatted}`, padding + 180, y)
+      ctx.fillText(`${returnOrder.processingFeeFormatted}`, padding + 180, y)
       y += 55
 
       // 结算状态
@@ -512,7 +594,7 @@ Page({
         ctx.setFillStyle('#666666')
         ctx.fillText('已结算：', padding, y)
         ctx.setFillStyle('#10b981')
-        ctx.fillText(`¥${returnOrder.settledAmountFormatted}`, padding + 140, y)
+        ctx.fillText(`${returnOrder.settledAmountFormatted}`, padding + 140, y)
         y += 45
       }
 

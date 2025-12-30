@@ -57,7 +57,7 @@
         </view>
         <view class="order-header-right">
           <text class="order-no">{{item.returnNo}}</text>
-          <view class="share-btn" bindtap="onShareReturnOrder" data-id="{{item._id}}" catchtap="stopPropagation">
+          <view class="share-btn" catchtap="onShareReturnOrder" data-id="{{item._id}}">
             <text>分享</text>
           </view>
         </view>
@@ -66,28 +66,30 @@
       <view class="order-info">
         <text class="info-text">发料单: {{item.issueNo}}</text>
         <view class="style-info-row" wx:if="{{item.styleDisplay || item.styleName}}">
-          <view class="style-image-container">
-            <image class="style-image" src="{{item.styleImageUrl}}" mode="aspectFill" wx:if="{{item.styleImageUrl}}"></image>
-            <view class="style-image-placeholder" wx:else>
-              <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
-            </view>
-          </view>
           <text class="info-text info-text-right">款号: <text style="font-weight: 700; color: #1E293B;">{{item.styleCode ? '[' + item.styleCode + '] ' : ''}}{{item.styleName}}</text></text>
         </view>
       </view>
       
       <view class="order-details">
-        <view class="detail-item">
-          <text class="detail-label">回货数量</text>
-          <text class="detail-value">{{item.quantityFormatted}}</text>
+        <view class="detail-thumb" wx:if="{{item.styleImageUrl}}">
+          <image class="detail-thumb-img" src="{{item.styleImageUrl}}" mode="aspectFill"></image>
         </view>
-        <view class="detail-item">
-          <text class="detail-label">单价</text>
-          <text class="detail-value fee-value">¥{{item.pricePerPieceFormatted}}/件</text>
+        <view class="detail-thumb detail-thumb-placeholder" wx:else>
+          <image class="detail-thumb-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
         </view>
-        <view class="detail-item">
-          <text class="detail-label">总金额</text>
-          <text class="detail-value fee-value">{{item.processingFeeFormatted}}</text>
+        <view class="detail-info-col">
+          <view class="detail-row">
+            <text class="detail-label">回货数量</text>
+            <text class="detail-value">{{item.quantityFormatted}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">单价</text>
+            <text class="detail-value fee-value">¥{{item.pricePerPieceFormatted}}/件</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">总金额</text>
+            <text class="detail-value fee-value">¥{{item.processingFeeFormatted}}</text>
+          </view>
         </view>
       </view>
       
@@ -118,11 +120,11 @@
     <view class="share-modal-content">
       <view class="share-options">
         <view class="share-option" bindtap="saveImageToAlbum">
-          <text class="share-option-icon">📷</text>
+          <image class="share-option-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
           <text class="share-option-text">保存到相册</text>
         </view>
         <view class="share-option" bindtap="previewImage">
-          <text class="share-option-icon">👁️</text>
+          <image class="share-option-icon" src="/images/icons/image.svg" mode="aspectFit"></image>
           <text class="share-option-text">预览图片</text>
         </view>
       </view>

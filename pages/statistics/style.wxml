@@ -1,0 +1,82 @@
+<!--pages/statistics/style.wxml-->
+<view class="container">
+  <!-- 查询条件 -->
+  <view class="filter-section">
+    <view class="filter-item filter-item-row" hover-class="none">
+      <text class="filter-label-inline">款号</text>
+      <input 
+        class="style-search-input" 
+        type="text" 
+        placeholder="请输入款号代码或名称"
+        value="{{styleKeyword}}"
+        bindinput="onStyleKeywordInput"
+        bindconfirm="onStyleKeywordSearch"
+      />
+    </view>
+    <view class="filter-item filter-item-row" hover-class="none">
+      <text class="filter-label-inline">日期</text>
+      <filter-tabs 
+        options="{{['全部时间', '今天', '本周', '本月']}}"
+        current="{{timeFilter === 'all' ? 0 : timeFilter === 'today' ? 1 : timeFilter === 'week' ? 2 : 3}}"
+        bindchange="onTimeFilterChange"
+      />
+    </view>
+  </view>
+
+  <!-- 款号统计列表 -->
+  <view class="stats-list">
+    <view class="stat-item card" wx:for="{{filteredStyleStats}}" wx:key="styleId" bindtap="onStyleItemClick" data-style-id="{{item.styleId}}" data-style-code="{{item.styleCode}}" data-style-name="{{item.styleName}}">
+      <view class="stat-header">
+        <view class="style-image-container">
+          <image 
+            class="style-image" 
+            src="{{item.styleImageUrl}}" 
+            mode="aspectFill" 
+            wx:if="{{item.styleImageUrl}}"
+            catchtap="onPreviewImage"
+            data-url="{{item.styleImageUrl}}"
+          ></image>
+          <view class="style-image-placeholder" wx:else>
+            <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+          </view>
+        </view>
+        <view class="stat-info">
+          <view class="style-name-row">
+            <text class="style-code" wx:if="{{item.styleCode}}">{{item.styleCode}}</text>
+            <text class="style-name">{{item.styleName || '未知款号'}}</text>
+          </view>
+          <view class="style-meta-row" wx:if="{{item.yarnUsagePerPieceFormatted || item.lossRateFormatted}}">
+            <text class="style-meta usage" wx:if="{{item.yarnUsagePerPieceFormatted}}">{{item.yarnUsagePerPieceFormatted}}</text>
+            <text class="style-meta-sep" wx:if="{{item.yarnUsagePerPieceFormatted && item.lossRateFormatted}}">·</text>
+            <text class="style-meta loss" wx:if="{{item.lossRateFormatted}}">{{item.lossRateFormatted}}</text>
+          </view>
+          <text class="factory-count">涉及 {{item.factoryCount}} 家工厂</text>
+        </view>
+      </view>
+
+      <view class="stat-data-row">
+        <view class="data-item">
+          <text class="data-label">发料单数</text>
+          <text class="data-value">{{item.totalIssueCount}}笔</text>
+        </view>
+        <view class="data-item">
+          <text class="data-label">发料重量</text>
+          <text class="data-value">{{item.totalIssueWeightFormatted}}</text>
+        </view>
+        <view class="data-item">
+          <text class="data-label">回货件数</text>
+          <text class="data-value return">{{item.totalReturnPiecesFormatted}}</text>
+        </view>
+        <view class="data-item">
+          <text class="data-label">回货重量</text>
+          <text class="data-value return">{{item.totalReturnWeightFormatted}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty-tip" wx:if="{{filteredStyleStats.length === 0}}">
+      <text>暂无数据</text>
+    </view>
+  </view>
+</view>
+

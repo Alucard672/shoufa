@@ -208,10 +208,16 @@ export async function calculateIssueProgress(issueId) {
   let status = '未回货'
   if (totalReturnYarn > 0) {
     if (remainingYarn <= 0.01) {
-      status = '已回货'
+      // 回货完成，标记为已完成
+      status = '已完成'
     } else {
       status = '部分回货'
     }
+  }
+  
+  // 如果发料单已经是已完成状态，保持已完成
+  if (issueOrder.status === '已完成') {
+    status = '已完成'
   }
 
   return {
@@ -436,6 +442,7 @@ export async function queryByIds(table, ids, options = {}) {
       deleted: false,
       _id: _.in(ids)
     })
+    .limit(100)
     .get()
 }
 

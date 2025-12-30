@@ -44,7 +44,7 @@ Page({
         // 兼容旧字段名
         const styleCode = style.styleCode || style.style_code || ''
         const styleName = style.styleName || style.style_name || ''
-        const imageUrl = style.imageUrl || style.image_url || ''
+        const imageUrl = (style.imageUrl || style.image_url || style.image || '').trim()
         const yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
         const lossRate = style.lossRate || style.loss_rate || 0
         const processingFeePerDozen = style.processingFeePerDozen || style.processing_fee_per_dozen || 0
@@ -151,6 +151,16 @@ Page({
     wx.navigateTo({
       url: `/pages/style/create?id=${styleId}`
     })
+  },
+
+  onPreviewImage(e) {
+    const url = e.currentTarget.dataset.url
+    if (url) {
+      wx.previewImage({
+        urls: [url],
+        current: url
+      })
+    }
   }
 })
 

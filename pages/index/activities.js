@@ -1,6 +1,6 @@
 // pages/index/activities.js
 import { query, queryByIds } from '../../utils/db.js'
-import { formatDate, getTimeRange } from '../../utils/calc.js'
+import { formatDate, formatDateTime, getTimeRange } from '../../utils/calc.js'
 const app = getApp()
 
 Page({
@@ -219,7 +219,7 @@ Page({
       if (this.data.typeFilter !== 'return') {
         const issueRes = await query('issue_orders', issueWhere, {
           excludeDeleted: true,
-          orderBy: { field: 'issueDate', direction: 'DESC' }
+          orderBy: { field: 'createTime', direction: 'DESC' }
         })
         issueOrders = { data: issueRes.data || [] }
       }
@@ -227,7 +227,7 @@ Page({
       if (this.data.typeFilter !== 'issue') {
         const returnRes = await query('return_orders', returnWhere, {
           excludeDeleted: true,
-          orderBy: { field: 'returnDate', direction: 'DESC' }
+          orderBy: { field: 'createTime', direction: 'DESC' }
         })
         returnOrders = { data: returnRes.data || [] }
       }
@@ -241,7 +241,8 @@ Page({
           ...order,
           type: 'issue',
           date: order.issueDate || order.issue_date,
-          dateFormatted: formatDate(order.issueDate || order.issue_date)
+          createTime: order.createTime || order.create_time,
+          dateFormatted: formatDateTime(order.createTime || order.create_time || order.issueDate || order.issue_date)
         })
       })
 
@@ -251,8 +252,16 @@ Page({
           ...order,
           type: 'return',
           date: order.returnDate || order.return_date,
-          dateFormatted: formatDate(order.returnDate || order.return_date)
+          createTime: order.createTime || order.create_time,
+          dateFormatted: formatDateTime(order.createTime || order.create_time || order.returnDate || order.return_date)
         })
+      })
+      
+      // 按创建时间排序（倒序）
+      allActivities.sort((a, b) => {
+        const timeA = a.createTime ? new Date(a.createTime) : new Date(a.date || 0)
+        const timeB = b.createTime ? new Date(b.createTime) : new Date(b.date || 0)
+        return timeB.getTime() - timeA.getTime()
       })
 
       // 批量查询工厂和款号信息（只查询一次，不是逐个查询）
@@ -357,7 +366,7 @@ Page({
             styleImageUrl: style?.imageUrl || style?.image_url || '',
             color: activity.color || '',
             issueWeightFormatted: issueWeight.toFixed(2),
-            dateFormatted: formatDate(activity.issueDate || activity.issue_date),
+            dateFormatted: formatDateTime(activity.createTime || activity.create_time || activity.issueDate || activity.issue_date),
             totalReturnYarn: totalReturnYarn,
             totalReturnYarnFormatted: totalReturnYarn.toFixed(2),
             progressPercent: Math.min(progressPercent, 100),
@@ -396,7 +405,7 @@ Page({
             returnQuantity: returnQuantity,
             returnPieces: returnPieces,
             returnQuantityFormatted: `${returnQuantity}打 ${returnPieces}件`,
-            dateFormatted: formatDate(activity.returnDate || activity.return_date),
+            dateFormatted: formatDateTime(activity.createTime || activity.create_time || activity.returnDate || activity.return_date),
             actualYarnUsageFormatted: actualYarnUsage.toFixed(2),
             processingFeeFormatted: processingFee.toFixed(2),
             styleDisplay: `${styleCodeStr}${styleName}`,
