@@ -33,4 +33,3 @@ module.exports = async function listEmployees(db, payload, context) {
     totalPages: Math.ceil(total / pageSize)
   };
 }
-
