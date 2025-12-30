@@ -2,7 +2,7 @@
 .filter-tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: var(--filter-tabs-margin-bottom, 16px);
   width: 100%;
   box-sizing: border-box;
 }
@@ -25,6 +25,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent; /* 禁用点击高亮 */
 }
 
 .filter-tab.active {

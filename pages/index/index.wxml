@@ -53,11 +53,11 @@
     </view>
     <view class="activity-list">
       <view class="activity-item" wx:for="{{displayActivities}}" wx:key="index">
-        <view class="activity-image-wrapper">
-          <image class="activity-image" src="{{item.styleImageUrl}}" mode="aspectFill" wx:if="{{item.styleImageUrl}}"></image>
-          <view class="activity-image-placeholder" wx:else>
-            <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
-          </view>
+        <view class="activity-image-wrapper" wx:if="{{item.styleImageUrl}}" bindtap="onPreviewImage" data-url="{{item.styleImageUrl}}">
+          <image class="activity-image" src="{{item.styleImageUrl}}" mode="aspectFill"></image>
+        </view>
+        <view class="activity-image-placeholder" wx:else>
+          <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
         </view>
         <view class="activity-content">
           <view class="activity-content-header">

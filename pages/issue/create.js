@@ -128,9 +128,12 @@ Page({
       if (priceRes.data && priceRes.data.processingFeePerDozen) {
         // 使用历史价格
         processingFeePerDozen = priceRes.data.processingFeePerDozen.toString()
-      } else if (this.data.selectedStyle && this.data.selectedStyle.processingFeePerDozen) {
-        // 使用款号的默认价格
-        processingFeePerDozen = this.data.selectedStyle.processingFeePerDozen.toString()
+      } else if (this.data.selectedStyle) {
+        // 使用款号的默认价格（兼容新旧字段名）
+        const stylePrice = this.data.selectedStyle.processingFeePerDozen || this.data.selectedStyle.processing_fee_per_dozen
+        if (stylePrice) {
+          processingFeePerDozen = stylePrice.toString()
+        }
       }
       
       const processingFeePerPiece = processingFeePerDozen ? (parseFloat(processingFeePerDozen) / 12).toFixed(2) : ''

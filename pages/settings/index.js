@@ -5,14 +5,6 @@ Page({
   data: {
     menuItems: [
       {
-        id: 'employees',
-        title: '员工管理',
-        desc: '管理可登录的员工手机号',
-        icon: '👥',
-        bgColor: '#F0FDF4',
-        path: '/pages/settings/employees'
-      },
-      {
         id: 'color',
         title: '颜色字典',
         desc: '管理颜色选项',

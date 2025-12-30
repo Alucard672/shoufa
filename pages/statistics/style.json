@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "按款号统计",
+  "usingComponents": {
+    "filter-tabs": "/components/filter-tabs/filter-tabs"
+  }
+}
+

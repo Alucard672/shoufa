@@ -1,5 +1,5 @@
 // pages/statistics/index.js
-import { query, queryByIds, getStyleById } from '../../utils/db.js'
+import { query, queryByIds, getStyleById, getFactories, getStyles } from '../../utils/db.js'
 import { getTimeRange, formatDate, formatWeight, formatQuantity } from '../../utils/calc.js'
 import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
@@ -8,6 +8,8 @@ Page({
   data: {
     totalIssueCount: 0,
     returnedCount: 0,
+    styleCount: 0,
+    factoryCount: 0,
     timeFilter: 'all',
     statusFilter: 'all',
     searchKeyword: '',
@@ -35,7 +37,8 @@ Page({
       wx.showLoading({ title: '加载中...' })
       await Promise.all([
         this.loadStatistics(),
-        this.loadStatisticsList()
+        this.loadStatisticsList(),
+        this.loadStyleAndFactoryCount()
       ])
     } catch (error) {
       console.error('加载数据失败:', error)
@@ -49,23 +52,60 @@ Page({
   },
 
   async loadStatistics() {
-    let whereClause = {}
+    // 查询所有数据，然后在客户端进行时间筛选
+    const issueOrdersRes = await query('issue_orders', {}, {
+      excludeDeleted: true
+    })
+    let issueOrders = issueOrdersRes.data || []
 
+    // 客户端进行时间筛选
     if (this.data.timeFilter !== 'all') {
       const timeRange = getTimeRange(this.data.timeFilter)
       if (timeRange.startDate && timeRange.endDate) {
-        whereClause.issueDate = {
-          gte: timeRange.startDate,
-          lte: timeRange.endDate
-        }
+        const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
+        const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
+
+        issueOrders = issueOrders.filter(order => {
+          // 使用创建时间进行筛选
+          const date = order.createTime || order.create_time
+          if (!date) return false
+
+          let orderDate
+          try {
+            if (date instanceof Date) {
+              orderDate = date
+            } else if (typeof date === 'string') {
+              const dateStr = date.replace(/\//g, '-')
+              orderDate = new Date(dateStr)
+            } else if (date && typeof date === 'object') {
+              if (typeof date.getTime === 'function') {
+                orderDate = new Date(date.getTime())
+              } else if (date._seconds) {
+                orderDate = new Date(date._seconds * 1000)
+              } else {
+                orderDate = new Date(date)
+              }
+            } else {
+              orderDate = new Date(date)
+            }
+
+            if (isNaN(orderDate.getTime())) {
+              return false
+            }
+
+            const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
+            const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
+            const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
+
+            return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
+          } catch (e) {
+            return false
+          }
+        })
       }
     }
 
-    const issueOrdersRes = await query('issue_orders', whereClause, {
-      excludeDeleted: true
-    })
-
-    const issueIds = issueOrdersRes.data.map(order => order.id || order._id)
+    const issueIds = issueOrders.map(order => order.id || order._id)
     console.log('统计页面loadStatistics - 发料单IDs:', issueIds)
     let totalReturnPieces = 0
     let totalReturnWeight = 0
@@ -73,6 +113,13 @@ Page({
 
     if (issueIds.length > 0) {
       const _ = wx.cloud.database().command
+      
+      // 先获取该租户下的所有回货单，用于内存匹配（作为查询失败的兜底）
+      const allReturnOrdersRes = await query('return_orders', {}, {
+        excludeDeleted: true
+      })
+      const allReturnOrders = allReturnOrdersRes.data || []
+
       // 先尝试使用 issueId，如果失败再尝试 issue_id
       let returnOrdersRes
       try {
@@ -92,56 +139,174 @@ Page({
         console.log('统计页面loadStatistics - 使用issue_id查询回货单:', returnOrdersRes.data.length, '条')
       }
 
-      returnOrdersRes.data.forEach(order => {
-        totalReturnPieces += order.returnPieces || order.return_pieces || 0
-        totalReturnWeight += order.actualYarnUsage || order.actual_yarn_usage || 0
+      // 如果查询结果为空，尝试在内存中过滤（解决ID类型不匹配问题）
+      if (returnOrdersRes.data.length === 0 && allReturnOrders.length > 0) {
+        console.log('统计页面loadStatistics - 尝试在内存中匹配回货单')
+        const issueIdsStr = issueIds.map(id => String(id))
+        returnOrdersRes.data = allReturnOrders.filter(ro => {
+          const roIssueId = ro.issueId || ro.issue_id
+          if (!roIssueId) return false
+          const roIssueIdStr = String(roIssueId)
+          return issueIdsStr.includes(roIssueIdStr) || issueIds.includes(roIssueId)
+        })
+        console.log('统计页面loadStatistics - 内存匹配结果:', returnOrdersRes.data.length, '条')
+      }
+
+      // 根据时间筛选条件过滤回货单
+      let filteredReturnOrders = returnOrdersRes.data || []
+      if (this.data.timeFilter !== 'all') {
+        const timeRange = getTimeRange(this.data.timeFilter)
+        if (timeRange.startDate && timeRange.endDate) {
+          const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
+          const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
+
+          filteredReturnOrders = filteredReturnOrders.filter(order => {
+            // 使用创建时间或回货日期进行筛选
+            const date = order.createTime || order.create_time || order.returnDate || order.return_date
+            if (!date) return false
+
+            let orderDate
+            try {
+              if (date instanceof Date) {
+                orderDate = date
+              } else if (typeof date === 'string') {
+                const dateStr = date.replace(/\//g, '-')
+                orderDate = new Date(dateStr)
+              } else if (date && typeof date === 'object') {
+                if (typeof date.getTime === 'function') {
+                  orderDate = new Date(date.getTime())
+                } else if (date._seconds) {
+                  orderDate = new Date(date._seconds * 1000)
+                } else {
+                  orderDate = new Date(date)
+                }
+              } else {
+                orderDate = new Date(date)
+              }
+
+              if (isNaN(orderDate.getTime())) {
+                return false
+              }
+
+              const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
+              const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
+              const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
+
+              return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
+            } catch (e) {
+              return false
+            }
+          })
+        }
+      }
+
+      // 将issueIds转换为字符串集合，以便匹配
+      const issueIdsSet = new Set(issueIds.map(id => String(id)))
+      
+      const returnedIssueIds = new Set()
+      filteredReturnOrders.forEach(order => {
+        const issueId = String(order.issueId || order.issue_id || '')
+        // 确保回货单的issueId在发料单ID列表中
+        if (issueId && issueIdsSet.has(issueId)) {
+          returnedIssueIds.add(issueId)
+          totalReturnPieces += parseFloat(order.returnPieces || order.return_pieces || 0)
+          totalReturnWeight += parseFloat(order.actualYarnUsage || order.actual_yarn_usage || 0)
+        }
       })
-      console.log('统计页面loadStatistics - 总计回货件数:', totalReturnPieces, '重量:', totalReturnWeight)
+      returnedCount = returnedIssueIds.size
+      console.log('统计页面loadStatistics - 总计回货件数:', totalReturnPieces, '重量:', totalReturnWeight, '已回货单数:', returnedCount, '筛选后的回货单数:', filteredReturnOrders.length)
     }
 
-    issueOrdersRes.data.forEach(order => {
-      if (order.status === '已回货' || order.status === '已完成') {
-        returnedCount++
-      }
-    })
-
     this.setData({
-      totalIssueCount: issueOrdersRes.data.length,
+      totalIssueCount: issueOrders.length,
       returnedCount,
       totalReturnPieces: Math.floor(totalReturnPieces),
       totalReturnWeightFormatted: totalReturnWeight.toFixed(2)
     })
   },
 
-  async loadStatisticsList() {
-    let whereClause = {}
+  async loadStyleAndFactoryCount() {
+    try {
+      // 查询所有发料单，统计涉及的款号和工厂数量
+      const issueOrdersRes = await query('issue_orders', {}, {
+        excludeDeleted: true
+      })
+      const issueOrders = issueOrdersRes.data || []
 
-    // 时间筛选
-    if (this.data.timeFilter !== 'all') {
-      const timeRange = getTimeRange(this.data.timeFilter)
-      if (timeRange.startDate && timeRange.endDate) {
-        whereClause.issueDate = {
-          gte: timeRange.startDate,
-          lte: timeRange.endDate
+      // 客户端进行时间筛选
+      let filteredOrders = issueOrders
+      if (this.data.timeFilter !== 'all') {
+        const timeRange = getTimeRange(this.data.timeFilter)
+        if (timeRange.startDate && timeRange.endDate) {
+          const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
+          const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
+
+          filteredOrders = issueOrders.filter(order => {
+            const date = order.createTime || order.create_time
+            if (!date) return false
+
+            let orderDate
+            try {
+              if (date instanceof Date) {
+                orderDate = date
+              } else if (typeof date === 'string') {
+                const dateStr = date.replace(/\//g, '-')
+                orderDate = new Date(dateStr)
+              } else if (date && typeof date === 'object') {
+                if (typeof date.getTime === 'function') {
+                  orderDate = new Date(date.getTime())
+                } else if (date._seconds) {
+                  orderDate = new Date(date._seconds * 1000)
+                } else {
+                  orderDate = new Date(date)
+                }
+              } else {
+                orderDate = new Date(date)
+              }
+
+              if (isNaN(orderDate.getTime())) {
+                return false
+              }
+
+              const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
+              const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
+              const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
+
+              return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
+            } catch (e) {
+              return false
+            }
+          })
         }
       }
-    }
 
-    // 状态筛选
-    if (this.data.statusFilter !== 'all') {
-      whereClause.status = this.data.statusFilter
-    }
+      // 统计唯一的款号和工厂数量
+      const styleIds = new Set()
+      const factoryIds = new Set()
 
-    // 搜索
-    if (this.data.searchKeyword) {
-      whereClause.issue_no = this.data.searchKeyword
-    }
+      filteredOrders.forEach(order => {
+        const styleId = order.styleId || order.style_id
+        const factoryId = order.factoryId || order.factory_id
+        if (styleId) styleIds.add(styleId)
+        if (factoryId) factoryIds.add(factoryId)
+      })
 
-    const issueOrdersRes = await query('issue_orders', whereClause, {
+      this.setData({
+        styleCount: styleIds.size,
+        factoryCount: factoryIds.size
+      })
+    } catch (error) {
+      console.error('加载款号和工厂统计失败:', error)
+    }
+  },
+
+  async loadStatisticsList() {
+    // 先查询所有数据，然后在客户端进行筛选（更可靠）
+    const issueOrdersRes = await query('issue_orders', {}, {
       excludeDeleted: true,
-      orderBy: { field: 'issueDate', direction: 'DESC' }
+      orderBy: { field: 'createTime', direction: 'DESC' }
     })
-    const issueOrders = { data: issueOrdersRes.data || [] }
+    let issueOrders = { data: issueOrdersRes.data || [] }
 
     // 批量查询回货单
     const issueIds = issueOrders.data.map(order => order.id || order._id)
@@ -270,7 +435,8 @@ Page({
         if (issueOrder.status !== '已完成') {
           if (totalReturnYarn > 0) {
             if (remainingYarn <= 0.01) {
-              displayStatus = '已回货'
+              // 回货完成，标记为已完成
+              displayStatus = '已完成'
             } else {
               displayStatus = '部分回货'
             }
@@ -285,7 +451,7 @@ Page({
           status: displayStatus,
           styleName: style.styleName || style.style_name || style.name || '未知款号',
           styleCode: style.styleCode || style.style_code || '',
-          styleImageUrl: style.imageUrl || style.image_url || '',
+          styleImageUrl: (style.imageUrl || style.image_url || style.image || '').trim(),
           yarnUsagePerPiece: yarnUsagePerPiece,
           lossRate: lossRate, // 款号设定的损耗率
           planYarnUsage: planYarnUsage, // 计划用纱量
@@ -332,8 +498,76 @@ Page({
       })
     )
 
+    // 应用客户端筛选
+    let filteredStatistics = statistics || []
+
+    // 1. 时间筛选
+    if (this.data.timeFilter !== 'all') {
+      const timeRange = getTimeRange(this.data.timeFilter)
+      if (timeRange.startDate && timeRange.endDate) {
+        const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
+        const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
+
+        filteredStatistics = filteredStatistics.filter(item => {
+          // 使用创建时间进行筛选
+          const date = item.createTime || item.create_time
+          if (!date) return false
+
+          let orderDate
+          try {
+            if (date instanceof Date) {
+              orderDate = date
+            } else if (typeof date === 'string') {
+              const dateStr = date.replace(/\//g, '-')
+              orderDate = new Date(dateStr)
+            } else if (date && typeof date === 'object') {
+              if (typeof date.getTime === 'function') {
+                orderDate = new Date(date.getTime())
+              } else if (date._seconds) {
+                orderDate = new Date(date._seconds * 1000)
+              } else {
+                orderDate = new Date(date)
+              }
+            } else {
+              orderDate = new Date(date)
+            }
+
+            if (isNaN(orderDate.getTime())) {
+              return false
+            }
+
+            const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
+            const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
+            const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
+
+            return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
+          } catch (e) {
+            return false
+          }
+        })
+      }
+    }
+
+    // 2. 状态筛选（状态是计算出来的，需要在客户端筛选）
+    if (this.data.statusFilter !== 'all') {
+      filteredStatistics = filteredStatistics.filter(item => {
+        return item.status === this.data.statusFilter
+      })
+    }
+
+    // 3. 搜索筛选
+    if (this.data.searchKeyword) {
+      const keyword = this.data.searchKeyword.toLowerCase()
+      filteredStatistics = filteredStatistics.filter(item => {
+        const issueNo = (item.issueNo || item.issue_no || '').toLowerCase()
+        const styleCode = (item.styleCode || '').toLowerCase()
+        const styleName = (item.styleName || '').toLowerCase()
+        return issueNo.includes(keyword) || styleCode.includes(keyword) || styleName.includes(keyword)
+      })
+    }
+
     this.setData({
-      statistics
+      statistics: filteredStatistics
     })
   },
 
@@ -345,7 +579,9 @@ Page({
     this.setData({
       timeFilter: selectedFilter
     })
+    this.loadStatistics()
     this.loadStatisticsList()
+    this.loadStyleAndFactoryCount()
   },
 
   onStatusFilterChange(e) {
@@ -364,5 +600,45 @@ Page({
       searchKeyword: e.detail.value
     })
     this.loadStatisticsList()
+  },
+
+  onStyleStatsClick() {
+    wx.navigateTo({
+      url: '/pages/statistics/style?timeFilter=' + encodeURIComponent(this.data.timeFilter)
+    })
+  },
+
+  onFactoryStatsClick() {
+    wx.navigateTo({
+      url: '/pages/statistics/factory?timeFilter=' + encodeURIComponent(this.data.timeFilter)
+    })
+  },
+
+  onTotalIssueClick() {
+    wx.navigateTo({
+      url: `/pages/issue/all?timeFilter=${encodeURIComponent(this.data.timeFilter)}`
+    })
+  },
+
+  onTotalReturnClick() {
+    wx.navigateTo({
+      url: `/pages/return/index?timeFilter=${encodeURIComponent(this.data.timeFilter)}`
+    })
+  },
+
+  onReturnedIssueClick() {
+    wx.navigateTo({
+      url: `/pages/issue/all?timeFilter=${encodeURIComponent(this.data.timeFilter)}&statusFilter=${encodeURIComponent('部分回货')}`
+    })
+  },
+
+  onPreviewImage(e) {
+    const url = e.currentTarget.dataset.url
+    if (url) {
+      wx.previewImage({
+        urls: [url],
+        current: url
+      })
+    }
   }
 })

@@ -33,11 +33,11 @@
     <view class="style-card card" wx:for="{{styles}}" wx:key="_id">
       <view class="card-content">
         <view class="style-header">
-          <view class="style-image-container">
-            <image class="style-image" src="{{item.imageUrl}}" mode="aspectFill" wx:if="{{item.imageUrl}}"></image>
-            <view class="style-image-placeholder" wx:else>
-              <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
-            </view>
+          <view class="style-image-container" wx:if="{{item.imageUrl}}" bindtap="onPreviewImage" data-url="{{item.imageUrl}}">
+            <image class="style-image" src="{{item.imageUrl}}" mode="aspectFill"></image>
+          </view>
+          <view class="style-image-placeholder" wx:else>
+            <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
           </view>
           <view class="style-info">
             <view class="style-code-row">

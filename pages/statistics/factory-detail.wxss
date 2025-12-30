@@ -1,0 +1,158 @@
+/* pages/statistics/factory-detail.wxss */
+.container {
+  padding: 16px;
+  background: #F9FAFB;
+  min-height: 100vh;
+}
+
+.summary-card {
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.summary-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.factory-name-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1E293B;
+  display: block;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-label {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.summary-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+.summary-value.return {
+  color: #10B981;
+}
+
+/* 筛选样式 */
+.filter-section {
+  margin-bottom: 16px;
+}
+
+.filter-item-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.filter-label-inline {
+  font-size: 14px;
+  color: #64748B;
+  min-width: 42px;
+  line-height: 1;
+}
+
+.search-input {
+  flex: 1;
+  height: 36px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+/* 列表样式 */
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-card {
+  padding: 16px;
+}
+
+.order-header {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.order-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.order-no {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+.style-info {
+  font-size: 14px;
+  color: #64748B;
+}
+
+.style-code {
+  color: #1E293B;
+  font-weight: 500;
+}
+
+.order-data {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.data-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.data-label {
+  font-size: 13px;
+  color: #64748B;
+}
+
+.data-value {
+  font-size: 13px;
+  color: #1E293B;
+  font-weight: 500;
+}
+
+.data-value.return {
+  color: #10B981;
+}
+
+.data-value.warning {
+  color: #F59E0B;
+}
+
+.empty-tip {
+  padding: 40px 0;
+  text-align: center;
+  color: #94A3B8;
+  font-size: 14px;
+}
+

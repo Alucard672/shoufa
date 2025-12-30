@@ -48,10 +48,18 @@
   <!-- 发料单列表 -->
   <view class="order-list">
     <view class="order-card card" wx:for="{{displayOrders}}" wx:key="_id">
-      <!-- 单号（第一行最左边） -->
+      <!-- 第一行：单号和状态标签 -->
       <view class="order-header">
         <text class="order-no">{{item.issueNo}}</text>
+        <badge type="{{item.status === '未回货' ? 'warning' : (item.status === '已完成' || (item.progress && item.progress.status === '已完成') ? 'success' : 'info')}}" text="{{item.status === '已完成' || (item.progress && item.progress.status === '已完成') ? '已完成' : (item.progress && item.progress.status ? item.progress.status : item.status)}}" />
+      </view>
+      
+      <!-- 第二行：工厂名称和分享按钮 -->
+      <view class="order-factory-row">
         <text class="factory-name">{{item.factoryName}}</text>
+        <view class="share-btn" catchtap="onShareIssueOrder" data-id="{{item._id}}">
+          <text>分享</text>
+        </view>
       </view>
       
       <!-- 图片和款号信息 -->
@@ -66,15 +74,16 @@
           </view>
         </view>
         
-        <!-- 款号名称和颜色尺码 -->
+        <!-- 款号名称和克重损耗 -->
         <view class="order-style-section">
           <view class="style-name-row">
-            <text class="style-name">{{item.styleCode ? '[' + item.styleCode + '] ' : ''}}{{item.styleName || '未知款号'}}</text>
+            <text class="style-code" wx:if="{{item.styleCode}}">{{item.styleCode}}</text>
+            <text class="style-name">{{item.styleName || '未知款号'}}</text>
           </view>
-          <view class="order-color-size">
-            <text class="color-size-value">{{item.color || '未设置'}}</text>
-            <text class="color-size-separator" wx:if="{{item.color && item.size}}">·</text>
-            <text class="color-size-value" wx:if="{{item.size}}">{{item.size}}</text>
+          <view class="style-meta-row">
+            <text class="meta-usage" wx:if="{{item.yarnUsagePerPiece > 0}}">{{item.yarnUsagePerPieceFormatted}}g/件</text>
+            <text class="meta-separator" wx:if="{{item.yarnUsagePerPiece > 0 && item.lossRate > 0}}">·</text>
+            <text class="meta-loss" wx:if="{{item.lossRate > 0}}">损耗{{item.lossRateFormatted}}%</text>
           </view>
         </view>
       </view>
@@ -125,8 +134,8 @@
         <view class="btn btn-secondary" bindtap="navigateToReturn" data-id="{{item._id}}" wx:if="{{item.status !== '已完成' && !(item.progress && item.progress.status === '已完成')}}">
           <text>{{(item.progress && item.progress.status === '未回货') || (!item.progress && item.status === '未回货') ? '登记回货' : '继续回货'}}</text>
         </view>
-        <view class="btn btn-primary" wx:if="{{item.canComplete && item.status !== '已完成' && !(item.progress && item.progress.status === '已完成')}}" bindtap="onCompleteIssue" data-id="{{item._id}}">
-          <text>结束</text>
+        <view class="btn btn-primary" wx:if="{{item.status !== '已完成' && !(item.progress && item.progress.status === '已完成')}}" bindtap="onCompleteIssue" data-id="{{item._id}}">
+          <text>完成</text>
         </view>
       </view>
     </view>
@@ -151,6 +160,32 @@
   <!-- 悬浮新增按钮 -->
   <view class="fab-btn" bindtap="navigateToCreate">
     <text class="fab-text">+</text>
+  </view>
+
+  <!-- 隐藏的画布用于生成分享图片 -->
+  <canvas 
+    canvas-id="shareCanvas" 
+    style="position: fixed; top: -9999px; left: -9999px; width: 750px; height: 1200px;"
+    disable-scroll="true"
+  ></canvas>
+
+  <!-- 分享选项弹窗 -->
+  <view class="share-modal" wx:if="{{showShareModal}}" catchtouchmove="true">
+    <view class="share-modal-content">
+      <view class="share-options">
+        <view class="share-option" bindtap="saveImageToAlbum">
+          <image class="share-option-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+          <text class="share-option-text">保存到相册</text>
+        </view>
+        <view class="share-option" bindtap="previewImage">
+          <image class="share-option-icon" src="/images/icons/image.svg" mode="aspectFit"></image>
+          <text class="share-option-text">预览图片</text>
+        </view>
+      </view>
+      <view class="share-modal-close" bindtap="closeShareModal">
+        <text>取消</text>
+      </view>
+    </view>
   </view>
 </view>
 

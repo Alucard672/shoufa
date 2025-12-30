@@ -54,9 +54,14 @@
   <!-- 发料单列表 -->
   <view class="order-list">
     <view class="order-card card" wx:for="{{filteredOrders}}" wx:key="_id">
-      <!-- 单号（第一行最左边） -->
+      <!-- 第一行：单号和状态标签 -->
       <view class="order-header">
         <text class="order-no">{{item.issueNo}}</text>
+        <badge type="{{item.status === '未回货' ? 'warning' : (item.status === '已完成' || (item.progress && item.progress.status === '已完成') ? 'success' : 'info')}}" text="{{item.status === '已完成' || (item.progress && item.progress.status === '已完成') ? '已完成' : (item.progress && item.progress.status ? item.progress.status : item.status)}}" />
+      </view>
+      
+      <!-- 第二行：工厂名称 -->
+      <view class="order-factory-row">
         <text class="factory-name">{{item.factoryName}}</text>
       </view>
       
@@ -72,15 +77,16 @@
           </view>
         </view>
         
-        <!-- 款号名称和颜色尺码 -->
+        <!-- 款号名称和克重损耗 -->
         <view class="order-style-section">
           <view class="style-name-row">
-            <text class="style-name">{{item.styleCode ? '[' + item.styleCode + '] ' : ''}}{{item.styleName || '未知款号'}}</text>
+            <text class="style-code" wx:if="{{item.styleCode}}">{{item.styleCode}}</text>
+            <text class="style-name">{{item.styleName || '未知款号'}}</text>
           </view>
-          <view class="order-color-size">
-            <text class="color-size-value">{{item.color || '未设置'}}</text>
-            <text class="color-size-separator" wx:if="{{item.color && item.size}}">·</text>
-            <text class="color-size-value" wx:if="{{item.size}}">{{item.size}}</text>
+          <view class="style-meta-row">
+            <text class="meta-usage" wx:if="{{item.yarnUsagePerPiece > 0}}">{{item.yarnUsagePerPieceFormatted}}g/件</text>
+            <text class="meta-separator" wx:if="{{item.yarnUsagePerPiece > 0 && item.lossRate > 0}}">·</text>
+            <text class="meta-loss" wx:if="{{item.lossRate > 0}}">损耗{{item.lossRateFormatted}}%</text>
           </view>
         </view>
       </view>

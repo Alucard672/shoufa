@@ -119,7 +119,7 @@ exports.main = async (event, context) => {
 
     if (action === 'joinTenant') {
         try {
-            const { tenantId, inviteCode, avatarUrl, nickName, phoneNumber } = event
+            const { tenantId, inviteCode, avatarUrl, nickName, phoneNumber: manualPhoneNumber, code } = event
             const wxContext = cloud.getWXContext()
             const openid = wxContext.OPENID
 
@@ -138,6 +138,22 @@ exports.main = async (event, context) => {
 
             if (!targetTenantId) {
                 return { success: false, msg: '企业ID或邀请码不能为空' }
+            }
+
+            // 获取手机号 (如果已通过前端传入则优先使用，否则尝试从 code 获取)
+            let phoneNumber = manualPhoneNumber
+            if (!phoneNumber && code) {
+                try {
+                    const res = await cloud.openapi.phonenumber.getPhoneNumber({ code })
+                    phoneNumber = res.phoneInfo.phoneNumber
+                } catch (e) {
+                    console.error('从 code 获取手机号失败:', e)
+                    return { success: false, msg: '获取手机号失败，请重试' }
+                }
+            }
+
+            if (!phoneNumber) {
+                return { success: false, msg: '手机号不能为空' }
             }
 
             // 1. 检查用户是否已在其他租户中

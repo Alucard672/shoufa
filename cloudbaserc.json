@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "envId": "shoufa-prod-3g0umt9fbba2f52b",
+  "envId": "cloud1-1gzk1uq14c3065cb",
   "functionRoot": "./cloudfunctions",
   "functions": [
     {

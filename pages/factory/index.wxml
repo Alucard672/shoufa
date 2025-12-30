@@ -24,7 +24,7 @@
     <view class="stats-card card-green">
       <view class="stats-content">
         <text class="stats-label">未结账款</text>
-        <text class="stats-value">{{unpaidAmountFormatted}}</text>
+        <text class="stats-value">¥{{unpaidAmountFormatted}}</text>
         <text class="stats-unit">待结算</text>
       </view>
     </view>
@@ -62,7 +62,7 @@
       <view class="factory-details">
         <view class="detail-row">
           <text class="detail-label">未结账款</text>
-          <text class="detail-value fee">{{item.unpaidFeeFormatted}}</text>
+          <text class="detail-value fee">¥{{item.unpaidFeeFormatted}}</text>
         </view>
       </view>
       

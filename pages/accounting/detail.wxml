@@ -1,40 +1,52 @@
 <!--pages/accounting/detail.wxml-->
 <view class="container">
-  <!-- 加工厂信息 -->
-  <view class="factory-info card" wx:if="{{factory}}">
-    <text class="factory-name">{{factory.name}}</text>
-    <text class="factory-contact" wx:if="{{factory.contact}}">{{factory.contact}} {{factory.phone}}</text>
-  </view>
-
-  <!-- 汇总信息 -->
-  <view class="section">
-    <view class="summary-card card">
-      <view class="summary-title">账款汇总</view>
-      <view class="summary-list">
-        <view class="summary-item">
-          <text class="summary-label">总金额</text>
-          <text class="summary-value total">¥{{summaryFormatted.totalAmount}}</text>
-        </view>
-        <view class="summary-item">
-          <text class="summary-label">已结算</text>
-          <text class="summary-value settled">¥{{summaryFormatted.settledAmount}}</text>
-        </view>
-        <view class="summary-item">
-          <text class="summary-label">未结算</text>
-          <text class="summary-value unpaid">¥{{summaryFormatted.unpaidAmount}}</text>
-        </view>
+  <!-- 顶部蓝色背景区域 -->
+  <view class="header-bg">
+    <view class="header-content">
+      <image class="header-icon" src="/images/icons/folder.svg" mode="aspectFit" style="filter: brightness(0) invert(1);"></image>
+      <view class="header-text-group">
+        <text class="header-title">{{factory.name || '加工厂'}}</text>
+        <text class="header-subtitle">对账单明细</text>
       </view>
+    </view>
+    <view class="header-time">
+      <image class="time-icon" src="/images/icons/calendar.svg" mode="aspectFit" style="filter: brightness(0) invert(1);"></image>
+      <text class="time-text">生成时间: {{currentTime}}</text>
     </view>
   </view>
 
-  <!-- 操作按钮 -->
-  <view class="section">
-    <view class="action-buttons">
-      <view class="btn btn-share" bindtap="onShare">
-        <text>分享</text>
+  <!-- 汇总统计网格 -->
+  <view class="summary-grid-section">
+    <view class="summary-grid">
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/wallet.svg" mode="aspectFit"></image>
+        <text class="grid-label">总金额</text>
+        <text class="grid-value">¥{{summaryFormatted.totalAmount}}</text>
       </view>
-      <view class="btn btn-primary" bindtap="onSettle">
-        <text>结算</text>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/check-circle.svg" mode="aspectFit"></image>
+        <text class="grid-label">已结算</text>
+        <text class="grid-value">¥{{summaryFormatted.settledAmount}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/clock.svg" mode="aspectFit"></image>
+        <text class="grid-label">未结算</text>
+        <text class="grid-value unpaid">¥{{summaryFormatted.unpaidAmount}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/refresh.svg" mode="aspectFit"></image>
+        <text class="grid-label">发毛数</text>
+        <text class="grid-value">{{summaryFormatted.totalIssueWeight}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/package.svg" mode="aspectFit"></image>
+        <text class="grid-label">回货重量</text>
+        <text class="grid-value">{{summaryFormatted.totalReturnWeight}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/tag.svg" mode="aspectFit"></image>
+        <text class="grid-label">回货数量</text>
+        <text class="grid-value">{{summaryFormatted.totalReturnPieces}}</text>
       </view>
     </view>
   </view>
@@ -53,20 +65,45 @@
         data-id="{{item._id || item.id}}"
       >
         <view class="order-header">
-          <view class="order-info">
+          <view class="order-header-left">
+            <image class="header-icon" src="/images/icons/calendar.svg" mode="aspectFit"></image>
             <text class="order-date">{{item.returnDateFormatted}}</text>
-            <text class="order-style">{{item.styleName}}{{item.styleCode ? ' · ' + item.styleCode : ''}}</text>
+            <view class="status-badge" wx:if="{{item.unpaidAmount > 0}}">未结算</view>
+            <view class="status-badge settled" wx:else>已结算</view>
           </view>
-          <text class="order-amount">¥{{item.processingFeeFormatted}}</text>
+          <view class="order-header-right">
+            <image class="style-image" src="{{item.styleImageUrl}}" mode="aspectFill" wx:if="{{item.styleImageUrl}}" catchtap="onPreviewImage" data-url="{{item.styleImageUrl}}"></image>
+            <view class="style-image-placeholder" wx:else>
+              <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+            </view>
+          </view>
         </view>
-        <view class="order-details">
-          <view class="detail-row">
-            <text class="detail-label">已结算</text>
-            <text class="detail-value">¥{{item.settledAmountFormatted}}</text>
+        
+        <view class="order-meta-row">
+          <text class="operator-name">{{item.employeeName}}</text>
+          <text class="style-code">{{item.styleCode ? '[' + item.styleCode + '] ' : ''}}{{item.styleName}}</text>
+        </view>
+
+        <view class="order-details-grid">
+          <view class="detail-item">
+            <image class="detail-icon" src="/images/icons/package.svg" mode="aspectFit"></image>
+            <text class="detail-label">回货重量</text>
+            <text class="detail-value highlight">{{item.returnWeightFormatted}}</text>
           </view>
-          <view class="detail-row">
-            <text class="detail-label">未结算</text>
-            <text class="detail-value unpaid">¥{{item.unpaidAmountFormatted}}</text>
+          <view class="detail-item">
+            <image class="detail-icon" src="/images/icons/tag.svg" mode="aspectFit"></image>
+            <text class="detail-label">回货数量</text>
+            <text class="detail-value">{{item.returnPiecesFormatted}}</text>
+          </view>
+          <view class="detail-item">
+            <image class="detail-icon" src="/images/icons/refresh.svg" mode="aspectFit"></image>
+            <text class="detail-label">发毛重量</text>
+            <text class="detail-value">{{item.issueWeightFormatted}}</text>
+          </view>
+          <view class="detail-item">
+            <image class="detail-icon" src="/images/icons/wallet.svg" mode="aspectFit"></image>
+            <text class="detail-label">加工费</text>
+            <text class="detail-value">¥{{item.processingFeeFormatted}}</text>
           </view>
         </view>
       </view>
@@ -103,11 +140,16 @@
     <text>加载中...</text>
   </view>
 
+  <!-- 悬浮分享按钮 -->
+  <view class="fab-share-btn" bindtap="onShare">
+    <image class="fab-icon" src="/images/icons/return.svg" mode="aspectFit" style="transform: rotate(180deg); filter: brightness(0) invert(1);"></image>
+    <text class="fab-text">分享为图片</text>
+  </view>
+
   <!-- 隐藏的画布用于生成分享图片 -->
   <canvas 
     canvas-id="shareCanvas" 
-    style="position: fixed; top: -9999px; left: -9999px; width: 750px; height: 1200px;"
+    style="position: fixed; top: -9999px; left: -9999px; width: 750px; height: 1600px;"
     disable-scroll="true"
   ></canvas>
 </view>
-

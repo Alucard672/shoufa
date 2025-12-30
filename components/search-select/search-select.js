@@ -59,29 +59,41 @@ Component({
   observers: {
     'options': function(options) {
       // 当 options 更新时，如果有搜索关键词，需要重新过滤
-      const keyword = this.data.searchKeyword || ''
-      const displayKey = this.properties.displayKey
-      
-      let filtered = options || []
-      
-      // 如果有搜索关键词，进行过滤
-      if (keyword && keyword.trim()) {
-        filtered = filtered.filter(item => {
-          const displayValue = item[displayKey] || ''
-          return displayValue.toString().toLowerCase().includes(keyword.toLowerCase())
-        })
+      try {
+        const keyword = this.data?.searchKeyword || ''
+        const displayKey = this.properties?.displayKey || 'name'
+        
+        let filtered = options || []
+        
+        // 如果有搜索关键词，进行过滤
+        if (keyword && keyword.trim()) {
+          filtered = filtered.filter(item => {
+            const displayValue = item[displayKey] || ''
+            return displayValue.toString().toLowerCase().includes(keyword.toLowerCase())
+          })
+        }
+        
+        // 更新过滤后的选项列表
+        if (this.setData) {
+          this.setData({
+            filteredOptions: filtered
+          })
+        }
+      } catch (error) {
+        console.error('search-select options observer error:', error)
       }
-      
-      // 更新过滤后的选项列表
-      this.setData({
-        filteredOptions: filtered
-      })
     },
     'selectedValues': function(selectedValues) {
       // 更新内部选中值，保持弹窗打开状态（如果是多选模式）
-      this.setData({
-        internalSelectedValues: selectedValues || []
-      })
+      try {
+        if (this.setData) {
+          this.setData({
+            internalSelectedValues: selectedValues || []
+          })
+        }
+      } catch (error) {
+        console.error('search-select selectedValues observer error:', error)
+      }
     }
   },
   lifetimes: {

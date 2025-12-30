@@ -1,13 +1,14 @@
 // pages/return/create.js
 import { query, getFactoryById, getStyleById, insert, calculateIssueProgress, updateIssueOrderStatus, update, getReturnOrderById } from '../../utils/db.js'
-import { formatAmount, formatQuantity, formatDate, formatWeight } from '../../utils/calc.js'
 import {
   generateReturnNo,
   formatDate,
+  formatAmount,
+  formatQuantity,
+  formatWeight,
   calculateReturnPieces,
   calculateActualYarnUsage,
-  calculateProcessingFee,
-  formatQuantity
+  calculateProcessingFee
 } from '../../utils/calc.js'
 import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
@@ -564,7 +565,9 @@ Page({
       ctx.fillText('回货数量：', padding, y)
       ctx.setFillStyle('#333333')
       ctx.setFontSize(32)
-      ctx.fillText(`${returnOrder.returnQuantityFormatted} (${returnOrder.returnPiecesFormatted})`, padding + 140, y)
+      // 只显示一种格式：打件格式（如 "30打5件"）
+      const quantityText = returnOrder.returnPiecesFormatted || returnOrder.quantityFormatted || '0件'
+      ctx.fillText(quantityText, padding + 140, y)
       y += 45
 
       ctx.setFillStyle('#666666')
@@ -603,7 +606,7 @@ Page({
       ctx.fillText('加工费总额：', padding, y)
       ctx.setFillStyle('#2b7fff')
       ctx.setFontSize(36)
-      ctx.fillText(`¥${returnOrder.processingFeeFormatted}`, padding + 180, y)
+      ctx.fillText(`${returnOrder.processingFeeFormatted}`, padding + 180, y)
       y += 55
 
       ctx.setFillStyle('#666666')
@@ -619,7 +622,7 @@ Page({
         ctx.setFillStyle('#666666')
         ctx.fillText('已结算：', padding, y)
         ctx.setFillStyle('#10b981')
-        ctx.fillText(`¥${returnOrder.settledAmountFormatted}`, padding + 140, y)
+        ctx.fillText(`${returnOrder.settledAmountFormatted}`, padding + 140, y)
         y += 45
       }
 

@@ -53,7 +53,7 @@
     </view>
 
     <view class="form-item" wx:if="{{selectedStyleId && selectedFactoryId}}">
-      <text class="form-label">加工单价 (元/打)</text>
+      <text class="form-label">加工单价</text>
       <input 
         class="form-input" 
         type="digit" 
@@ -61,7 +61,12 @@
         value="{{processingFeePerDozen}}"
         bindinput="onProcessingFeeInput"
       />
-      <text class="form-hint" wx:if="{{processingFeePerPiece}}">约 {{processingFeePerPiece}} 元/件</text>
+      <view class="form-hint-row" wx:if="{{processingFeePerDozen}}">
+        <text class="form-hint-label">上次价：</text>
+        <text class="form-hint-value">一打 ¥{{processingFeePerDozen}}元</text>
+        <text class="form-hint-separator" wx:if="{{processingFeePerPiece}}">·</text>
+        <text class="form-hint-value" wx:if="{{processingFeePerPiece}}">一件 ¥{{processingFeePerPiece}}元</text>
+      </view>
     </view>
 
     <view class="form-item">

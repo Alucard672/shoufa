@@ -1,0 +1,61 @@
+<!--pages/statistics/factory.wxml-->
+<view class="container">
+  <!-- 查询条件 -->
+  <view class="filter-section">
+    <view class="filter-item filter-item-row" hover-class="none">
+      <text class="filter-label-inline">加工厂</text>
+      <input 
+        class="style-search-input" 
+        type="text" 
+        placeholder="请输入加工厂名称"
+        value="{{factoryKeyword}}"
+        bindinput="onFactoryKeywordInput"
+        bindconfirm="onFactoryKeywordSearch"
+      />
+    </view>
+    <view class="filter-item filter-item-row" hover-class="none">
+      <text class="filter-label-inline">日期</text>
+      <filter-tabs 
+        options="{{['全部时间', '今天', '本周', '本月']}}"
+        current="{{timeFilter === 'all' ? 0 : timeFilter === 'today' ? 1 : timeFilter === 'week' ? 2 : 3}}"
+        bindchange="onTimeFilterChange"
+      />
+    </view>
+  </view>
+
+  <!-- 加工厂统计列表 -->
+  <view class="stats-list">
+    <view class="stat-item card" wx:for="{{filteredFactoryStats}}" wx:key="factoryId" bindtap="onFactoryItemClick" data-factory-id="{{item.factoryId}}" data-factory-name="{{item.factoryName}}">
+      <view class="stat-header">
+        <view class="stat-info">
+          <text class="factory-name">{{item.factoryName}}</text>
+          <text class="style-count">涉及 {{item.styleCount}} 个款号</text>
+        </view>
+      </view>
+
+      <view class="stat-data-row">
+        <view class="data-item">
+          <text class="data-label">发料单数</text>
+          <text class="data-value">{{item.totalIssueCount}}笔</text>
+        </view>
+        <view class="data-item">
+          <text class="data-label">发料重量</text>
+          <text class="data-value">{{item.totalIssueWeightFormatted}}</text>
+        </view>
+        <view class="data-item">
+          <text class="data-label">回货件数</text>
+          <text class="data-value return">{{item.totalReturnPiecesFormatted}}</text>
+        </view>
+        <view class="data-item">
+          <text class="data-label">回货重量</text>
+          <text class="data-value return">{{item.totalReturnWeightFormatted}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty-tip" wx:if="{{filteredFactoryStats.length === 0}}">
+      <text>暂无数据</text>
+    </view>
+  </view>
+</view>
+

@@ -1,6 +1,6 @@
 // pages/issue/all.js
 import { query, queryByIds, update, count } from '../../utils/db.js'
-import { getTimeRange, formatDate, formatWeight, formatQuantity } from '../../utils/calc.js'
+import { getTimeRange, formatDate, formatDateTime, formatWeight, formatQuantity } from '../../utils/calc.js'
 import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 
@@ -34,11 +34,24 @@ Page({
     }
   },
 
-  onLoad() {
+  onLoad(options) {
     // 检查登录状态
     if (!checkLogin()) {
       return
     }
+    
+    // 处理从统计页面跳转过来的筛选条件
+    if (options.timeFilter) {
+      this.setData({
+        timeFilter: decodeURIComponent(options.timeFilter)
+      })
+    }
+    if (options.statusFilter) {
+      this.setData({
+        statusFilter: decodeURIComponent(options.statusFilter)
+      })
+    }
+
     this.loadData()
   },
 
@@ -112,7 +125,7 @@ Page({
 
     const ordersRes = await query('issue_orders', whereClause, {
       excludeDeleted: true,
-      orderBy: { field: 'issueDate', direction: 'DESC' }
+      orderBy: { field: 'createTime', direction: 'DESC' }
     })
     const orders = ordersRes.data || []
     console.log('查询到的订单数量:', orders.length)
@@ -126,7 +139,8 @@ Page({
         const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
 
         filteredData = filteredData.filter(order => {
-          const date = order.issueDate || order.issue_date
+          // 使用创建时间进行筛选
+          const date = order.createTime || order.create_time
           if (!date) return false
 
           let orderDate
@@ -160,7 +174,7 @@ Page({
 
             return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
           } catch (e) {
-            console.error('日期解析错误:', order.issueDate, e)
+            console.error('日期解析错误:', order.createTime, e)
             return false
           }
         })
@@ -238,7 +252,7 @@ Page({
             .map((ro, index) => ({
               ...ro,
               returnOrderIndex: index + 1,
-              returnDateFormatted: formatDate(ro.returnDate || ro.return_date),
+              returnDateFormatted: formatDateTime(ro.createTime || ro.create_time || ro.returnDate || ro.return_date),
               actualYarnUsageFormatted: (ro.actualYarnUsage || ro.actual_yarn_usage || 0).toFixed(2)
             }))
             .sort((a, b) => {
@@ -251,19 +265,25 @@ Page({
 
           const canComplete = progress.totalReturnPieces > issuePieces && order.status !== '已完成'
 
+          // 获取损耗率
+          const lossRate = style?.lossRate || style?.loss_rate || 0
+          
           return {
             ...order,
             _id: order._id || order.id,
             factoryName: factory?.name || '未知工厂',
             styleName: style?.styleName || style?.style_name || style?.name || '未知款号',
             styleCode: style?.styleCode || style?.style_code || '',
-            styleImageUrl: style?.imageUrl || style?.image_url || '',
+            styleImageUrl: (style?.imageUrl || style?.image_url || style?.image || '').trim(),
             color: order.color || '',
             size: order.size || '',
             yarnUsagePerPiece: yarnUsagePerPiece,
+            yarnUsagePerPieceFormatted: yarnUsagePerPiece > 0 ? yarnUsagePerPiece.toFixed(0) : '',
+            lossRate: lossRate,
+            lossRateFormatted: lossRate > 0 ? lossRate.toFixed(1) : '',
             progress,
             returnOrders: sortedReturnOrders,
-            issueDateFormatted: formatDate(order.issueDate || order.issue_date),
+            issueDateFormatted: formatDateTime(order.createTime || order.create_time || order.issueDate || order.issue_date),
             issueWeightFormatted: formatWeight(order.issueWeight || order.issue_weight),
             issuePieces,
             canComplete
@@ -286,7 +306,7 @@ Page({
               status: order.status
             },
             returnOrders: [],
-            issueDateFormatted: formatDate(order.issueDate || order.issue_date),
+            issueDateFormatted: formatDateTime(order.createTime || order.create_time || order.issueDate || order.issue_date),
             issueWeightFormatted: formatWeight(order.issueWeight || order.issue_weight),
             issuePieces: 0,
             canComplete: false
@@ -302,10 +322,7 @@ Page({
         // 优先使用 order.status（数据库中的实际状态），如果是已完成则直接使用
         // 否则使用 progress.status（计算出的回货状态）
         const orderStatus = order.status === '已完成' ? '已完成' : (order.progress?.status || order.status)
-        // 如果筛选的不是"已完成"，则排除已完成状态的单据
-        if (this.data.statusFilter !== '已完成' && orderStatus === '已完成') {
-          return false
-        }
+        // 直接匹配状态
         return orderStatus === this.data.statusFilter
       })
     } else {
@@ -343,17 +360,16 @@ Page({
 
     // 判断状态
     let status = '未回货'
-    if (totalReturnYarn > 0) {
-      if (remainingYarn <= 0.01) {
-        status = '已回货'
-      } else {
-        status = '部分回货'
-      }
-    }
-
     // 如果订单状态是已完成，使用已完成状态
     if (issueOrder.status === '已完成') {
       status = '已完成'
+    } else if (totalReturnYarn > 0) {
+      if (remainingYarn <= 0.01) {
+        // 回货完成，标记为已完成
+        status = '已完成'
+      } else {
+        status = '部分回货'
+      }
     }
 
     return {
@@ -410,44 +426,18 @@ Page({
     })
   },
 
-  async onCompleteIssue(e) {
-    const issueId = e.currentTarget.dataset.id
+  onReturnedIssueClick() {
+    // 逻辑
+  },
 
-    wx.showModal({
-      title: '确认完成',
-      content: '确定要将此发料单标记为已完成吗？',
-      success: async (res) => {
-        if (res.confirm) {
-          try {
-            wx.showLoading({
-              title: '处理中...'
-            })
-
-            await update('issue_orders', {
-              status: '已完成'
-            }, {
-              id: issueId
-            })
-
-            wx.hideLoading()
-            wx.showToast({
-              title: '标记成功',
-              icon: 'success'
-            })
-
-            // 重新加载数据
-            this.loadIssueOrders()
-          } catch (error) {
-            console.error('标记完成失败:', error)
-            wx.hideLoading()
-            wx.showToast({
-              title: '标记失败',
-              icon: 'none'
-            })
-          }
-        }
-      }
-    })
+  onPreviewImage(e) {
+    const url = e.currentTarget.dataset.url
+    if (url) {
+      wx.previewImage({
+        urls: [url],
+        current: url
+      })
+    }
   }
 })
 

@@ -1,6 +1,7 @@
 // pages/index/index.js
-import { formatDate, formatQuantity } from '../../utils/calc.js'
+import { formatDate, formatDateTime, formatQuantity } from '../../utils/calc.js'
 import { count, query, queryByIds } from '../../utils/db.js'
+import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 const db = wx.cloud.database()
 const _ = db.command
@@ -15,6 +16,21 @@ Page({
   },
 
   onLoad() {
+    // 检查登录状态，如果未登录则跳转到登录页
+    if (!checkLogin({ showModal: false })) {
+      // 检查是否有邀请码，如果有则跳转到登录页
+      const inviteTenantId = wx.getStorageSync('inviteTenantId')
+      if (inviteTenantId) {
+        wx.redirectTo({
+          url: '/pages/login/index'
+        })
+      } else {
+        wx.switchTab({
+          url: '/pages/mine/index'
+        })
+      }
+      return
+    }
     this.loadData()
   },
 
@@ -96,12 +112,12 @@ Page({
       const [issueRes, returnRes] = await Promise.all([
         query('issue_orders', {}, {
           excludeDeleted: true,
-          orderBy: { field: 'issueDate', direction: 'DESC' },
+          orderBy: { field: 'createTime', direction: 'DESC' },
           limit: 10
         }),
         query('return_orders', {}, {
           excludeDeleted: true,
-          orderBy: { field: 'returnDate', direction: 'DESC' },
+          orderBy: { field: 'createTime', direction: 'DESC' },
           limit: 10
         })
       ])
@@ -112,6 +128,7 @@ Page({
           ...item,
           type: 'issue',
           date: item.issueDate || item.issue_date,
+          createTime: item.createTime || item.create_time,
           label: '发料给',
           factoryId: item.factoryId || item.factory_id,
           styleId: item.styleId || item.style_id
@@ -120,6 +137,7 @@ Page({
           ...item,
           type: 'return',
           date: item.returnDate || item.return_date,
+          createTime: item.createTime || item.create_time,
           label: '回货自',
           factoryId: item.factoryId || item.factory_id,
           styleId: item.styleId || item.style_id
@@ -131,8 +149,12 @@ Page({
         return
       }
 
-      // 3. 排序并取前10条
-      activities.sort((a, b) => new Date(b.date) - new Date(a.date))
+      // 3. 按创建时间排序并取前10条
+      activities.sort((a, b) => {
+        const timeA = a.createTime ? new Date(a.createTime) : new Date(a.date || 0)
+        const timeB = b.createTime ? new Date(b.createTime) : new Date(b.date || 0)
+        return timeB.getTime() - timeA.getTime()
+      })
       const topActivities = activities.slice(0, 10)
 
       // 4. 批量查询工厂和款号信息
@@ -163,8 +185,8 @@ Page({
           ...item,
           factoryName: factory?.name || '未知工厂',
           styleName: styleName,
-          styleImageUrl: style?.imageUrl || style?.image_url || '',
-          dateFormatted: formatDate(item.date),
+          styleImageUrl: (style?.imageUrl || style?.image_url || style?.image || '').trim(),
+          dateFormatted: formatDateTime(item.createTime || item.create_time || item.date),
           styleDisplay: `${styleCode}${styleName}`,
           actionInfo: `${issueInfo} · ${item.color || ''}`
         }
@@ -184,8 +206,13 @@ Page({
   },
 
   navigateToIssue() {
-    wx.switchTab({
-      url: '/pages/issue/index'
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
+    // 直接跳转到发料创建页面
+    wx.navigateTo({
+      url: '/pages/issue/create'
     })
   },
 
@@ -193,6 +220,16 @@ Page({
     wx.switchTab({
       url: '/pages/return/index'
     })
+  },
+
+  onPreviewImage(e) {
+    const url = e.currentTarget.dataset.url
+    if (url) {
+      wx.previewImage({
+        urls: [url],
+        current: url
+      })
+    }
   }
 })
 

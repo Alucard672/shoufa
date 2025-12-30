@@ -85,10 +85,16 @@
 .order-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  justify-content: space-between;
+  margin-bottom: 8px;
   width: 100%;
   box-sizing: border-box;
+}
+
+.order-no-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .order-no {
@@ -98,11 +104,14 @@
   font-weight: 600;
 }
 
+.order-factory-row {
+  margin-bottom: 12px;
+}
+
 .factory-name {
   font-size: 14px;
   font-weight: 500;
-  color: #101828;
-  flex: 1;
+  color: #64748B;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

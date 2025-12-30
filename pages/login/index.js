@@ -20,6 +20,16 @@ Page({
             wx.switchTab({
                 url: '/pages/index/index'
             })
+            return
+        }
+        
+        // 检查是否有邀请租户ID
+        const inviteTenantId = wx.getStorageSync('inviteTenantId')
+        if (inviteTenantId) {
+            // 如果有邀请ID，设置为邀请模式
+            this.setData({
+                isInvite: true
+            })
         }
         
         // 判断是否为开发环境
@@ -153,11 +163,18 @@ Page({
         this.setData({ loading: true })
 
         try {
+            // 检查是否有邀请租户ID
+            const inviteTenantId = wx.getStorageSync('inviteTenantId')
+            
+            // 如果有邀请ID，走加入逻辑；否则走正常登录逻辑
+            const action = inviteTenantId ? 'joinTenant' : 'login'
+            
             // 调用登录云函数，传递头像、昵称和手机号
             const res = await wx.cloud.callFunction({
                 name: 'auth',
                 data: {
-                    action: 'login',
+                    action: action,
+                    tenantId: inviteTenantId || '',
                     code: this.data.phoneCode || '', // 如果通过按钮获取，使用 code
                     phoneNumber: this.data.phoneNumber || '', // 如果手动输入，使用手机号
                     avatarUrl: this.data.avatarUrl,
@@ -168,6 +185,11 @@ Page({
             const { success, user, tenant, msg } = res.result
 
             if (success) {
+                // 如果是加入企业，清除邀请缓存
+                if (inviteTenantId) {
+                    wx.removeStorageSync('inviteTenantId')
+                }
+                
                 // 保存用户信息和租户信息
                 wx.setStorageSync('userInfo', user)
                 wx.setStorageSync('tenantInfo', tenant)
@@ -178,7 +200,7 @@ Page({
                 app.globalData.tenantInfo = tenant
 
                 wx.showToast({
-                    title: '登录成功',
+                    title: inviteTenantId ? '加入成功' : '登录成功',
                     icon: 'success'
                 })
 
@@ -190,8 +212,8 @@ Page({
                 }, 1500)
             } else {
                 wx.showModal({
-                    title: '登录失败',
-                    content: msg || '手机号未在系统中登记，请联系管理员',
+                    title: inviteTenantId ? '加入失败' : '登录失败',
+                    content: msg || (inviteTenantId ? '加入企业失败，请稍后重试' : '手机号未在系统中登记，请联系管理员'),
                     showCancel: false
                 })
             }

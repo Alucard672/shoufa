@@ -98,10 +98,10 @@ export function calculateRemainingYarn(totalIssueWeight, totalUsedYarn) {
 /**
  * 格式化金额
  * @param {Number} amount 金额
- * @returns {String} 格式化后的金额字符串
+ * @returns {String} 格式化后的金额字符串（不带¥）
  */
 export function formatAmount(amount) {
-  return `¥${amount.toFixed(2)}`
+  return amount.toFixed(2)
 }
 
 /**
@@ -127,12 +127,31 @@ export function formatDate(date) {
 }
 
 /**
+ * 格式化日期时间（精确到时分秒）
+ * @param {Date|String} date 日期时间
+ * @returns {String} 格式化后的日期时间字符串 YYYY/MM/DD HH:mm:ss
+ */
+export function formatDateTime(date) {
+  if (!date) return ''
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return ''
+  
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  const seconds = String(d.getSeconds()).padStart(2, '0')
+  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`
+}
+
+/**
  * 生成发料单号
- * @returns {String} 发料单号 FL + YYYYMMDD + 序号
+ * @returns {String} 发料单号 FL + YYMMDD + 序号（缩短格式）
  */
 export function generateIssueNo() {
   const now = new Date()
-  const year = now.getFullYear()
+  const year = String(now.getFullYear()).slice(-2) // 只取年份后两位
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
   const dateStr = `${year}${month}${day}`
@@ -142,11 +161,11 @@ export function generateIssueNo() {
 
 /**
  * 生成回货单号
- * @returns {String} 回货单号 HH + YYYYMMDD + 序号
+ * @returns {String} 回货单号 HH + YYMMDD + 序号（缩短格式）
  */
 export function generateReturnNo() {
   const now = new Date()
-  const year = now.getFullYear()
+  const year = String(now.getFullYear()).slice(-2) // 只取年份后两位
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
   const dateStr = `${year}${month}${day}`
@@ -156,11 +175,11 @@ export function generateReturnNo() {
 
 /**
  * 生成计划单号
- * @returns {String} 计划单号 JH + YYYYMMDD + 序号
+ * @returns {String} 计划单号 JH + YYMMDD + 序号（缩短格式）
  */
 export function generatePlanNo() {
   const now = new Date()
-  const year = now.getFullYear()
+  const year = String(now.getFullYear()).slice(-2) // 只取年份后两位
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
   const dateStr = `${year}${month}${day}`
@@ -170,11 +189,11 @@ export function generatePlanNo() {
 
 /**
  * 生成结算单号
- * @returns {String} 结算单号 JS + YYYYMMDD + 序号
+ * @returns {String} 结算单号 JS + YYMMDD + 序号（缩短格式）
  */
 export function generateSettlementNo() {
   const now = new Date()
-  const year = now.getFullYear()
+  const year = String(now.getFullYear()).slice(-2) // 只取年份后两位
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
   const dateStr = `${year}${month}${day}`

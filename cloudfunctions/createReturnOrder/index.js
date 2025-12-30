@@ -53,7 +53,8 @@ exports.main = async (event, context) => {
       let status = '未回货'
       if (totalReturnYarn > 0) {
         if (remainingYarn <= 0.01) {
-          status = '已回货'
+          // 回货完成，标记为已完成
+          status = '已完成'
         } else {
           status = '部分回货'
         }
