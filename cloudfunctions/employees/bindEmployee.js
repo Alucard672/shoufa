@@ -65,4 +65,3 @@ module.exports = async function bindEmployee(db, payload, context) {
     userId: res._id
   };
 };
-

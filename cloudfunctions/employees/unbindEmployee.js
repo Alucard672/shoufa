@@ -55,4 +55,3 @@ module.exports = async function unbindEmployee(db, payload, context) {
     }
   };
 }
-

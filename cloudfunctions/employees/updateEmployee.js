@@ -67,4 +67,3 @@ module.exports = async function updateEmployee(db, payload, context) {
     data: updatedRes.data
   };
 };
-
