@@ -17,6 +17,10 @@ Page({
     this.loadSystemParams()
   },
 
+  /**
+   * 加载系统参数（租户级别）
+   * 注意：所有查询必须包含 tenantId 条件，避免全量查询和跨租户数据泄露
+   */
   async loadSystemParams() {
     try {
       const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
@@ -33,36 +37,10 @@ Page({
       let paramsRes = { data: [] }
 
       try {
-        // 先尝试简单查询，检查集合是否存在（不添加 where 条件，避免权限问题）
-        try {
-          await db.collection('system_params').limit(1).get()
-          // 集合存在，继续查询
-        } catch (checkError) {
-          // 集合不存在，尝试创建
-          if (checkError.errCode === -502005 || checkError.message?.includes('collection not exists')) {
-            console.log('集合不存在，尝试创建')
-            try {
-              await this.createDefaultParams(tenantId)
-              // 创建后再次查询
-            } catch (createError) {
-              console.error('创建集合失败:', createError)
-              // 集合创建失败，使用默认值
-              this.setData({
-                piecesPerDozen: 12,
-                params: []
-              })
-              return
-            }
-          } else {
-            // 其他错误（可能是权限问题），记录但不阻塞
-            console.warn('检查集合时出错:', checkError)
-          }
-        }
-
-        // 查询系统参数
+        // 查询当前租户的系统参数（必须包含 tenantId 条件，避免全量查询）
         paramsRes = await db.collection('system_params')
           .where({
-            tenantId: tenantId
+            tenantId: tenantId  // 租户隔离：只查询当前租户的参数
           })
           .get()
 
@@ -84,8 +62,33 @@ Page({
           piecesPerDozen = 12
         }
       } catch (error) {
-        console.error('加载系统参数失败:', error)
-        // 使用默认值，不显示错误提示
+        // 如果集合不存在，尝试创建
+        if (error.errCode === -502005 || error.message?.includes('collection not exists')) {
+          console.log('集合不存在，尝试创建')
+          try {
+            await this.createDefaultParams(tenantId)
+            // 创建后再次查询（必须包含 tenantId 条件）
+            paramsRes = await db.collection('system_params')
+              .where({
+                tenantId: tenantId  // 租户隔离：只查询当前租户的参数
+              })
+              .get()
+            const piecesParam = paramsRes.data?.find(p => p.key === 'piecesPerDozen')
+            if (piecesParam) {
+              piecesPerDozen = parseInt(piecesParam.value) || 12
+            }
+          } catch (createError) {
+            console.error('创建集合失败:', createError)
+            // 集合创建失败，使用默认值
+            piecesPerDozen = 12
+            paramsRes = { data: [] }
+          }
+        } else {
+          console.error('加载系统参数失败:', error)
+          // 其他错误，使用默认值
+          piecesPerDozen = 12
+          paramsRes = { data: [] }
+        }
       }
 
       this.setData({
@@ -103,7 +106,15 @@ Page({
     }
   },
 
+  /**
+   * 创建默认系统参数（租户级别）
+   * @param {String} tenantId 租户ID，必须提供以确保参数属于正确的租户
+   */
   async createDefaultParams(tenantId) {
+    if (!tenantId) {
+      throw new Error('tenantId 不能为空')
+    }
+    
     try {
       // 使用云函数创建集合和默认参数
       const result = await wx.cloud.callFunction({
@@ -114,11 +125,11 @@ Page({
       })
 
       if (result.result && result.result.success) {
-        // 集合创建成功，再添加默认参数
+        // 集合创建成功，再添加默认参数（必须包含 tenantId）
         const db = wx.cloud.database()
         await db.collection('system_params').add({
           data: {
-            tenantId: tenantId,
+            tenantId: tenantId,  // 租户隔离：确保参数属于当前租户
             key: 'piecesPerDozen',
             value: '12',
             label: '一打是几件',
@@ -133,7 +144,7 @@ Page({
         const db = wx.cloud.database()
         await db.collection('system_params').add({
           data: {
-            tenantId: tenantId,
+            tenantId: tenantId,  // 租户隔离：确保参数属于当前租户
             key: 'piecesPerDozen',
             value: '12',
             label: '一打是几件',
@@ -183,6 +194,10 @@ Page({
     })
   },
 
+  /**
+   * 保存系统参数（租户级别）
+   * 注意：所有查询和更新操作必须包含 tenantId 条件
+   */
   async onSave() {
     const piecesPerDozen = this.data.piecesPerDozen
     if (!piecesPerDozen || piecesPerDozen < 1) {
@@ -211,10 +226,10 @@ Page({
       const db = wx.cloud.database()
       
       try {
-        // 查找是否已存在该参数
+        // 查找是否已存在该参数（必须包含 tenantId 条件，避免查询所有租户）
         const paramsRes = await db.collection('system_params')
           .where({
-            tenantId: tenantId,
+            tenantId: tenantId,  // 租户隔离：只查询当前租户的参数
             key: 'piecesPerDozen'
           })
           .get()
@@ -230,10 +245,10 @@ Page({
               }
             })
         } else {
-          // 创建新参数
+          // 创建新参数（必须包含 tenantId）
           await db.collection('system_params').add({
             data: {
-              tenantId: tenantId,
+              tenantId: tenantId,  // 租户隔离：确保参数属于当前租户
               key: 'piecesPerDozen',
               value: String(piecesPerDozen),
               label: '一打是几件',
@@ -255,10 +270,10 @@ Page({
                 collections: ['system_params']
               }
             })
-            // 再添加参数
+            // 再添加参数（必须包含 tenantId）
             await db.collection('system_params').add({
               data: {
-                tenantId: tenantId,
+                tenantId: tenantId,  // 租户隔离：确保参数属于当前租户
                 key: 'piecesPerDozen',
                 value: String(piecesPerDozen),
                 label: '一打是几件',

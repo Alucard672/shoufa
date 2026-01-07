@@ -93,12 +93,19 @@ Page({
     // 判断是否为开发环境
     const accountInfo = wx.getAccountInfoSync()
     this.setData({
-      isDev: accountInfo.miniProgram.envVersion === 'develop' || accountInfo.miniProgram.envVersion === 'trial'
+      isDev: accountInfo.miniProgram.envVersion === 'develop' || accountInfo.miniProgram.envVersion === 'trial',
+      globalData: {
+        version: app.globalData.version || '1.1.6'
+      }
     })
   },
   
   onShow() {
     this.checkLoginStatus()
+    // 更新版本号
+    this.setData({
+      'globalData.version': app.globalData.version || '1.1.6'
+    })
   },
 
   checkLoginStatus() {

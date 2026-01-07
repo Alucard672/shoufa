@@ -4,7 +4,8 @@
 const app = getApp()
 
 /**
- * 获取系统参数值
+ * 获取系统参数值（租户级别）
+ * 注意：所有查询必须包含 tenantId 条件，避免全量查询和跨租户数据泄露
  * @param {String} key 参数键名
  * @param {*} defaultValue 默认值
  * @returns {Promise<*>} 参数值
@@ -23,7 +24,7 @@ export async function getSystemParam(key, defaultValue = null) {
       return app.globalData[key]
     }
 
-    // 从数据库读取
+    // 从数据库读取（必须包含 tenantId 条件）
     const tenantId = app.globalData?.tenantId || wx.getStorageSync('tenantId')
     if (!tenantId) {
       return defaultValue
@@ -32,7 +33,7 @@ export async function getSystemParam(key, defaultValue = null) {
     const db = wx.cloud.database()
     const res = await db.collection('system_params')
       .where({
-        tenantId: tenantId,
+        tenantId: tenantId,  // 租户隔离：只查询当前租户的参数
         key: key
       })
       .get()
