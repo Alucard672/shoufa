@@ -3,7 +3,7 @@
 const envConfig = require('./env-config.js')
 
 // 版本号配置
-const VERSION = '1.0.0'
+const VERSION = '1.1.6'
 
 App({
   onLaunch(options) {

@@ -9,7 +9,8 @@ cloud.init({
 const db = cloud.database()
 
 exports.main = async (event, context) => {
-  const collections = [
+  // 如果传入了集合列表，使用传入的集合列表；否则使用默认列表
+  const defaultCollections = [
     'styles',
     'factories',
     'yarn_inventory',
@@ -18,6 +19,8 @@ exports.main = async (event, context) => {
     'return_orders',
     'settlements'
   ]
+  
+  const collections = event.collections || defaultCollections
 
   const results = []
 

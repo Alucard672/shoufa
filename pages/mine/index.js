@@ -76,6 +76,14 @@ Page({
         icon: '/images/icons/user.svg',
         bgColor: '#F0FDF4',
         path: '/pages/accounting/index'
+      },
+      {
+        id: 'system',
+        title: '系统参数',
+        desc: '管理系统配置参数',
+        icon: '/images/icons/settings.png',
+        bgColor: '#F5F5F5',
+        path: '/pages/settings/system'
       }
     ]
   },
