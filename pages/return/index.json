@@ -1,7 +1,9 @@
 {
   "usingComponents": {
-    "search-box": "/components/search-box/search-box",
-    "badge": "/components/badge/badge"
+    "filter-tabs": "../../components/filter-tabs/filter-tabs",
+    "search-box": "../../components/search-box/search-box",
+    "badge": "../../components/badge/badge",
+    "list-pagination": "../../components/list-pagination/list-pagination"
   },
   "enablePullDownRefresh": true
 }

@@ -1,0 +1,49 @@
+<!--pages/settings/system.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-left">
+      <text class="page-title">系统参数</text>
+      <text class="page-subtitle">管理系统配置参数</text>
+    </view>
+  </view>
+
+  <!-- 参数列表 -->
+  <view class="section">
+    <view class="menu-card card">
+      <!-- 一打是几件 -->
+      <view class="param-item">
+        <view class="param-content">
+          <view class="param-header">
+            <text class="param-label">一打是几件</text>
+            <text class="param-value" wx:if="{{!editing}}">{{piecesPerDozen}}件</text>
+          </view>
+          <text class="param-desc">定义一打包含的件数，用于打数和件数的换算</text>
+          
+          <!-- 编辑模式 -->
+          <view class="param-edit" wx:if="{{editing}}">
+            <input 
+              class="param-input" 
+              type="number" 
+              placeholder="请输入件数"
+              value="{{piecesPerDozen}}"
+              bindinput="onPiecesPerDozenInput"
+            />
+            <text class="param-unit">件</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-buttons" wx:if="{{!editing}}">
+    <button class="btn-edit" bindtap="onEdit">编辑</button>
+  </view>
+
+  <view class="action-buttons" wx:if="{{editing}}">
+    <button class="btn-cancel" bindtap="onCancel">取消</button>
+    <button class="btn-save" bindtap="onSave">保存</button>
+  </view>
+</view>
+

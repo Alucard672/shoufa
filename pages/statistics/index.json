@@ -1,8 +1,6 @@
 {
   "usingComponents": {
-    "filter-tabs": "/components/filter-tabs/filter-tabs",
-    "search-box": "/components/search-box/search-box",
-    "badge": "/components/badge/badge"
+    "badge": "../../components/badge/badge"
   },
   "enablePullDownRefresh": true
 }

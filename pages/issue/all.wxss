@@ -80,6 +80,24 @@
   margin-bottom: 12px;
   width: 100%;
   box-sizing: border-box;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.issue-card--warning {
+  background: #FFF7ED; /* 浅橙色 - 未回货 */
+  border-color: #FFD6A7;
+}
+
+.issue-card--info {
+  background: #EFF6FF; /* 浅蓝色 - 部分回货 */
+  border-color: #BEDBFF;
+}
+
+.issue-card--default {
+  background: #F0FDF4; /* 浅绿色 - 已回货/已完成 */
+  border-color: #BBF7D0;
 }
 
 .order-header {

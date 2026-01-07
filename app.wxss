@@ -1,5 +1,11 @@
 /**app.wxss**/
 page {
+  --primary-color: #155DFC;
+  --primary-gradient: linear-gradient(90deg, #2B7FFF 0%, #155DFC 100%);
+  --success-color: #008236;
+  --warning-color: #CA3500;
+  --info-color: #1447E6;
+  
   background-color: #F9FAFB;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   font-size: 14px;
@@ -9,7 +15,8 @@ page {
 
 /* 通用容器 */
 .container {
-  padding: 16px;
+  /* 减小顶部留白（系统导航栏下方不再显得空） */
+  padding: 8px 16px 16px;
   box-sizing: border-box;
   width: 100%;
 }
@@ -21,6 +28,11 @@ page {
   padding: 16px;
   margin-bottom: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card-gradient {
+  background: var(--primary-gradient);
+  color: #FFFFFF;
 }
 
 /* 通用按钮 */
@@ -38,7 +50,7 @@ page {
 }
 
 .btn-primary {
-  background: #030213;
+  background: var(--primary-color);
   color: #FFFFFF;
 }
 
@@ -48,9 +60,14 @@ page {
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+.btn-loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
 /* 文本样式 */
 .text-primary {
-  color: #101828;
+  color: var(--primary-color);
 }
 
 .text-secondary {
@@ -73,6 +90,11 @@ page {
 
 .text-small {
   font-size: 12px;
+}
+
+/* 全局：隐藏页面副标题，减少顶部占用 */
+.page-subtitle {
+  display: none !important;
 }
 
 /* 间距 */

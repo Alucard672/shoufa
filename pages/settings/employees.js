@@ -1,6 +1,7 @@
 // pages/settings/employees.js
 import { checkLogin, getTenantId } from '../../utils/auth.js'
 import { formatDate } from '../../utils/calc.js'
+import { query } from '../../utils/db.js'
 const app = getApp()
 
 Page({
@@ -47,33 +48,48 @@ Page({
     this.setData({ loading: true })
 
     try {
-      const result = await wx.cloud.callFunction({
-        name: 'tenants',
-        data: {
-          action: 'listEmployees',
-          payload: {
-            tenantId: tenantId,
-            pageNum: 1,
-            pageSize: 200 // 增加页面大小，减少查询次数
+      // 优先尝试使用云函数，如果云函数不存在则降级为直接查询
+      let employees = []
+      
+      try {
+        const result = await wx.cloud.callFunction({
+          name: 'employees',
+          data: {
+            action: 'listEmployees',
+            payload: {
+              tenantId: tenantId,
+              pageNum: 1,
+              pageSize: 200
+            }
           }
-        }
-      })
+        })
 
-      if (result.result.code === 0) {
-        // 格式化员工数据，添加格式化的日期
-        const employees = (result.result.data.list || []).map(emp => ({
-          ...emp,
-          createTimeFormatted: emp.createTime ? formatDate(emp.createTime) : ''
-        }))
-        this.setData({
-          employees: employees
+        if (result.result.code === 0) {
+          employees = result.result.data.list || []
+        } else {
+          throw new Error(result.result.msg || '云函数返回错误')
+        }
+      } catch (cloudError) {
+        // 云函数不存在或调用失败，降级为直接查询数据库
+        console.log('云函数调用失败，降级为直接查询:', cloudError)
+        const result = await query('users', {
+          tenantId: tenantId
+        }, {
+          excludeDeleted: true,
+          orderBy: { field: 'createTime', direction: 'DESC' },
+          limit: 200
         })
-      } else {
-        wx.showToast({
-          title: result.result.msg || '加载失败',
-          icon: 'none'
-        })
+        employees = result.data || []
       }
+
+      // 格式化员工数据，添加格式化的日期
+      const formattedEmployees = employees.map(emp => ({
+        ...emp,
+        createTimeFormatted: emp.createTime ? formatDate(emp.createTime) : ''
+      }))
+      this.setData({
+        employees: formattedEmployees
+      })
     } catch (error) {
       console.error('加载员工列表失败:', error)
       wx.showToast({
@@ -194,7 +210,7 @@ Page({
       })
 
       const result = await wx.cloud.callFunction({
-        name: 'tenants',
+        name: 'employees',
         data: {
           action: 'bindEmployee',
           payload: {
@@ -257,7 +273,7 @@ Page({
             })
 
             const result = await wx.cloud.callFunction({
-              name: 'tenants',
+              name: 'employees',
               data: {
                 action: 'unbindEmployee',
                 payload: {
@@ -334,7 +350,7 @@ Page({
       })
 
       const result = await wx.cloud.callFunction({
-        name: 'tenants',
+        name: 'employees',
         data: {
           action: 'updateEmployee',
           payload: {

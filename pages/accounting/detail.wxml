@@ -1,5 +1,5 @@
 <!--pages/accounting/detail.wxml-->
-<view class="container">
+<view class="page-wrapper">
   <!-- 顶部蓝色背景区域 -->
   <view class="header-bg">
     <view class="header-content">
@@ -7,6 +7,11 @@
       <view class="header-text-group">
         <text class="header-title">{{factory.name || '加工厂'}}</text>
         <text class="header-subtitle">对账单明细</text>
+      </view>
+      <view class="header-actions">
+        <view class="header-action-btn" bindtap="onSettle">
+          <text class="header-action-text">去结算</text>
+        </view>
       </view>
     </view>
     <view class="header-time">
@@ -19,22 +24,22 @@
   <view class="summary-grid-section">
     <view class="summary-grid">
       <view class="grid-item">
-        <image class="grid-icon" src="/images/icons/wallet.svg" mode="aspectFit"></image>
+        <image class="grid-icon" src="/images/icons/statistics.svg" mode="aspectFit"></image>
         <text class="grid-label">总金额</text>
         <text class="grid-value">¥{{summaryFormatted.totalAmount}}</text>
       </view>
       <view class="grid-item">
-        <image class="grid-icon" src="/images/icons/check-circle.svg" mode="aspectFit"></image>
+        <image class="grid-icon" src="/images/icons/check.svg" mode="aspectFit"></image>
         <text class="grid-label">已结算</text>
         <text class="grid-value">¥{{summaryFormatted.settledAmount}}</text>
       </view>
       <view class="grid-item">
-        <image class="grid-icon" src="/images/icons/clock.svg" mode="aspectFit"></image>
+        <image class="grid-icon" src="/images/icons/statistics.svg" mode="aspectFit"></image>
         <text class="grid-label">未结算</text>
         <text class="grid-value unpaid">¥{{summaryFormatted.unpaidAmount}}</text>
       </view>
       <view class="grid-item">
-        <image class="grid-icon" src="/images/icons/refresh.svg" mode="aspectFit"></image>
+        <image class="grid-icon" src="/images/icons/issue.svg" mode="aspectFit"></image>
         <text class="grid-label">发毛数</text>
         <text class="grid-value">{{summaryFormatted.totalIssueWeight}}</text>
       </view>
@@ -44,7 +49,7 @@
         <text class="grid-value">{{summaryFormatted.totalReturnWeight}}</text>
       </view>
       <view class="grid-item">
-        <image class="grid-icon" src="/images/icons/tag.svg" mode="aspectFit"></image>
+        <image class="grid-icon" src="/images/icons/shirt.svg" mode="aspectFit"></image>
         <text class="grid-label">回货数量</text>
         <text class="grid-value">{{summaryFormatted.totalReturnPieces}}</text>
       </view>
@@ -72,7 +77,7 @@
             <view class="status-badge settled" wx:else>已结算</view>
           </view>
           <view class="order-header-right">
-            <image class="style-image" src="{{item.styleImageUrl}}" mode="aspectFill" wx:if="{{item.styleImageUrl}}" catchtap="onPreviewImage" data-url="{{item.styleImageUrl}}"></image>
+            <image class="style-image" src="{{item.styleImageUrl}}" mode="aspectFill" wx:if="{{item.styleImageUrl}}" catchtap="onPreviewImage" data-url="{{item.styleImageUrl}}" binderror="onStyleImageError" data-id="{{item._id || item.id}}" data-index="{{index}}"></image>
             <view class="style-image-placeholder" wx:else>
               <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
             </view>
@@ -85,23 +90,19 @@
         </view>
 
         <view class="order-details-grid">
-          <view class="detail-item">
-            <image class="detail-icon" src="/images/icons/package.svg" mode="aspectFit"></image>
+          <view class="detail-column">
             <text class="detail-label">回货重量</text>
             <text class="detail-value highlight">{{item.returnWeightFormatted}}</text>
           </view>
-          <view class="detail-item">
-            <image class="detail-icon" src="/images/icons/tag.svg" mode="aspectFit"></image>
+          <view class="detail-column">
             <text class="detail-label">回货数量</text>
-            <text class="detail-value">{{item.returnPiecesFormatted}}</text>
+            <text class="detail-value highlight">{{item.returnPiecesFormatted}}</text>
           </view>
-          <view class="detail-item">
-            <image class="detail-icon" src="/images/icons/refresh.svg" mode="aspectFit"></image>
+          <view class="detail-column">
             <text class="detail-label">发毛重量</text>
             <text class="detail-value">{{item.issueWeightFormatted}}</text>
           </view>
-          <view class="detail-item">
-            <image class="detail-icon" src="/images/icons/wallet.svg" mode="aspectFit"></image>
+          <view class="detail-column">
             <text class="detail-label">加工费</text>
             <text class="detail-value">¥{{item.processingFeeFormatted}}</text>
           </view>

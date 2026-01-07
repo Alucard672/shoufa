@@ -1,15 +1,73 @@
 // pages/statistics/style.js
-import { query, queryByIds } from '../../utils/db.js'
+import { query, queryByIds, getStyleById, getFactories, getStyles } from '../../utils/db.js'
 import { getTimeRange, formatWeight, formatQuantity } from '../../utils/calc.js'
 import { checkLogin } from '../../utils/auth.js'
+import { normalizeImageUrl } from '../../utils/image.js'
+import { pickDateHybrid, filterByTimeFilter, pickNumber, pickId } from '../../utils/summary.js'
 const app = getApp()
 
 Page({
   data: {
     timeFilter: 'all',
+    timeFilterLabel: '全部时间',
     styleStats: [],
     filteredStyleStats: [],
-    styleKeyword: ''
+    styleKeyword: '',
+    summary: {
+      styleCount: 0,
+      factoryCount: 0,
+      totalIssueCount: 0,
+      totalIssueWeight: 0,
+      totalIssueWeightFormatted: '0.00kg',
+      totalReturnPieces: 0,
+      totalReturnPiecesFormatted: '0打0件',
+      totalReturnWeight: 0,
+      totalReturnWeightFormatted: '0.00kg'
+    }
+  },
+
+  getTimeFilterLabel(filter) {
+    const map = {
+      all: '全部时间',
+      today: '今天',
+      week: '本周',
+      month: '本月'
+    }
+    return map[filter] || '全部时间'
+  },
+
+  formatAvg(num, den) {
+    const n = Number(num) || 0
+    const d = Number(den) || 1
+    const v = d > 0 ? (n / d) : 0
+    return v.toFixed(1)
+  },
+
+  // 图片加载失败：降级为占位图
+  onStyleImageError(e) {
+    const styleId = e.currentTarget.dataset.styleId
+    const index = e.currentTarget.dataset.index
+
+    // 优先更新当前渲染列表
+    if (typeof index === 'number' || (typeof index === 'string' && index !== '')) {
+      const i = typeof index === 'number' ? index : parseInt(index, 10)
+      if (!Number.isNaN(i) && this.data.filteredStyleStats && this.data.filteredStyleStats[i]) {
+        this.setData({ [`filteredStyleStats[${i}].styleImageUrl`]: '' })
+      }
+    }
+
+    if (!styleId) return
+    const match = (o) => String(o?.styleId || '') === String(styleId)
+
+    const updateByStyleId = (listName) => {
+      const list = this.data[listName] || []
+      const idx = list.findIndex(match)
+      if (idx >= 0) {
+        this.setData({ [`${listName}[${idx}].styleImageUrl`]: '' })
+      }
+    }
+
+    updateByStyleId('styleStats')
   },
 
   onLoad(options) {
@@ -21,6 +79,7 @@ Page({
         timeFilter: decodeURIComponent(options.timeFilter)
       })
     }
+    this.setData({ timeFilterLabel: this.getTimeFilterLabel(this.data.timeFilter) })
     this.loadData()
   },
 
@@ -51,61 +110,20 @@ Page({
   },
 
   async loadStyleStatistics() {
-    // 查询所有发料单
+    // 1. 查询所有发料单
     const issueOrdersRes = await query('issue_orders', {}, {
       excludeDeleted: true
     })
     let issueOrders = issueOrdersRes.data || []
 
-    // 客户端进行时间筛选
-    if (this.data.timeFilter !== 'all') {
-      const timeRange = getTimeRange(this.data.timeFilter)
-      if (timeRange.startDate && timeRange.endDate) {
-        const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
-        const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
+    // 客户端进行时间筛选（使用统一 hybrid 日期口径）
+    issueOrders = filterByTimeFilter(issueOrders, this.data.timeFilter, (o) =>
+      pickDateHybrid(o, ['issueDate', 'issue_date'], ['createTime', 'create_time'])
+    )
 
-        issueOrders = issueOrders.filter(order => {
-          const date = order.createTime || order.create_time
-          if (!date) return false
-
-          let orderDate
-          try {
-            if (date instanceof Date) {
-              orderDate = date
-            } else if (typeof date === 'string') {
-              const dateStr = date.replace(/\//g, '-')
-              orderDate = new Date(dateStr)
-            } else if (date && typeof date === 'object') {
-              if (typeof date.getTime === 'function') {
-                orderDate = new Date(date.getTime())
-              } else if (date._seconds) {
-                orderDate = new Date(date._seconds * 1000)
-              } else {
-                orderDate = new Date(date)
-              }
-            } else {
-              orderDate = new Date(date)
-            }
-
-            if (isNaN(orderDate.getTime())) {
-              return false
-            }
-
-            const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
-            const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
-            const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
-
-            return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
-          } catch (e) {
-            return false
-          }
-        })
-      }
-    }
-
-    // 获取所有相关的款号和工厂ID
-    const styleIds = [...new Set(issueOrders.map(order => order.styleId || order.style_id).filter(Boolean))]
-    const factoryIds = [...new Set(issueOrders.map(order => order.factoryId || order.factory_id).filter(Boolean))]
+    // 2. 获取所有相关的款号和工厂ID
+    const styleIds = [...new Set(issueOrders.map(order => pickId(order, ['styleId', 'style_id'])).filter(Boolean))]
+    const factoryIds = [...new Set(issueOrders.map(order => pickId(order, ['factoryId', 'factory_id'])).filter(Boolean))]
 
     // 批量查询款号和工厂信息
     const stylesRes = styleIds.length > 0 ? await queryByIds('styles', styleIds) : { data: [] }
@@ -113,143 +131,96 @@ Page({
 
     const stylesMap = new Map()
     stylesRes.data.forEach(style => {
-      const id = String(style._id || style.id || '')
+      const id = pickId(style, ['_id', 'id'])
       if (id) stylesMap.set(id, style)
     })
 
     const factoriesMap = new Map()
     factoriesRes.data.forEach(factory => {
-      const id = String(factory._id || factory.id || '')
+      const id = pickId(factory, ['_id', 'id'])
       if (id) factoriesMap.set(id, factory)
     })
 
-    // 获取所有回货单
-    const issueIds = issueOrders.map(order => order._id || order.id)
+    // 3. 获取回货单并进行时间筛选
+    const issueIds = issueOrders.map(order => pickId(order, ['_id', 'id']))
     const _ = wx.cloud.database().command
-    let returnOrdersRes = { data: [] }
+    let filteredReturnOrders = []
     
     if (issueIds.length > 0) {
       try {
-        returnOrdersRes = await query('return_orders', {
-          issueId: _.in(issueIds)
-        }, {
-          excludeDeleted: true
+        const [byIssueId, byIssue_id] = await Promise.all([
+          query('return_orders', { issueId: _.in(issueIds) }, { excludeDeleted: true }).catch(() => ({ data: [] })),
+          query('return_orders', { issue_id: _.in(issueIds) }, { excludeDeleted: true }).catch(() => ({ data: [] }))
+        ])
+        
+        const merged = []
+        const seen = new Set()
+        ;(byIssueId.data || []).concat(byIssue_id.data || []).forEach(ro => {
+          const key = pickId(ro, ['_id', 'id'])
+          if (key && !seen.has(key)) {
+            seen.add(key)
+            merged.push(ro)
+          }
         })
+        
+        // 使用统一 hybrid 筛选口径
+        filteredReturnOrders = filterByTimeFilter(merged, this.data.timeFilter, (o) =>
+          pickDateHybrid(o, ['returnDate', 'return_date'], ['createTime', 'create_time'])
+        )
       } catch (e) {
-        try {
-          returnOrdersRes = await query('return_orders', {
-            issue_id: _.in(issueIds)
-          }, {
-            excludeDeleted: true
-          })
-        } catch (e2) {
-          console.error('查询回货单失败:', e2)
-        }
-      }
-
-      // 根据时间筛选回货单
-      if (this.data.timeFilter !== 'all') {
-        const timeRange = getTimeRange(this.data.timeFilter)
-        if (timeRange.startDate && timeRange.endDate) {
-          const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
-          const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
-
-          returnOrdersRes.data = returnOrdersRes.data.filter(order => {
-            const date = order.createTime || order.create_time || order.returnDate || order.return_date
-            if (!date) return false
-
-            let orderDate
-            try {
-              if (date instanceof Date) {
-                orderDate = date
-              } else if (typeof date === 'string') {
-                const dateStr = date.replace(/\//g, '-')
-                orderDate = new Date(dateStr)
-              } else if (date && typeof date === 'object') {
-                if (typeof date.getTime === 'function') {
-                  orderDate = new Date(date.getTime())
-                } else if (date._seconds) {
-                  orderDate = new Date(date._seconds * 1000)
-                } else {
-                  orderDate = new Date(date)
-                }
-              } else {
-                orderDate = new Date(date)
-              }
-
-              if (isNaN(orderDate.getTime())) {
-                return false
-              }
-
-              const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
-              const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
-              const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
-
-              return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
-            } catch (e) {
-              return false
-            }
-          })
-        }
+        console.error('查询回货单失败:', e)
       }
     }
 
-    // 按款号统计
+    // 4. 按款号统计
     const styleStatsMap = new Map()
 
     issueOrders.forEach(order => {
-      const styleIdRaw = order.styleId || order.style_id
-      if (!styleIdRaw) return
-      const styleId = String(styleIdRaw)
+      const styleId = pickId(order, ['styleId', 'style_id'])
+      if (!styleId) return
 
       if (!styleStatsMap.has(styleId)) {
         const style = stylesMap.get(styleId)
-        const yarnUsagePerPiece = style?.yarnUsagePerPiece || style?.yarn_usage_per_piece || 0
-        const lossRate = style?.lossRate || style?.loss_rate || 0
+        const yarnUsagePerPiece = pickNumber(style, ['yarnUsagePerPiece', 'yarn_usage_per_piece'], 0)
+        const lossRate = pickNumber(style, ['lossRate', 'loss_rate'], 0)
         styleStatsMap.set(styleId, {
           styleId: styleId,
-          styleCode: style?.styleCode || style?.style_code || '',
-          styleName: style?.styleName || style?.style_name || '',
-          styleImageUrl: (style?.imageUrl || style?.image_url || style?.image || '').trim(),
+          styleCode: pickFirst(style, ['styleCode', 'style_code']) || '',
+          styleName: pickFirst(style, ['styleName', 'style_name', 'name']) || '',
+          styleImageUrl: normalizeImageUrl(style),
           yarnUsagePerPiece,
           lossRate,
           totalIssueCount: 0,
           totalIssueWeight: 0,
           totalReturnPieces: 0,
           totalReturnWeight: 0,
-          factories: new Set() // 用于记录涉及的工厂
+          factories: new Set()
         })
       }
 
       const stat = styleStatsMap.get(styleId)
       stat.totalIssueCount++
-      stat.totalIssueWeight += parseFloat(order.issueWeight || order.issue_weight || 0)
-      const factoryIdRaw = order.factoryId || order.factory_id
-      if (factoryIdRaw) {
-        stat.factories.add(String(factoryIdRaw))
-      }
+      stat.totalIssueWeight += pickNumber(order, ['issueWeight', 'issue_weight'], 0)
+      const factoryId = pickId(order, ['factoryId', 'factory_id'])
+      if (factoryId) stat.factories.add(factoryId)
     })
 
-    // 关联回货记录 (使用内存匹配兜底)
-    const returnOrdersRes = await query('return_orders', {}, { excludeDeleted: true })
-    const allReturnOrders = returnOrdersRes.data || []
-    
-    // 按 styleId 分组
+    // 按 styleId 分组回货记录
     const styleReturnMap = new Map()
-    allReturnOrders.forEach(ro => {
-      const sId = String(ro.styleId || ro.style_id || '')
+    filteredReturnOrders.forEach(ro => {
+      const sId = pickId(ro, ['styleId', 'style_id'])
       if (sId) {
         if (!styleReturnMap.has(sId)) styleReturnMap.set(sId, [])
         styleReturnMap.get(sId).push(ro)
       }
     })
 
-    // 格式化并计算
+    // 5. 格式化并计算
     const styleStats = Array.from(styleStatsMap.values()).map(stat => {
       const returnOrders = styleReturnMap.get(stat.styleId) || []
       returnOrders.forEach(ro => {
-        stat.totalReturnPieces += parseFloat(ro.returnPieces || ro.return_pieces || 0)
-        stat.totalReturnWeight += parseFloat(ro.actualYarnUsage || ro.actual_yarn_usage || 0)
+        stat.totalReturnPieces += pickNumber(ro, ['returnPieces', 'return_pieces'], 0)
+        stat.totalReturnWeight += pickNumber(ro, ['actualYarnUsage', 'actual_yarn_usage'], 0)
       })
 
       return {
@@ -289,7 +260,8 @@ Page({
     const filters = ['all', 'today', 'week', 'month']
     const selectedFilter = filters[index] || 'all'
     this.setData({
-      timeFilter: selectedFilter
+      timeFilter: selectedFilter,
+      timeFilterLabel: this.getTimeFilterLabel(selectedFilter)
     })
     this.loadStyleStatistics()
   },
@@ -317,8 +289,41 @@ Page({
       })
     }
 
+    // 计算顶部汇总
+    const factoryIdSet = new Set()
+    let totalIssueCount = 0
+    let totalIssueWeight = 0
+    let totalReturnPieces = 0
+    let totalReturnWeight = 0
+
+    filtered.forEach(s => {
+      totalIssueCount += s.totalIssueCount || 0
+      totalIssueWeight += s.totalIssueWeight || 0
+      totalReturnPieces += s.totalReturnPieces || 0
+      totalReturnWeight += s.totalReturnWeight || 0
+      const factories = s.factories || []
+      factories.forEach(fid => factoryIdSet.add(String(fid)))
+    })
+
+    // 为列表项补齐展示字段（避免 WXML 调用 toFixed 导致编译失败）
+    const enriched = filtered.map(it => ({
+      ...it,
+      avgIssuePerFactoryText: this.formatAvg(it.totalIssueCount || 0, it.factoryCount || 1)
+    }))
+
     this.setData({
-      filteredStyleStats: filtered
+      filteredStyleStats: enriched,
+      summary: {
+        styleCount: filtered.length,
+        factoryCount: factoryIdSet.size,
+        totalIssueCount,
+        totalIssueWeight,
+        totalIssueWeightFormatted: formatWeight(totalIssueWeight),
+        totalReturnPieces,
+        totalReturnPiecesFormatted: formatQuantity(totalReturnPieces),
+        totalReturnWeight,
+        totalReturnWeightFormatted: formatWeight(totalReturnWeight)
+      }
     })
   },
 
@@ -332,4 +337,10 @@ Page({
   }
 })
 
-
+function pickFirst(obj, keys) {
+  if (!obj) return null
+  for (let key of keys) {
+    if (obj[key] !== undefined && obj[key] !== null && obj[key] !== '') return obj[key]
+  }
+  return null
+}

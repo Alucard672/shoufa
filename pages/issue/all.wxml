@@ -53,7 +53,7 @@
 
   <!-- 发料单列表 -->
   <view class="order-list">
-    <view class="order-card card" wx:for="{{filteredOrders}}" wx:key="_id">
+    <view class="order-card card {{(item.progress && item.progress.status === '已完成') || item.status === '已完成' ? 'issue-card--default' : (item.progress && item.progress.status === '部分回货' ? 'issue-card--info' : 'issue-card--warning')}}" wx:for="{{filteredOrders}}" wx:key="_id" bindtap="navigateToDetail" data-id="{{item._id || item.id}}">
       <!-- 第一行：单号和状态标签 -->
       <view class="order-header">
         <text class="order-no">{{item.issueNo}}</text>
@@ -69,8 +69,8 @@
       <view class="order-content-row">
         <!-- 图片（可点击放大） -->
         <view class="order-image-section">
-          <view class="style-image-container" bindtap="onPreviewImage" data-url="{{item.styleImageUrl}}" wx:if="{{item.styleImageUrl}}">
-            <image class="style-image" src="{{item.styleImageUrl}}" mode="aspectFill"></image>
+          <view class="style-image-container" catchtap="onPreviewImage" data-url="{{item.styleImageUrl}}" wx:if="{{item.styleImageUrl}}">
+            <image class="style-image" src="{{item.styleImageUrl}}" mode="aspectFill" binderror="onStyleImageError" data-id="{{item._id || item.id}}" data-index="{{index}}"></image>
           </view>
           <view class="style-image-placeholder" wx:else>
             <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
@@ -97,7 +97,7 @@
           <image class="footer-icon" src="/images/icons/calendar.svg" mode="aspectFit"></image>
           <text class="footer-text">{{item.issueDateFormatted}}</text>
         </view>
-        <text class="footer-weight">{{item.issueWeightFormatted}} kg</text>
+        <text class="footer-weight">{{item.issueWeightFormatted}}</text>
       </view>
       
       <view class="order-progress" wx:if="{{item.status !== '未回货' && item.status !== '已完成'}}">
@@ -134,10 +134,10 @@
       </view>
       
       <view class="order-actions">
-        <view class="btn btn-secondary" bindtap="navigateToReturn" data-id="{{item._id}}" wx:if="{{item.status !== '已完成' && !(item.progress && item.progress.status === '已完成')}}">
+        <view class="btn btn-secondary" catchtap="navigateToReturn" data-id="{{item._id || item.id}}" wx:if="{{item.status !== '已完成' && !(item.progress && item.progress.status === '已完成')}}">
           <text>{{(item.progress && item.progress.status === '未回货') || (!item.progress && item.status === '未回货') ? '登记回货' : '继续回货'}}</text>
         </view>
-        <view class="btn btn-primary" wx:if="{{item.canComplete && item.status !== '已完成' && !(item.progress && item.progress.status === '已完成')}}" bindtap="onCompleteIssue" data-id="{{item._id}}">
+        <view class="btn btn-primary" wx:if="{{item.canComplete && item.status !== '已完成' && !(item.progress && item.progress.status === '已完成')}}" catchtap="onCompleteIssue" data-id="{{item._id || item.id}}">
           <text>结束</text>
         </view>
       </view>

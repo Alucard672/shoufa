@@ -82,14 +82,49 @@ Page({
     const db = wx.cloud.database()
     const _ = db.command
 
-    // 查询未结算的回货单
-    const returnOrdersRes = await query('return_orders', {
-      factoryId: this.data.factoryId,
-      settlementStatus: _.in(['未结算', '部分结算'])
-    }, {
-      excludeDeleted: true,
-      orderBy: { field: 'returnDate', direction: 'DESC' }
+    // 查询该工厂的所有回货单（兼容 factoryId 和 factory_id）
+    // 由于 query 函数不支持 OR 查询，我们需要分别查询然后合并
+    const [byFactoryId, byFactory_id] = await Promise.all([
+      query('return_orders', {
+        factoryId: this.data.factoryId
+      }, {
+        excludeDeleted: true
+      }).catch(() => ({ data: [] })),
+      query('return_orders', {
+        factory_id: this.data.factoryId
+      }, {
+        excludeDeleted: true
+      }).catch(() => ({ data: [] }))
+    ])
+
+    // 合并并去重
+    const merged = []
+    const seen = new Set()
+    ;(byFactoryId.data || []).concat(byFactory_id.data || []).forEach(order => {
+      const key = String(order._id || order.id || '')
+      if (key && !seen.has(key)) {
+        seen.add(key)
+        merged.push(order)
+      }
     })
+
+    // 在客户端过滤：只显示未结算和部分结算的回货单
+    // 兼容 settlementStatus 和 settlement_status 字段
+    const filtered = merged.filter(order => {
+      const status = order.settlementStatus || order.settlement_status || '未结算'
+      return status === '未结算' || status === '部分结算'
+    })
+
+    // 按日期排序
+    filtered.sort((a, b) => {
+      const dateA = a.returnDate || a.return_date || a.createTime || a.create_time
+      const dateB = b.returnDate || b.return_date || b.createTime || b.create_time
+      const timeA = dateA ? new Date(dateA).getTime() : 0
+      const timeB = dateB ? new Date(dateB).getTime() : 0
+      return timeB - timeA // 倒序
+    })
+
+    const returnOrdersRes = { data: filtered }
 
     // 查询该工厂的所有结算单，计算每个回货单的已结算金额
     const settlementsRes = await query('settlements', {
@@ -123,18 +158,18 @@ Page({
       issueIds.length > 0 ? queryByIds('issue_orders', issueIds, { excludeDeleted: true }) : { data: [] }
     ])
 
-    const stylesMap = Object.fromEntries(stylesRes.data.map(s => [s._id || s.id, s]))
-    const issueOrdersMap = Object.fromEntries(issueOrdersRes.data.map(o => [o._id || o.id, o]))
+    const stylesMap = Object.fromEntries(stylesRes.data.map(s => [String(s._id || s.id), s]))
+    const issueOrdersMap = Object.fromEntries(issueOrdersRes.data.map(o => [String(o._id || o.id), o]))
 
     // 关联查询款号和发料单信息
     const ordersWithDetails = returnOrdersRes.data.map(order => {
       try {
         const styleId = order.styleId || order.style_id
         const issueId = order.issueId || order.issue_id
-        const orderId = order._id || order.id
+        const orderId = String(order._id || order.id || '')
 
-        const style = stylesMap[styleId]
-        const issueOrder = issueOrdersMap[issueId]
+        const style = stylesMap[String(styleId)]
+        const issueOrder = issueOrdersMap[String(issueId)]
 
         // 计算已结算金额（优先使用数据库字段，否则从settlements集合查询）
         const settledAmount = order.settledAmount || order.settled_amount || settledAmountMap.get(orderId.toString()) || 0
@@ -187,9 +222,10 @@ Page({
   },
 
   onToggleOrder(e) {
-    const orderId = e.currentTarget.dataset.id
+    const orderId = String(e.currentTarget.dataset.id || '')
     const orders = this.data.returnOrders.map(order => {
-      if (order._id === orderId) {
+      const orderIdStr = String(order._id || order.id || '')
+      if (orderIdStr === orderId) {
         return {
           ...order,
           selected: !order.selected
@@ -200,11 +236,11 @@ Page({
 
     const selectedOrders = orders.filter(order => order.selected)
     const settlementAmount = selectedOrders.reduce((sum, order) => sum + (order.settlementAmount || 0), 0)
-    const totalPieces = selectedOrders.reduce((sum, order) => sum + (order.returnPieces || 0), 0)
+    const totalPieces = selectedOrders.reduce((sum, order) => sum + (order.returnPieces || order.return_pieces || 0), 0)
 
     this.setData({
       returnOrders: orders,
-      selectedOrders: selectedOrders.map(order => order._id),
+      selectedOrders: selectedOrders.map(order => order._id || order.id),
       settlementAmount: settlementAmount,
       settlementAmountFormatted: settlementAmount.toFixed(2),
       totalSelectedQuantityDisp: formatQuantity(totalPieces)
@@ -212,10 +248,11 @@ Page({
   },
 
   onSettlementAmountInput(e) {
-    const orderId = e.currentTarget.dataset.id
+    const orderId = String(e.currentTarget.dataset.id || '')
     const value = parseFloat(e.detail.value) || 0
     const orders = this.data.returnOrders.map(order => {
-      if (order._id === orderId) {
+      const orderIdStr = String(order._id || order.id || '')
+      if (orderIdStr === orderId) {
         const settlementAmount = Math.min(Math.max(0, value), order.remainingAmount)
         return {
           ...order,
@@ -247,6 +284,8 @@ Page({
       endDate: endDate,
       settlementDate: endDate || startDate // 使用结束日期作为结算日期
     })
+    // 日期变更后重新加载回货单（虽然当前不按日期过滤，但保持数据同步）
+    this.loadReturnOrders()
   },
 
   onEndDateChange(e) {
@@ -261,6 +300,8 @@ Page({
       endDate: endDate,
       settlementDate: endDate // 使用结束日期作为结算日期
     })
+    // 日期变更后重新加载回货单（虽然当前不按日期过滤，但保持数据同步）
+    this.loadReturnOrders()
   },
 
   onRemarkInput(e) {

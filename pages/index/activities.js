@@ -1,496 +1,230 @@
 // pages/index/activities.js
 import { query, queryByIds } from '../../utils/db.js'
-import { formatDate, formatDateTime, getTimeRange } from '../../utils/calc.js'
+import { formatDateTime } from '../../utils/calc.js'
+import { normalizeImageUrl, batchGetImageUrls } from '../../utils/image.js'
+import { pickDateHybrid, filterByTimeFilter, pickNumber } from '../../utils/summary.js'
+
 const app = getApp()
 
 Page({
   data: {
     activities: [],
     loading: false,
-    // 统计数据
-    totalIssueWeight: 0,
+    // 汇总
     totalIssueWeightFormatted: '0.0',
     totalReturnPieces: 0,
-    totalProcessingFee: 0,
     totalProcessingFeeFormatted: '0',
     issueCount: 0,
     returnCount: 0,
-    // 筛选条件
-    typeFilter: 'all', // all, issue, return
-    typeFilterIndex: 0,
+    // 筛选
+    typeFilter: 'all',
     timeFilter: 'all',
-    timeFilterIndex: 0,
     searchKeyword: '',
-    startDate: null,
-    endDate: null,
-    startDateStr: '',
-    endDateStr: ''
+    hasActiveFilter: false
   },
 
   onLoad() {
-    Promise.all([
-      this.loadStatistics(),
-      this.loadAllActivities()
-    ])
+    this.loadData()
   },
 
   onPullDownRefresh() {
-    Promise.all([
-      this.loadStatistics(),
-      this.loadAllActivities()
-    ]).then(() => {
+    this.loadData().then(() => {
       wx.stopPullDownRefresh()
     })
   },
 
-  // 预览图片
-  onPreviewImage(e) {
-    const url = e.currentTarget.dataset.url
-    if (url) {
-      wx.previewImage({
-        urls: [url],
-        current: url
-      })
-    }
-  },
-
-  // 操作类型筛选变化
-  onTypeFilterChange(e) {
-    const index = parseInt(e.currentTarget.dataset.index)
-    const filters = ['all', 'issue', 'return']
-    const filter = filters[index] || 'all'
-    this.setData({
-      typeFilter: filter,
-      typeFilterIndex: index
-    }, () => {
-      this.loadStatistics()
-      this.loadAllActivities()
-    })
-  },
-
-  // 搜索输入
-  onSearchInput(e) {
-    this.setData({
-      searchKeyword: e.detail.value
-    })
-    // 实时搜索
-    this.loadAllActivities()
-  },
-
-  // 搜索（确认时）
-  onSearch() {
-    this.loadStatistics()
-    this.loadAllActivities()
-  },
-
-
-  // 时间筛选变化
-  onTimeFilterChange(e) {
-    const index = parseInt(e.detail.index)
+  // 快捷时间点击
+  onTimeSegTap(e) {
+    const index = parseInt(e.currentTarget.dataset.index, 10)
     const filters = ['all', 'today', 'week', 'month']
-    const filter = filters[index] || 'all'
-
-    console.log('时间筛选变化:', { index, filter })
-
-    let startDate = null
-    let endDate = null
-    let startDateStr = ''
-    let endDateStr = ''
-
-    if (filter !== 'all') {
-      const timeRange = getTimeRange(filter)
-      startDate = timeRange.startDate
-      endDate = timeRange.endDate
-      // 格式化日期字符串用于 picker 显示
-      if (startDate) {
-        startDateStr = formatDate(startDate).replace(/\//g, '-')
-      }
-      if (endDate) {
-        endDateStr = formatDate(endDate).replace(/\//g, '-')
-      }
-      console.log('时间范围:', { startDate, endDate, startDateStr, endDateStr })
-    }
-
-    this.setData({
-      timeFilter: filter,
-      timeFilterIndex: index,
-      startDate: startDate,
-      endDate: endDate,
-      startDateStr: startDateStr,
-      endDateStr: endDateStr
-    }, () => {
-      this.loadAllActivities()
-    })
+    this.setData({ 
+      timeFilter: filters[index] || 'all',
+      hasActiveFilter: true 
+    }, () => this.loadData())
   },
 
-  // 日期范围选择
-  onStartDateChange(e) {
-    const dateStr = e.detail.value // 格式: YYYY-MM-DD
-    const date = new Date(dateStr)
-    date.setHours(0, 0, 0, 0)
-    this.setData({
-      startDate: date,
-      startDateStr: dateStr,
-      timeFilter: 'custom',
-      timeFilterIndex: -1
-    }, () => {
-      this.loadAllActivities()
-    })
+  // 类型点击
+  onTypeSegTap(e) {
+    const index = parseInt(e.currentTarget.dataset.index, 10)
+    const filters = ['all', 'issue', 'return']
+    this.setData({ 
+      typeFilter: filters[index] || 'all',
+      hasActiveFilter: true 
+    }, () => this.loadData())
   },
 
-  onEndDateChange(e) {
-    const dateStr = e.detail.value // 格式: YYYY-MM-DD
-    const date = new Date(dateStr)
-    date.setHours(23, 59, 59, 999)
-    this.setData({
-      endDate: date,
-      endDateStr: dateStr,
-      timeFilter: 'custom',
-      timeFilterIndex: -1
-    }, () => {
-      this.loadAllActivities()
-    })
+  onSearchInput(e) {
+    this.setData({ searchKeyword: e.detail.value, hasActiveFilter: true })
+    // 这里可以加防抖，也可以让用户点确认。根据用户要求“支持输入查询”，我们实时加载。
+    if (this.searchTimer) clearTimeout(this.searchTimer)
+    this.searchTimer = setTimeout(() => {
+      this.loadData()
+    }, 500)
   },
 
+  onSearch() {
+    this.loadData()
+  },
 
-  // 清除筛选
   onClearFilters() {
     this.setData({
       typeFilter: 'all',
-      typeFilterIndex: 0,
       timeFilter: 'all',
-      timeFilterIndex: 0,
       searchKeyword: '',
-      startDate: null,
-      endDate: null,
-      startDateStr: '',
-      endDateStr: ''
-    }, () => {
-      this.loadStatistics()
-      this.loadAllActivities()
-    })
+      hasActiveFilter: false
+    }, () => this.loadData())
   },
 
-  // 加载统计数据（基于筛选后的活动数据计算）
-  async loadStatistics() {
+  async loadData() {
+    if (this.data.loading) return
+    this.setData({ loading: true })
+
     try {
-      // 统计数据应该基于筛选后的活动数据计算
-      // 这里先设置默认值，实际统计在 loadAllActivities 完成后更新
-      this.setData({
-        totalIssueWeight: 0,
-        totalIssueWeightFormatted: '0.0',
-        totalReturnPieces: 0,
-        totalProcessingFee: 0,
-        totalProcessingFeeFormatted: '0',
-        issueCount: 0,
-        returnCount: 0
-      })
-    } catch (error) {
-      console.error('加载统计数据失败:', error)
-    }
-  },
+      // 1. 获取基础数据
+      const [issueRes, returnRes] = await Promise.all([
+        query('issue_orders', {}, { excludeDeleted: true, orderBy: { field: 'createTime', direction: 'DESC' }, limit: 100 }),
+        query('return_orders', {}, { excludeDeleted: true, orderBy: { field: 'createTime', direction: 'DESC' }, limit: 100 })
+      ])
 
-  async loadAllActivities() {
-    try {
-      this.setData({
-        loading: true
-      })
+      // 2. 预处理
+      let issues = issueRes.data.map(o => ({
+        ...o,
+        type: 'issue',
+        date: pickDateHybrid(o, ['issueDate', 'issue_date'], ['createTime', 'create_time']),
+        label: '发料给 '
+      }))
 
-      // 构建查询条件
-      let issueWhere = {}
-      let returnWhere = {}
+      let returns = returnRes.data.map(o => ({
+        ...o,
+        type: 'return',
+        date: pickDateHybrid(o, ['returnDate', 'return_date'], ['createTime', 'create_time']),
+        label: '回货自 '
+      }))
 
-      // 日期筛选（数据库层面）
-      if (this.data.timeFilter !== 'all' && this.data.startDate && this.data.endDate) {
-        issueWhere.issueDate = {
-          gte: this.data.startDate,
-          lte: this.data.endDate
-        }
-        returnWhere.returnDate = {
-          gte: this.data.startDate,
-          lte: this.data.endDate
-        }
-      }
+      // 3. 合并
+      let all = [...issues, ...returns]
 
-      // 根据类型筛选加载数据
-      let issueOrders = { data: [] }
-      let returnOrders = { data: [] }
+      // 4. 补充厂家和款号名称（模糊查询需要这些字段）
+      const factoryIds = [...new Set(all.map(o => String(o.factoryId || o.factory_id)).filter(id => id && id !== 'undefined'))]
+      const styleIds = [...new Set(all.map(o => String(o.styleId || o.style_id)).filter(id => id && id !== 'undefined'))]
 
-      if (this.data.typeFilter !== 'return') {
-        const issueRes = await query('issue_orders', issueWhere, {
-          excludeDeleted: true,
-          orderBy: { field: 'createTime', direction: 'DESC' }
-        })
-        issueOrders = { data: issueRes.data || [] }
-      }
+      const [fMapRes, sMapRes] = await Promise.all([
+        factoryIds.length ? queryByIds('factories', factoryIds) : { data: [] },
+        styleIds.length ? queryByIds('styles', styleIds) : { data: [] }
+      ])
 
-      if (this.data.typeFilter !== 'issue') {
-        const returnRes = await query('return_orders', returnWhere, {
-          excludeDeleted: true,
-          orderBy: { field: 'createTime', direction: 'DESC' }
-        })
-        returnOrders = { data: returnRes.data || [] }
-      }
-
-      // 合并数据并添加类型标识
-      let allActivities = []
-
-      // 处理发料单
-      issueOrders.data.forEach(order => {
-        allActivities.push({
-          ...order,
-          type: 'issue',
-          date: order.issueDate || order.issue_date,
-          createTime: order.createTime || order.create_time,
-          dateFormatted: formatDateTime(order.createTime || order.create_time || order.issueDate || order.issue_date)
-        })
-      })
-
-      // 处理回货单
-      returnOrders.data.forEach(order => {
-        allActivities.push({
-          ...order,
-          type: 'return',
-          date: order.returnDate || order.return_date,
-          createTime: order.createTime || order.create_time,
-          dateFormatted: formatDateTime(order.createTime || order.create_time || order.returnDate || order.return_date)
-        })
-      })
+      const fMap = Object.fromEntries(fMapRes.data.map(f => [String(f._id || f.id), f]))
+      const sMap = Object.fromEntries(sMapRes.data.map(s => [String(s._id || s.id), s]))
       
-      // 按创建时间排序（倒序）
-      allActivities.sort((a, b) => {
-        const timeA = a.createTime ? new Date(a.createTime) : new Date(a.date || 0)
-        const timeB = b.createTime ? new Date(b.createTime) : new Date(b.date || 0)
-        return timeB.getTime() - timeA.getTime()
-      })
-
-      // 批量查询工厂和款号信息（只查询一次，不是逐个查询）
-      const factoryIds = [...new Set(allActivities.map(a => a.factoryId || a.factory_id).filter(Boolean))]
-      const styleIds = [...new Set(allActivities.map(a => a.styleId || a.style_id).filter(Boolean))]
-      const issueIds = [...new Set(allActivities.filter(a => a.type === 'return').map(a => a.issueId || a.issue_id).filter(Boolean))]
-
-      // 批量查询发料单信息（用于回货单关联）
-      const issueOrdersMap = new Map()
-      if (issueIds.length > 0) {
-        const issueRes = await queryByIds('issue_orders', issueIds)
-        issueRes.data.forEach(issueOrder => {
-          const issueId = issueOrder._id || issueOrder.id
-          issueOrdersMap.set(issueId, issueOrder)
-          // 将发料单的 factoryId 和 styleId 也加入查询列表
-          const factoryId = issueOrder.factoryId || issueOrder.factory_id
-          const styleId = issueOrder.styleId || issueOrder.style_id
-          if (factoryId && factoryIds.indexOf(factoryId) < 0) {
-            factoryIds.push(factoryId)
-          }
-          if (styleId && styleIds.indexOf(styleId) < 0) {
-            styleIds.push(styleId)
-          }
-        })
-      }
-
-      // 批量查询工厂信息
-      const factoriesMap = new Map()
-      if (factoryIds.length > 0) {
-        const factoriesRes = await queryByIds('factories', factoryIds)
-        factoriesRes.data.forEach(factory => {
-          factoriesMap.set(factory._id || factory.id, factory)
-        })
-      }
-
-      // 批量查询款号信息
-      const stylesMap = new Map()
-      if (styleIds.length > 0) {
-        const stylesRes = await queryByIds('styles', styleIds)
-        stylesRes.data.forEach(style => {
-          stylesMap.set(style._id || style.id, style)
-        })
-      }
-
-      // 为所有发料单批量加载回货进度信息（使用批量查询，避免 N+1 查询）
-      const issueOrderIds = allActivities.filter(a => a.type === 'issue').map(a => a._id || a.id)
-      const returnOrdersMap = new Map()
-      if (issueOrderIds.length > 0) {
-        // 批量查询所有相关的回货单（一次查询，而不是 N 次）
-        const _ = wx.cloud.database().command
-        const allReturnOrdersRes = await query('return_orders', {
-          issueId: _.in(issueOrderIds)
-        }, {
-          excludeDeleted: true
-        })
-
-        // 按 issueId 分组
-        allReturnOrdersRes.data.forEach(returnOrder => {
-          const issueId = returnOrder.issueId || returnOrder.issue_id
-          if (!returnOrdersMap.has(issueId)) {
-            returnOrdersMap.set(issueId, [])
-          }
-          returnOrdersMap.get(issueId).push(returnOrder)
-        })
-
-        // 确保所有发料单都有对应的数组（即使为空）
-        issueOrderIds.forEach(issueId => {
-          if (!returnOrdersMap.has(issueId)) {
-            returnOrdersMap.set(issueId, [])
-          }
-        })
-      }
-
-      // 在内存中关联数据
-      const activitiesWithDetails = allActivities.map(activity => {
-        if (activity.type === 'issue') {
-          // 发料单
-          const factoryId = activity.factoryId || activity.factory_id
-          const styleId = activity.styleId || activity.style_id
-          const activityId = activity._id || activity.id
-          
-          const factory = factoriesMap.get(factoryId)
-          const style = stylesMap.get(styleId)
-          const returnOrders = returnOrdersMap.get(activityId) || []
-          let totalReturnYarn = 0
-          returnOrders.forEach(ro => {
-            totalReturnYarn += ro.actualYarnUsage || ro.actual_yarn_usage || 0
+      // 批量转换图片URL（cloud:// -> 临时链接）
+      try {
+        const imageUrls = sMapRes.data
+          .map(style => normalizeImageUrl(style))
+          .filter(url => url && url.startsWith('cloud://'))
+        
+        if (imageUrls.length > 0) {
+          const imageUrlMap = await batchGetImageUrls(imageUrls)
+          // 更新 sMap 中的图片URL
+          sMapRes.data.forEach(style => {
+            const id = String(style._id || style.id)
+            const originalUrl = normalizeImageUrl(style)
+            if (originalUrl && imageUrlMap.has(originalUrl)) {
+              sMap[id].styleImageUrl = imageUrlMap.get(originalUrl)
+            }
           })
-          const issueWeight = activity.issueWeight || activity.issue_weight || 0
-          const progressPercent = issueWeight > 0
-            ? (totalReturnYarn / issueWeight * 100)
-            : 0
-
-          const styleCode = style?.styleCode || style?.style_code || ''
-          const styleCodeStr = styleCode ? `[${styleCode}] ` : ''
-          return {
-            ...activity,
-            _id: activity._id || activity.id,
-            factoryName: factory?.name || '未知工厂',
-            styleName: style?.styleName || style?.style_name || style?.name || '未知款号',
-            styleCode: styleCode,
-            styleImageUrl: style?.imageUrl || style?.image_url || '',
-            color: activity.color || '',
-            issueWeightFormatted: issueWeight.toFixed(2),
-            dateFormatted: formatDateTime(activity.createTime || activity.create_time || activity.issueDate || activity.issue_date),
-            totalReturnYarn: totalReturnYarn,
-            totalReturnYarnFormatted: totalReturnYarn.toFixed(2),
-            progressPercent: Math.min(progressPercent, 100),
-            styleDisplay: `${styleCodeStr}${style?.styleName || style?.style_name || style?.name || '未知款号'}`,
-            actionInfo: `${issueWeight.toFixed(2)}kg · ${activity.color || '未设置'}`
-          }
-        } else {
-          // 回货单
-          const issueId = activity.issueId || activity.issue_id
-          const issueOrder = issueOrdersMap.get(issueId)
-          // 如果回货单没有 factoryId，从关联的发料单获取
-          const factoryId = activity.factoryId || activity.factory_id || issueOrder?.factoryId || issueOrder?.factory_id
-          const factory = factoryId ? factoriesMap.get(factoryId) : null
-          // 如果回货单没有 styleId，从关联的发料单获取
-          const styleId = activity.styleId || activity.style_id || issueOrder?.styleId || issueOrder?.style_id
-          const styleForReturn = styleId ? stylesMap.get(styleId) : null
-
-          const styleCode = styleForReturn?.styleCode || styleForReturn?.style_code || ''
-          const styleName = styleForReturn?.styleName || styleForReturn?.style_name || styleForReturn?.name || '未知款号'
-          const processingFee = activity.processingFee || activity.processing_fee || 0
-          const returnPieces = activity.returnPieces || activity.return_pieces || 0
-          const returnQuantity = activity.returnQuantity || activity.return_quantity || 0
-          const actualYarnUsage = activity.actualYarnUsage || activity.actual_yarn_usage || 0
-
-          const styleCodeStr = styleCode ? `[${styleCode}] ` : ''
-          return {
-            ...activity,
-            _id: activity._id || activity.id,
-            factoryName: factory?.name || '未知工厂',
-            styleName: styleName,
-            styleCode: styleCode,
-            styleImageUrl: styleForReturn?.imageUrl || styleForReturn?.image_url || '',
-            issueNo: issueOrder?.issueNo || issueOrder?.issue_no || '未知',
-            color: activity.color || '',
-            size: activity.size || '',
-            returnQuantity: returnQuantity,
-            returnPieces: returnPieces,
-            returnQuantityFormatted: `${returnQuantity}打 ${returnPieces}件`,
-            dateFormatted: formatDateTime(activity.createTime || activity.create_time || activity.returnDate || activity.return_date),
-            actualYarnUsageFormatted: actualYarnUsage.toFixed(2),
-            processingFeeFormatted: processingFee.toFixed(2),
-            styleDisplay: `${styleCodeStr}${styleName}`,
-            actionInfo: `${returnQuantity}打 ${returnPieces}件 · ${activity.color || '未设置'}`
-          }
         }
-      })
-
-      // 按时间排序
-      activitiesWithDetails.sort((a, b) => {
-        const dateA = a.date instanceof Date ? a.date : new Date(a.date)
-        const dateB = b.date instanceof Date ? b.date : new Date(b.date)
-        return dateB.getTime() - dateA.getTime()
-      })
-
-      // 日期筛选已在数据库层面完成，这里直接使用
-      let filteredData = activitiesWithDetails
-
-      // 搜索筛选（模糊查询单号、加工厂、款号）
-      if (this.data.searchKeyword && this.data.searchKeyword.trim()) {
-        const keyword = this.data.searchKeyword.trim().toLowerCase()
-        filteredData = filteredData.filter(item => {
-          // 搜索单号
-          const searchNo = item.type === 'issue' ? item.issueNo : item.returnNo
-          const noMatch = searchNo && searchNo.toLowerCase().includes(keyword)
-
-          // 搜索工厂名称
-          const factoryMatch = item.factoryName && item.factoryName.toLowerCase().includes(keyword)
-
-          // 搜索款号名称或款号代码
-          const styleNameMatch = item.styleName && item.styleName.toLowerCase().includes(keyword)
-          const styleCodeMatch = item.styleCode && item.styleCode.toLowerCase().includes(keyword)
-
-          return noMatch || factoryMatch || styleNameMatch || styleCodeMatch
-        })
+      } catch (error) {
+        console.error('批量转换图片URL失败:', error)
+        // 失败不影响主流程，继续使用原 cloud:// URL
       }
 
-      // 基于筛选后的活动数据计算统计数据
-      let totalIssueWeight = 0
-      let totalReturnPieces = 0
-      let totalReturnWeight = 0
-      let totalProcessingFee = 0
-      let issueCount = 0
-      let returnCount = 0
+      // 5. 应用筛选
+      // 时间筛选
+      all = filterByTimeFilter(all, this.data.timeFilter, (o) => o.date)
 
-      filteredData.forEach(item => {
-        if (item.type === 'issue') {
-          totalIssueWeight += item.issueWeight || item.issue_weight || 0
-          issueCount++
-        } else {
-          totalReturnPieces += item.returnPieces || item.return_pieces || 0
-          totalReturnWeight += item.actualYarnUsage || item.actual_yarn_usage || 0
-          totalProcessingFee += item.processingFee || item.processing_fee || 0
-          returnCount++
+      // 类型筛选
+      if (this.data.typeFilter !== 'all') {
+        all = all.filter(o => o.type === this.data.typeFilter)
+      }
+
+      // 统一格式化并准备搜索匹配文本
+      const processed = all.map(o => {
+        const factory = fMap[String(o.factoryId || o.factory_id)]
+        const style = sMap[String(o.styleId || o.style_id)]
+        
+        const fName = factory?.name || '未知厂家'
+        const sName = style?.styleName || style?.style_name || '未知款号'
+        const sCode = style?.styleCode || style?.style_code || ''
+        const sDisplay = `${sCode ? '['+sCode+'] ' : ''}${sName}`
+        
+        return {
+          ...o,
+          factoryName: fName,
+          styleDisplay: sDisplay,
+          styleName: sName,
+          styleCode: sCode,
+          styleImageUrl: normalizeImageUrl(style),
+          dateFormatted: formatDateTime(o.date),
+          actionInfo: o.type === 'issue' 
+            ? `${pickNumber(o, ['issueWeight', 'issue_weight']).toFixed(2)}kg`
+            : `${pickNumber(o, ['returnPieces', 'return_pieces'])}件 · ¥${pickNumber(o, ['processingFee', 'processing_fee']).toFixed(0)}`,
+          // 用于搜索匹配的合并文本
+          searchText: `${fName} ${sName} ${sCode} ${o.issueNo || ''} ${o.returnNo || ''} ${o.remark || ''}`.toLowerCase()
         }
       })
 
-      // 格式化统计数据
-      const totalIssueWeightFormatted = totalIssueWeight.toFixed(1)
-      const totalReturnWeightFormatted = totalReturnWeight.toFixed(1)
-      const totalProcessingFeeFormatted = totalProcessingFee.toFixed(0)
+      // 关键字搜索（模糊匹配厂家、款号、单号等）
+      let finalActivities = processed
+      if (this.data.searchKeyword) {
+        const k = this.data.searchKeyword.toLowerCase()
+        finalActivities = processed.filter(o => o.searchText.includes(k))
+      }
+
+      // 6. 按时间再次排序
+      finalActivities.sort((a, b) => b.date.getTime() - a.date.getTime())
+
+      // 7. 计算汇总
+      let totalWeight = 0, totalPieces = 0, totalFee = 0, iCount = 0, rCount = 0
+      finalActivities.forEach(o => {
+        if (o.type === 'issue') {
+          totalWeight += pickNumber(o, ['issueWeight', 'issue_weight'])
+          iCount++
+        } else {
+          totalPieces += pickNumber(o, ['returnPieces', 'return_pieces'])
+          totalFee += pickNumber(o, ['processingFee', 'processing_fee'])
+          rCount++
+        }
+      })
 
       this.setData({
-        activities: filteredData,
-        totalIssueWeight: totalIssueWeight,
-        totalIssueWeightFormatted: totalIssueWeightFormatted,
-        totalReturnPieces: totalReturnPieces,
-        totalReturnWeight: totalReturnWeight,
-        totalReturnWeightFormatted: totalReturnWeightFormatted,
-        totalProcessingFee: totalProcessingFee,
-        totalProcessingFeeFormatted: totalProcessingFeeFormatted,
-        issueCount: issueCount,
-        returnCount: returnCount,
+        activities: finalActivities,
+        totalIssueWeightFormatted: totalWeight.toFixed(1),
+        totalReturnPieces: totalPieces,
+        totalProcessingFeeFormatted: totalFee.toFixed(0),
+        issueCount: iCount,
+        returnCount: rCount,
         loading: false
       })
-    } catch (error) {
-      console.error('加载动态失败:', error)
-      this.setData({
-        loading: false
-      })
-      wx.showToast({
-        title: '加载失败',
-        icon: 'none'
-      })
+
+    } catch (e) {
+      console.error('加载动态数据失败:', e)
+      this.setData({ loading: false })
     }
+  },
+
+  onPreviewImage(e) {
+    const url = e.currentTarget.dataset.url
+    if (url) wx.previewImage({ urls: [url], current: url })
+  },
+
+  onStyleImageError(e) {
+    const idx = e.currentTarget.dataset.index
+    this.setData({ [`activities[${idx}].styleImageUrl`]: '' })
+  },
+
+  navigateToDetail(e) {
+    const { id, type } = e.currentTarget.dataset
+    const url = type === 'issue' ? `/pages/issue/detail?id=${id}` : `/pages/return/detail?id=${id}`
+    wx.navigateTo({ url })
   }
 })
-

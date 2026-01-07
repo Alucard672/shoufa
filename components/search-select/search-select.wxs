@@ -26,6 +26,18 @@ var formatDisplay = function(item, displayKey, formatType) {
   if (!item || typeof item !== 'object') {
     return item || ''
   }
+
+  // WXS 兼容：格式化为最多2位小数（不做四舍五入，保证语法兼容）
+  var toFixed2Text = function(num) {
+    var s = '' + num
+    var dot = s.indexOf('.')
+    if (dot < 0) return s + '.00'
+    var intPart = s.substring(0, dot)
+    var frac = s.substring(dot + 1)
+    if (frac.length <= 0) return intPart + '.00'
+    if (frac.length === 1) return intPart + '.' + frac + '0'
+    return intPart + '.' + frac.substring(0, 2)
+  }
   
   // 如果指定了格式化类型
   if (formatType === 'style') {
@@ -40,9 +52,45 @@ var formatDisplay = function(item, displayKey, formatType) {
       return styleName
     }
   }
+
+  if (formatType === 'yarn') {
+    // 纱线格式：名称 + 库存
+    var yarnName = item.yarnName || item.yarn_name || item.name || ''
+    var stock = item.currentStock
+    if (stock === undefined || stock === null) stock = item.current_stock
+    if (stock === undefined || stock === null) stock = 0
+    // 注意：部分基础库版本的 WXS 对 Number()/toFixed() 兼容性不稳定，避免直接调用
+    var stockNum = parseFloat('' + stock)
+    // NaN 判断：NaN != NaN
+    if (stockNum != stockNum) stockNum = 0
+    var stockText = toFixed2Text(stockNum)
+    if (yarnName) {
+      return yarnName + '（库存' + stockText + 'kg）'
+    }
+    return '库存' + stockText + 'kg'
+  }
   
   // 默认使用 displayKey
-  return item[displayKey] || item.name || item || ''
+  // 兼容 snake_case 字段（例如 displayKey: yarnName 对应 yarn_name）
+  var displayValue = item[displayKey]
+  if (!displayValue && displayKey && displayKey.indexOf('_') < 0) {
+    // WXS 对正则支持不稳定，这里用纯字符串转换 camelCase -> snake_case
+    var snakeKey = ''
+    for (var i = 0; i < displayKey.length; i++) {
+      var ch = displayKey.charAt(i)
+      var code = displayKey.charCodeAt(i)
+      // 'A'..'Z'
+      if (code >= 65 && code <= 90) {
+        snakeKey = snakeKey + '_' + ch.toLowerCase()
+      } else {
+        snakeKey = snakeKey + ch
+      }
+    }
+    displayValue = item[snakeKey]
+  }
+
+  // 注意：不要返回整个对象，否则会渲染成 [object Object]
+  return displayValue || item.name || ''
 }
 
 module.exports = {

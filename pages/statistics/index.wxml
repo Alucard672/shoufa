@@ -1,110 +1,99 @@
 <!--pages/statistics/index.wxml-->
-<view class="container">
+<view class="design-page">
   <!-- 页面标题 -->
   <view class="page-header">
     <text class="page-title">交货表统计</text>
     <text class="page-subtitle">发料与回货对照表</text>
   </view>
 
-  <!-- 统计卡片 -->
-  <view class="stats-cards">
-    <view class="stats-card card-gradient" style="background: linear-gradient(135deg, rgba(43, 127, 255, 1) 0%, rgba(21, 93, 252, 1) 100%);" bindtap="onTotalIssueClick">
-      <view class="stats-content">
-        <text class="stats-label">总发料单数</text>
+  <!-- 顶部统计卡：一排三个（按你的要求做小一点） -->
+  <view class="stats-grid">
+    <view class="stats-card stats-blue" bindtap="onTotalIssueClick">
+      <text class="stats-label">总发料单数</text>
+      <view class="stats-value-row">
         <text class="stats-value">{{totalIssueCount}}</text>
         <text class="stats-unit">笔</text>
       </view>
     </view>
 
-    <view class="stats-card card-gradient" style="background: linear-gradient(135deg, rgba(0, 201, 80, 1) 0%, rgba(0, 166, 62, 1) 100%);" bindtap="onTotalReturnClick">
-      <view class="stats-content">
-        <text class="stats-label">累计回货件数</text>
-        <text class="stats-value">{{totalReturnPieces}}</text>
-        <text class="stats-unit">件</text>
-      </view>
-    </view>
-
-    <view class="stats-card card-gradient" style="background: linear-gradient(135deg, rgba(255, 166, 0, 1) 0%, rgba(255, 140, 0, 1) 100%);" bindtap="onTotalReturnClick">
-      <view class="stats-content">
-        <text class="stats-label">累计回货重量</text>
-        <text class="stats-value">{{totalReturnWeightFormatted}}</text>
-        <text class="stats-unit">kg</text>
-      </view>
-    </view>
-  </view>
-
-  <view class="stats-cards second-row">
-    <view class="stats-card card-gradient" style="background: linear-gradient(135deg, rgba(153, 102, 255, 1) 0%, rgba(131, 82, 253, 1) 100%);" bindtap="onReturnedIssueClick">
-      <view class="stats-content">
-        <text class="stats-label">已回货单数</text>
+    <view class="stats-card stats-green" bindtap="onReturnedIssueClick">
+      <text class="stats-label">已回货单数</text>
+      <view class="stats-value-row">
         <text class="stats-value">{{returnedCount}}</text>
         <text class="stats-unit">笔</text>
       </view>
     </view>
 
-    <view class="stats-card card-gradient" style="background: linear-gradient(135deg, rgba(255, 87, 87, 1) 0%, rgba(244, 67, 54, 1) 100%);" bindtap="onStyleStatsClick">
-      <view class="stats-content">
-        <text class="stats-label">按款号统计</text>
+    <view class="stats-card stats-green-2" bindtap="onTotalReturnClick">
+      <text class="stats-label">累计回货件数</text>
+      <view class="stats-value-row">
+        <text class="stats-value">{{totalReturnPieces}}</text>
+        <text class="stats-unit">件</text>
+      </view>
+    </view>
+
+    <view class="stats-card stats-orange" bindtap="onTotalReturnClick">
+      <text class="stats-label">累计回货重量</text>
+      <view class="stats-value-row">
+        <text class="stats-value">{{totalReturnWeightFormatted}}</text>
+        <text class="stats-unit">kg</text>
+      </view>
+    </view>
+
+    <view class="stats-card stats-purple" bindtap="onStyleStatsClick">
+      <text class="stats-label">按款号统计</text>
+      <view class="stats-value-row">
         <text class="stats-value">{{styleCount}}</text>
         <text class="stats-unit">款</text>
       </view>
     </view>
 
-    <view class="stats-card card-gradient" style="background: linear-gradient(135deg, rgba(16, 185, 129, 1) 0%, rgba(5, 150, 105, 1) 100%);" bindtap="onFactoryStatsClick">
-      <view class="stats-content">
-        <text class="stats-label">按加工厂统计</text>
+    <view class="stats-card stats-teal" bindtap="onFactoryStatsClick">
+      <text class="stats-label">按加工厂统计</text>
+      <view class="stats-value-row">
         <text class="stats-value">{{factoryCount}}</text>
         <text class="stats-unit">家</text>
       </view>
     </view>
   </view>
 
-  <!-- 筛选 -->
-  <filter-tabs 
-    options="{{['全部时间', '今天', '本周', '本月']}}"
-    current="{{timeFilter === 'all' ? 0 : timeFilter === 'today' ? 1 : timeFilter === 'week' ? 2 : 3}}"
-    bindchange="onTimeFilterChange"
-  />
+  <!-- 时间筛选（按 Figma：黑底选中、8px圆角） -->
+  <view class="seg-row">
+    <view class="seg-btn {{timeFilter === 'all' ? 'is-active' : ''}}" data-index="0" bindtap="onTimeSegTap">全部时间</view>
+    <view class="seg-btn {{timeFilter === 'today' ? 'is-active' : ''}}" data-index="1" bindtap="onTimeSegTap">今天</view>
+    <view class="seg-btn {{timeFilter === 'week' ? 'is-active' : ''}}" data-index="2" bindtap="onTimeSegTap">本周</view>
+    <view class="seg-btn {{timeFilter === 'month' ? 'is-active' : ''}}" data-index="3" bindtap="onTimeSegTap">本月</view>
+  </view>
 
-  <filter-tabs 
-    options="{{['全部 (' + totalIssueCount + ')', '未回货', '部分回货', '已回货']}}"
-    current="{{statusFilter === 'all' ? 0 : statusFilter === '未回货' ? 1 : statusFilter === '部分回货' ? 2 : 3}}"
-    bindchange="onStatusFilterChange"
-  />
+  <!-- 状态筛选（按 Figma） -->
+  <view class="seg-row">
+    <view class="seg-btn {{statusFilter === 'all' ? 'is-active' : ''}}" data-index="0" bindtap="onStatusSegTap">全部 ({{totalIssueCount}})</view>
+    <view class="seg-btn {{statusFilter === '未回货' ? 'is-active' : ''}}" data-index="1" bindtap="onStatusSegTap">未回货</view>
+    <view class="seg-btn {{statusFilter === '部分回货' ? 'is-active' : ''}}" data-index="2" bindtap="onStatusSegTap">部分回货</view>
+    <view class="seg-btn {{statusFilter === '已回货' ? 'is-active' : ''}}" data-index="3" bindtap="onStatusSegTap">已回货</view>
+  </view>
 
-  <!-- 搜索框 -->
-  <search-box 
-    placeholder="搜索发料单号或款号..."
-    bindsearch="onSearch"
-  />
+  <!-- 搜索框（按 Figma：灰底、8px圆角） -->
+  <view class="search-wrap">
+    <input
+      class="search-input"
+      placeholder="搜索发料单号或款号..."
+      value="{{searchKeyword}}"
+      bindinput="onSearch"
+      bindconfirm="onSearch"
+    />
+  </view>
 
   <!-- 统计列表 -->
   <view class="statistics-list">
-    <view class="stat-card card" wx:for="{{statistics}}" wx:key="_id">
-      <view class="stat-header">
-        <view class="stat-title">
-          <text class="stat-no">{{item.issueNo}}</text>
-          <badge type="{{item.status === '未回货' ? 'warning' : item.status === '部分回货' ? 'info' : 'success'}}" text="{{item.status}}" />
-        </view>
-        <view class="stat-style-row">
-          <view class="style-image-container" wx:if="{{item.styleImageUrl}}" bindtap="onPreviewImage" data-url="{{item.styleImageUrl}}">
-            <image class="style-image" src="{{item.styleImageUrl}}" mode="aspectFill"></image>
-          </view>
-          <view class="style-image-placeholder" wx:else>
-            <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
-          </view>
-          <view class="stat-style">
-            <view class="style-name-row">
-              <text class="style-code" wx:if="{{item.styleCode}}">{{item.styleCode}}</text>
-              <text class="style-name">{{item.styleName || '未知款号'}}</text>
-            </view>
-            <view class="style-meta-row">
-              <text class="style-usage" wx:if="{{item.yarnUsagePerPiece > 0}}">{{item.yarnUsagePerPiece}}g/件</text>
-              <text class="style-meta-sep" wx:if="{{item.yarnUsagePerPiece > 0 && item.lossRate > 0}}">·</text>
-              <text class="style-loss" wx:if="{{item.lossRate > 0}}">损耗{{item.lossRateFormatted}}</text>
-            </view>
-          </view>
-        </view>
+    <view class="stat-card stat-card-{{item.status === '未回货' ? 'warn' : (item.status === '部分回货' ? 'info' : 'ok')}}" wx:for="{{statistics}}" wx:key="_id">
+      <view class="stat-head">
+        <text class="stat-no">{{item.issueNo}}</text>
+        <badge type="{{item.status === '未回货' ? 'warning' : item.status === '部分回货' ? 'info' : 'success'}}" text="{{item.status}}" />
+      </view>
+      <view class="stat-style-line">
+        <text class="style-line-text">{{item.styleCode || ''}}<text wx:if="{{item.styleCode}}"> - </text>{{item.styleName || '未知款号'}}</text>
+        <text class="style-line-meta" wx:if="{{item.yarnUsagePerPiece > 0}}">· {{item.yarnUsagePerPiece}}g/件</text>
       </view>
       
       <view class="stat-issue">

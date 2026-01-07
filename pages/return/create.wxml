@@ -1,24 +1,72 @@
 <!--pages/return/create.wxml-->
-<view class="container">
-  <!-- 顶部概览：紧凑展示关联信息 -->
-  <view class="header-info card" wx:if="{{issueOrder}}">
-    <view class="info-grid">
-      <view class="info-cell full-width">
-        <text class="info-tag">发料单号</text>
-        <text class="info-content">{{issueOrder.issueNo || issueOrder.issue_no}}</text>
+<view class="page-wrapper">
+  <!-- 顶部青色背景区域（参考回货明细页） -->
+  <view class="header-bg">
+    <view class="header-content">
+      <view class="header-icon-box">
+        <text class="header-icon-text">回</text>
       </view>
-      <view class="info-cell">
-        <text class="info-tag">加工厂</text>
-        <text class="info-content">{{factory.name}}</text>
+      <view class="header-text-group">
+        <text class="header-title">{{isEdit ? '编辑回货单' : (factory.name || '新建回货单')}}</text>
+        <text class="header-subtitle">{{issueOrder ? ('发料单号: ' + (issueOrder.issueNo || issueOrder.issue_no || '-')) : '请从发料单进入回货登记'}}</text>
       </view>
-      <view class="info-cell">
-        <text class="info-tag">款号</text>
-        <text class="info-content">{{style.styleCode || style.style_code}} - {{style.styleName || style.style_name}}</text>
+    </view>
+    <view class="header-time">
+      <image class="time-icon" src="/images/icons/calendar.svg" mode="aspectFit" style="filter: brightness(0) invert(1);"></image>
+      <text>回货日期: {{returnDate || '-'}}</text>
+    </view>
+  </view>
+
+  <!-- 款式信息卡片（压住抬头背景） -->
+  <view class="section style-top" wx:if="{{style}}">
+    <view class="card style-card">
+      <view class="style-info-row">
+        <view class="style-image-container" catchtap="onPreviewImage" data-url="{{styleImageUrl}}">
+          <image class="style-image" src="{{styleImageUrl}}" mode="aspectFill" wx:if="{{styleImageUrl}}" binderror="onStyleImageError"></image>
+          <view class="style-image-placeholder" wx:else>
+            <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+          </view>
+        </view>
+        <view class="style-text-content">
+          <view class="style-name-row">
+            <text class="style-code" wx:if="{{style.styleCode || style.style_code}}">[{{style.styleCode || style.style_code}}]</text>
+            <text class="style-name">{{style.styleName || style.style_name || '未知款号'}}</text>
+          </view>
+          <view class="style-meta-row">
+            <text class="meta-item" wx:if="{{issueOrder}}">发料重量: {{issueOrder.issueWeight || issueOrder.issue_weight || 0}} kg</text>
+            <text class="meta-item" wx:if="{{style.yarnUsagePerPiece || style.yarn_usage_per_piece}}">单件用量: {{style.yarnUsagePerPiece || style.yarn_usage_per_piece}}g</text>
+          </view>
+        </view>
+      </view>
+      <view class="img-tip" wx:if="{{styleImageError}}">
+        <text>图片加载失败，请检查款号图片是否为 cloud:// 文件ID</text>
       </view>
     </view>
   </view>
 
-  <view class="form-section card">
+  <!-- 回货概览（沿用回货明细页的网格元素） -->
+  <view class="summary-grid-section">
+    <view class="summary-grid">
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/shirt.svg" mode="aspectFit"></image>
+        <text class="grid-label">回货数量</text>
+        <text class="grid-value">{{calculatedQuantityFormatted || '--'}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/package.svg" mode="aspectFit"></image>
+        <text class="grid-label">预计用纱</text>
+        <text class="grid-value">{{calculatedYarnUsageFormatted ? (calculatedYarnUsageFormatted + ' kg') : '--'}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/statistics.svg" mode="aspectFit"></image>
+        <text class="grid-label">加工费合计</text>
+        <text class="grid-value highlight">{{calculatedFeeFormatted ? ('¥' + calculatedFeeFormatted) : '--'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="card form-section">
     <view class="form-item">
       <text class="form-label">颜色 *</text>
       <search-select 
@@ -83,33 +131,12 @@
         <switch checked="{{shareAfterSave}}" bindchange="onShareSwitchChange" color="#155DFC" />
       </view>
     </view>
-  </view>
-
-  <!-- 动态计算卡片 -->
-  <view class="result-card" wx:if="{{calculatedPieces > 0}}">
-    <view class="result-header">回货概览</view>
-    <view class="result-main">
-      <view class="result-item">
-        <view class="val-group">
-          <text class="val">{{calculatedQuantityFormatted}}</text>
-          <text class="val-total">共{{calculatedPieces}}件</text>
-        </view>
-        <text class="lab">回货总计</text>
-      </view>
-      <view class="result-item">
-        <text class="val">{{calculatedYarnUsageFormatted}}</text>
-        <text class="lab">预计用纱(kg)</text>
-      </view>
-    </view>
-    <view class="result-footer">
-      <text class="fee-label">加工费合计</text>
-      <text class="fee-value">¥{{calculatedFeeFormatted}}</text>
     </view>
   </view>
 
   <view class="bottom-actions">
     <button class="btn-complete" wx:if="{{returnOrderId && status === '进行中'}}" bindtap="onMarkComplete">标记为完成</button>
-    <button class="btn-submit" bindtap="onSubmit">确认提交回货单</button>
+    <button class="btn-submit" bindtap="onSubmit" disabled="{{submitting}}">{{isEdit ? '保存' : '确认提交回货单'}}</button>
   </view>
 
   <!-- 隐藏的画布用于生成分享图片 -->

@@ -253,7 +253,8 @@ Component({
       console.log('打开表单让用户输入')
       this.setData({
         showAddForm: true,
-        newItemName: ''
+        newItemName: nameToAdd || '', // 如果有搜索关键词，预填充到表单
+        newItemCode: ''
       })
     },
     onNewItemNameInput(e) {

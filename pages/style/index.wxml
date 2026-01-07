@@ -20,34 +20,43 @@
     </view>
   </view>
 
-  <!-- 搜索框 -->
-  <view class="search-container">
-    <search-box 
-      placeholder="搜索款号或款名..."
-      bindsearch="onSearch"
-    />
+  <!-- 搜索框和筛选 -->
+  <view class="search-filter-container">
+    <view class="search-wrapper">
+      <search-box 
+        placeholder="搜索款号或款名..."
+        bindsearch="onSearch"
+      />
+    </view>
+    <picker class="filter-picker" bindchange="onFilterChange" value="{{filterIndex}}" range="{{filterOptions}}" range-key="label">
+      <view class="filter-btn">
+        <text>{{filterOptions[filterIndex].label}}</text>
+        <text class="filter-arrow">▼</text>
+      </view>
+    </picker>
   </view>
 
   <!-- 款号列表 -->
   <view class="style-list">
-    <view class="style-card card" wx:for="{{styles}}" wx:key="_id">
+    <view class="style-card card {{item.disabled ? 'card-disabled' : ''}}" wx:for="{{styles}}" wx:key="_id">
       <view class="card-content">
         <view class="style-header">
-          <view class="style-image-container" wx:if="{{item.imageUrl}}" bindtap="onPreviewImage" data-url="{{item.imageUrl}}">
-            <image class="style-image" src="{{item.imageUrl}}" mode="aspectFill"></image>
+          <view class="style-image-container" wx:if="{{item.imageUrl}}" catchtap="onPreviewImage" data-url="{{item.imageUrl}}">
+            <image class="style-image" src="{{item.imageUrl}}" mode="aspectFill" binderror="onStyleImageError" data-index="{{index}}" data-original-url="{{item.originalImageUrl}}"></image>
           </view>
           <view class="style-image-placeholder" wx:else>
             <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
           </view>
           <view class="style-info">
             <view class="style-code-row">
-              <text class="style-code">{{item.styleCode}}</text>
+              <text class="style-code {{item.disabled ? 'disabled-text' : ''}}">{{item.styleCode}}</text>
               <view class="style-badge">款号</view>
+              <view class="disabled-badge" wx:if="{{item.disabled}}">已停用</view>
             </view>
-            <text class="style-name">{{item.styleName}}</text>
+            <text class="style-name {{item.disabled ? 'disabled-text' : ''}}">{{item.styleName}}</text>
           </view>
           <view class="style-actions">
-            <view class="btn-edit-icon" bindtap="onEditStyle" data-id="{{item._id}}">
+            <view class="btn-edit-icon" catchtap="onEditStyle" data-id="{{item._id}}">
               <image class="icon-edit" src="/images/icons/edit.svg" mode="aspectFit"></image>
             </view>
           </view>
@@ -71,10 +80,7 @@
               <text class="detail-label">加工费</text>
               <text class="detail-value fee">¥{{item.processingFeePerDozen}}/打</text>
             </view>
-          </view>
-          
-          <view class="detail-section" wx:if="{{item.actualUsageFormatted}}">
-            <view class="detail-row">
+            <view class="detail-row" wx:if="{{item.actualUsageFormatted}}">
               <text class="detail-label">实际用量（含损耗）</text>
               <text class="detail-value actual-usage">{{item.actualUsageFormatted}} kg/件</text>
             </view>
@@ -84,25 +90,17 @@
             <view class="detail-row">
               <text class="detail-label">可选颜色</text>
               <view class="badge-group">
-                <view class="badge-item" wx:for="{{item.availableColors}}" wx:key="*this" wx:for-item="color">
-                  <text>{{color}}</text>
-                </view>
-              </view>
-            </view>
-            <view class="detail-row" wx:if="{{item.availableSizes && item.availableSizes.length > 0}}">
-              <text class="detail-label">可选尺码</text>
-              <view class="badge-group">
-                <view class="badge-item" wx:for="{{item.availableSizes}}" wx:key="*this" wx:for-item="size">
-                  <text>{{size}}</text>
-                </view>
+                <view class="badge-item" wx:for="{{item.availableColors}}" wx:key="*this" wx:for-item="color">{{color}}</view>
               </view>
             </view>
           </view>
           
-          <view class="detail-section" wx:if="{{item.remark}}">
+          <view class="detail-section" wx:if="{{item.availableSizes && item.availableSizes.length > 0}}">
             <view class="detail-row">
-              <text class="detail-label">备注</text>
-              <text class="detail-value remark">{{item.remark}}</text>
+              <text class="detail-label">可选尺码</text>
+              <view class="badge-group">
+                <view class="badge-item" wx:for="{{item.availableSizes}}" wx:key="*this" wx:for-item="size">{{size}}</view>
+              </view>
             </view>
           </view>
         </view>

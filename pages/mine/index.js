@@ -300,13 +300,60 @@ Page({
     this.setData({ loading: true })
 
     try {
-      // 如果有邀请ID，走加入逻辑；否则走正常登录逻辑
-      const action = inviteTenantId ? 'joinTenant' : 'login'
+      // 如果有邀请ID，统一调用 employees 云函数的 joinTenant（与登录页一致）
+      if (inviteTenantId) {
+        const res = await wx.cloud.callFunction({
+          name: 'employees',
+          data: {
+            action: 'joinTenant',
+            payload: {
+              tenantId: inviteTenantId,
+              code: this.data.phoneCode || '',
+              phoneNumber: phoneNumber,
+              avatarUrl: this.data.avatarUrl,
+              nickName: nickName
+            }
+          }
+        })
+
+        // employees 云函数返回格式为 { code, msg, data }
+        if (res.result.code === 0 && res.result.data.success) {
+          const { user, tenant } = res.result.data
+          
+          wx.removeStorageSync('inviteTenantId')
+          
+          wx.setStorageSync('userInfo', user)
+          wx.setStorageSync('tenantInfo', tenant)
+          wx.setStorageSync('tenantId', tenant._id)
+
+          app.globalData.userInfo = user
+          app.globalData.tenantId = tenant._id
+          app.globalData.tenantInfo = tenant
+
+          wx.showToast({
+            title: '加入成功',
+            icon: 'success'
+          })
+
+          this.setData({
+            showLogin: false
+          })
+          this.checkLoginStatus()
+        } else {
+          wx.showModal({
+            title: '加入失败',
+            content: res.result.msg || '加入企业失败，请稍后重试',
+            showCancel: false
+          })
+        }
+        return
+      }
+      
+      // 正常登录逻辑，使用 auth 云函数
       const res = await wx.cloud.callFunction({
         name: 'auth',
         data: {
-          action: action,
-          tenantId: inviteTenantId || '',
+          action: 'login',
           code: this.data.phoneCode || '',
           phoneNumber: phoneNumber,
           avatarUrl: this.data.avatarUrl,
@@ -317,11 +364,6 @@ Page({
       const { success, user, tenant, msg } = res.result
 
       if (success) {
-        // 如果是加入企业，清除邀请缓存
-        if (inviteTenantId) {
-          wx.removeStorageSync('inviteTenantId')
-        }
-
         wx.setStorageSync('userInfo', user || { phone: phoneNumber, nickName, avatarUrl: this.data.avatarUrl })
         wx.setStorageSync('tenantInfo', tenant)
         wx.setStorageSync('tenantId', tenant._id)
@@ -331,7 +373,7 @@ Page({
         app.globalData.tenantInfo = tenant
 
         wx.showToast({
-          title: inviteTenantId ? '加入成功' : '登录成功',
+          title: '登录成功',
           icon: 'success'
         })
 

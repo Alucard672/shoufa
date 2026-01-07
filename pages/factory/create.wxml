@@ -30,7 +30,7 @@
       </view>
 
       <view class="form-item">
-        <text class="form-label">联系电话 *</text>
+        <text class="form-label">联系电话</text>
         <input 
           class="form-input" 
           type="number"
@@ -49,8 +49,8 @@
           bindchange="onSettlementMethodChange"
         >
           <view class="form-picker">
-            <text class="{{settlementMethod ? '' : 'placeholder'}}">
-              {{settlementMethod}}
+            <text class="{{settlementMethod ? '' : 'placeholder'}}" style="flex: 1; color: {{settlementMethod ? '#0A0A0A' : '#717182'}};">
+              {{settlementMethod || '请选择'}}
             </text>
             <text class="picker-arrow">›</text>
           </view>
@@ -65,6 +65,14 @@
           value="{{remark}}"
           bindinput="onRemarkInput"
         />
+      </view>
+
+      <!-- 停用/启用按钮（仅编辑模式显示） -->
+      <view class="disable-action" wx:if="{{isEdit}}">
+        <view class="btn-disable {{disabled ? 'btn-enable' : ''}}" bindtap="onToggleDisabled">
+          <text>{{disabled ? '启用该加工厂' : '停用该加工厂'}}</text>
+        </view>
+        <text class="disable-hint" wx:if="{{disabled}}">该加工厂已停用，不会出现在选择列表中</text>
       </view>
 
       <view class="form-actions">

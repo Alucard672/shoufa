@@ -1,8 +1,8 @@
 /* pages/issue/index.wxss */
-.container {
-  padding: 16px;
-  box-sizing: border-box;
-  width: 100%;
+@import "../../styles/big-design-common.wxss";
+
+.design-page {
+  /* 使用 big-design-common 的 16px 规范 */
 }
 
 .page-header {
@@ -27,6 +27,29 @@
 .page-subtitle {
   font-size: 14px;
   color: #6A7282;
+}
+
+.create-btn {
+  height: 32px;
+  padding: 0 12px;
+  background: #030213;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.create-btn:active {
+  opacity: 0.85;
+}
+
+.create-btn-icon {
+  font-size: 16px;
+  line-height: 1;
+  margin-top: -1px;
 }
 
 /* 统计卡片 */
@@ -67,6 +90,107 @@
 
 .filter-section {
   margin-bottom: 16px;
+}
+
+.seg-block {
+  margin-bottom: 12px;
+}
+
+/* 左滑功能 - iOS 原生风格 */
+/* Wrapper: 只负责外边距 */
+.swipe-item {
+  margin-bottom: 12px;
+}
+
+/* Container: 相对定位，圆角，隐藏溢出 */
+.swipe-container {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* Background Layer (Buttons): 绝对定位，右对齐，z-index: 0 */
+.swipe-actions {
+  position: absolute;
+  right: 0;
+  top: 1px;
+  bottom: 1px;
+  display: flex;
+  z-index: 0;
+}
+
+.swipe-action-btn {
+  width: 70px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  box-sizing: border-box;
+  gap: 4px;
+}
+
+.swipe-action-btn text {
+  display: block;
+  line-height: 1;
+}
+
+.swipe-edit-btn {
+  background: #2B7FFF;
+}
+
+.swipe-void-btn {
+  background: #DC2626;
+}
+
+/* Foreground Layer (Card Content): 相对定位，z-index: 1，白色背景，可移动 */
+.swipe-content {
+  position: relative;
+  z-index: 1;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 发料页筛选按钮：8px 圆角（符合设计稿） */
+.seg-row {
+  margin-bottom: 12px;
+  /* 保持一行：不换行，超出则横向滚动 */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  gap: 8px;
+}
+
+/* 隐藏滚动条（部分环境可能不生效，但不影响使用） */
+.seg-row::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.seg-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  /* 小一点但保持可点 */
+  height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+.seg-btn.is-active {
+  /* 维持原来的高对比选中态 */
+}
+
+/* 搜索框（左图标） */
+.issue-search {
+  margin: 8px 0 4px;
+}
+
+.issue-search .search-icon-left {
+  opacity: 0.8;
 }
 
 /* 列表标题和更多按钮 */
@@ -124,10 +248,32 @@
   margin-top: 16px;
 }
 
+.issue-order-card {
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-bottom: 0; /* 覆盖 .card 的 margin-bottom，由 .swipe-item 控制间距 */
+}
+
+.issue-card--warning {
+  background: #FFF7ED; /* 浅橙色 - 未回货 */
+  border-color: #FFD6A7;
+}
+
+.issue-card--info {
+  background: #EFF6FF; /* 浅蓝色 - 部分回货 */
+  border-color: #BEDBFF;
+}
+
+.issue-card--default {
+  background: #F0FDF4; /* 浅绿色 - 已回货/已完成 */
+  border-color: #BBF7D0;
+}
+
 .order-card {
-  margin-bottom: 12px;
   width: 100%;
   box-sizing: border-box;
+  background: #fff;
 }
 
 .order-header {
@@ -145,11 +291,31 @@
   gap: 8px;
 }
 
+.order-no-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .order-no {
   font-size: 16px;
   color: #101828;
   flex-shrink: 0;
   font-weight: 600;
+}
+
+.order-no.voided-text {
+  color: #9CA3AF;
+  text-decoration: line-through;
+}
+
+.voided-badge {
+  padding: 2px 6px;
+  background: #FEF2F2;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #DC2626;
 }
 
 .order-factory-row {
@@ -338,8 +504,8 @@
 
 .order-progress {
   padding-top: 13px;
+  padding-bottom: 12px;
   border-top: 1px solid rgba(0, 0, 0, 0.1);
-  margin-bottom: 12px;
 }
 
 .progress-row {

@@ -1,5 +1,5 @@
 <!--pages/index/index.wxml-->
-<view class="container">
+<view class="design-page">
   <!-- 页面标题 -->
   <view class="page-header">
     <text class="page-title">数据总览</text>
@@ -34,7 +34,7 @@
   </view>
 
   <!-- 快速操作 -->
-  <view class="card quick-actions">
+  <view class="home-card quick-actions">
     <view class="section-title">快速操作</view>
     <view class="action-buttons">
       <view class="action-btn btn-issue" bindtap="navigateToIssue">
@@ -47,26 +47,28 @@
   </view>
 
   <!-- 最近动态 -->
-  <view class="card recent-activities">
+  <view class="home-card recent-activities">
     <view class="section-header">
       <text class="section-title">最近动态</text>
+      <view class="more-link" bindtap="onShowMoreActivities">
+        <text>更多</text>
+        <text>→</text>
+      </view>
     </view>
     <view class="activity-list">
       <view class="activity-item" wx:for="{{displayActivities}}" wx:key="index">
-        <view class="activity-image-wrapper" wx:if="{{item.styleImageUrl}}" bindtap="onPreviewImage" data-url="{{item.styleImageUrl}}">
-          <image class="activity-image" src="{{item.styleImageUrl}}" mode="aspectFill"></image>
-        </view>
-        <view class="activity-image-placeholder" wx:else>
-          <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
-        </view>
-        <view class="activity-content">
-          <view class="activity-content-header">
-            <view class="activity-header">
-              <text class="activity-label">{{item.label}}</text>
-              <text class="activity-factory">{{item.factoryName}}</text>
-            </view>
-            <image class="activity-type-icon" src="/images/{{item.type === 'issue' ? 'issue-icon.svg' : 'return-icon.svg'}}" mode="aspectFit"></image>
+        <view class="activity-dot"></view>
+        
+        <!-- 左侧款号图 -->
+        <view class="activity-thumb" catchtap="onPreviewImage" data-url="{{item.styleImageUrl}}">
+          <image class="activity-img" src="{{item.styleImageUrl}}" mode="aspectFill" wx:if="{{item.styleImageUrl}}" binderror="onStyleImageError" data-index="{{index}}"></image>
+          <view class="activity-img-placeholder" wx:else>
+            <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
           </view>
+        </view>
+
+        <view class="activity-content" bindtap="navigateToDetail" data-id="{{item._id || item.id}}" data-type="{{item.type}}">
+          <text class="activity-title-line">{{item.label}}{{item.factoryName}}</text>
           <view class="activity-detail">
             <text class="style-bold">{{item.styleDisplay}}</text>
             <text> · {{item.actionInfo}}</text>

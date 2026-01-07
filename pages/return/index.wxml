@@ -1,5 +1,5 @@
 <!--pages/return/index.wxml-->
-<view class="container">
+<view class="design-page">
   <!-- 页面标题 -->
   <view class="page-header">
     <text class="page-title">回货单</text>
@@ -25,93 +25,138 @@
     </view>
   </view>
 
-  <!-- 时间筛选 -->
-  <filter-tabs 
-    options="{{['全部时间', '今天', '本周', '本月']}}"
-    current="{{timeFilterIndex}}"
-    bindchange="onTimeFilterChange"
-  />
+  <!-- 时间筛选（设计稿：胶囊按钮） -->
+  <view class="return-seg-row">
+    <view class="seg-row">
+      <view class="seg-btn seg-btn-pill {{timeFilterIndex === 0 ? 'is-active' : ''}}" data-index="0" bindtap="onTimeSegTap">全部时间</view>
+      <view class="seg-btn seg-btn-pill {{timeFilterIndex === 1 ? 'is-active' : ''}}" data-index="1" bindtap="onTimeSegTap">今天</view>
+      <view class="seg-btn seg-btn-pill {{timeFilterIndex === 2 ? 'is-active' : ''}}" data-index="2" bindtap="onTimeSegTap">本周</view>
+      <view class="seg-btn seg-btn-pill {{timeFilterIndex === 3 ? 'is-active' : ''}}" data-index="3" bindtap="onTimeSegTap">本月</view>
+    </view>
+  </view>
 
-  <!-- 状态筛选 -->
-  <filter-tabs 
-    options="{{['全部', '进行中', '已完成']}}"
-    current="{{statusFilterIndex}}"
-    bindchange="onStatusFilterChange"
-  />
+  <!-- 状态筛选（设计稿：胶囊按钮） -->
+  <view class="return-seg-row">
+    <view class="seg-row">
+      <view class="seg-btn seg-btn-pill {{statusFilterIndex === 0 ? 'is-active' : ''}}" data-index="0" bindtap="onStatusSegTap">全部</view>
+      <view class="seg-btn seg-btn-pill {{statusFilterIndex === 1 ? 'is-active' : ''}}" data-index="1" bindtap="onStatusSegTap">进行中</view>
+      <view class="seg-btn seg-btn-pill {{statusFilterIndex === 2 ? 'is-active' : ''}}" data-index="2" bindtap="onStatusSegTap">已完成</view>
+    </view>
+  </view>
 
-  <!-- 搜索框 -->
-  <view class="search-container">
-    <search-box 
-      placeholder="搜索回货单号"
-      bindsearch="onSearch"
-    />
+  <!-- 搜索（设计稿：右侧图标） -->
+  <view class="search-container return-search">
+    <view class="search-wrap">
+      <input
+        class="search-input search-right-icon"
+        placeholder="搜索回货单号"
+        value="{{searchKeyword}}"
+        bindinput="onSearch"
+        bindconfirm="onSearch"
+      />
+      <image class="search-icon-right" src="/images/icons/search.svg" mode="aspectFit"></image>
+    </view>
   </view>
 
   <!-- 回货单列表 -->
-  <view class="order-list">
-    <view class="order-card card" wx:for="{{filteredOrders}}" wx:key="_id">
-      <view class="order-header">
-        <view class="order-title">
-          <text class="factory-name">{{item.factoryName}}</text>
-          <badge type="{{item.settlementStatus === '未结算' ? 'warning' : item.settlementStatus === '部分结算' ? 'info' : 'success'}}" text="{{item.settlementStatus}}" />
-        </view>
-        <view class="order-header-right">
-          <text class="order-no">{{item.returnNo}}</text>
-          <view class="share-btn" catchtap="onShareReturnOrder" data-id="{{item._id}}">
-            <text>分享</text>
+  <list-pagination 
+    list="{{filteredOrders}}" 
+    pageSize="{{pageSize}}"
+    bindloadmore="onLoadMore"
+  >
+    <view class="order-list">
+      <view class="swipe-item" wx:for="{{displayOrders}}" wx:key="index" data-index="{{index}}">
+        <view class="swipe-container">
+        <view class="swipe-content" style="transform: translateX({{item.swipeOffset || 0}}px);" 
+          bindtouchstart="onSwipeStart" 
+          bindtouchmove="onSwipeMove" 
+          bindtouchend="onSwipeEnd"
+          data-index="{{index}}">
+          <view class="order-card card {{item.settlementStatus === '未结算' ? 'return-card--warning' : (item.settlementStatus === '部分结算' ? 'return-card--info' : 'return-card--success')}}" bindtap="navigateToDetail" data-id="{{item._id || item.id}}">
+        <view class="order-header">
+          <view class="order-title">
+            <text class="factory-name">{{item.factoryName}}</text>
+            <badge type="{{item.settlementStatus === '未结算' ? 'warning' : item.settlementStatus === '部分结算' ? 'info' : 'success'}}" text="{{item.settlementStatus}}" />
+          </view>
+          <view class="order-header-right">
+            <view class="order-no-row">
+              <text class="order-no {{item.voided ? 'voided-text' : ''}}">{{item.returnNo}}</text>
+              <view class="voided-badge" wx:if="{{item.voided}}">已作废</view>
+            </view>
+            <view class="share-btn" catchtap="onShareReturnOrder" data-id="{{item._id || item.id}}">
+              <text>→</text>
+            </view>
           </view>
         </view>
-      </view>
-      
-      <view class="order-info">
-        <text class="info-text">发料单: {{item.issueNo}}</text>
-        <view class="style-info-row" wx:if="{{item.styleDisplay || item.styleName}}">
-          <text class="info-text info-text-right">款号: <text style="font-weight: 700; color: #1E293B;">{{item.styleCode ? '[' + item.styleCode + '] ' : ''}}{{item.styleName}}</text></text>
-        </view>
-      </view>
-      
-      <view class="order-details">
-        <view class="detail-thumb" wx:if="{{item.styleImageUrl}}">
-          <image class="detail-thumb-img" src="{{item.styleImageUrl}}" mode="aspectFill"></image>
-        </view>
-        <view class="detail-thumb detail-thumb-placeholder" wx:else>
-          <image class="detail-thumb-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
-        </view>
-        <view class="detail-info-col">
-          <view class="detail-row">
-            <text class="detail-label">回货数量</text>
-            <text class="detail-value">{{item.quantityFormatted}}</text>
-          </view>
-          <view class="detail-row">
-            <text class="detail-label">单价</text>
-            <text class="detail-value fee-value">¥{{item.pricePerPieceFormatted}}/件</text>
-          </view>
-          <view class="detail-row">
-            <text class="detail-label">总金额</text>
-            <text class="detail-value fee-value">¥{{item.processingFeeFormatted}}</text>
+        
+        <view class="order-info">
+          <text class="info-text">发料单: {{item.issueNo}}</text>
+          <view class="style-info-row" wx:if="{{item.styleDisplay || item.styleName}}">
+            <text class="info-text info-text-right">款号: <text style="font-weight: 700; color: #1E293B;">{{item.styleCode ? '[' + item.styleCode + '] ' : ''}}{{item.styleName}}</text></text>
           </view>
         </view>
-      </view>
-      
-      <view class="order-meta">
-        <view class="meta-row">
-          <text class="meta-text" wx:if="{{item.color}}">{{item.color}}</text>
-          <text class="meta-separator" wx:if="{{item.color && item.size}}">·</text>
-          <text class="meta-text" wx:if="{{item.size}}">{{item.size}}</text>
+        
+        <view class="order-details">
+          <view class="detail-thumb" wx:if="{{item.styleImageUrl}}" catchtap="onPreviewImage" data-url="{{item.styleImageUrl}}">
+            <image class="detail-thumb-img" src="{{item.styleImageUrl}}" mode="aspectFill" binderror="onStyleImageError" data-id="{{item._id || item.id}}" data-index="{{index}}"></image>
+          </view>
+          <view class="detail-thumb detail-thumb-placeholder" wx:else>
+            <image class="detail-thumb-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+          </view>
+          <view class="detail-info-col">
+            <view class="detail-row">
+              <text class="detail-label">回货数量</text>
+              <text class="detail-value">{{item.quantityFormatted}}</text>
+            </view>
+            <view class="detail-row">
+              <text class="detail-label">单价</text>
+              <text class="detail-value fee-value">¥{{item.pricePerPieceFormatted}}/件</text>
+            </view>
+            <view class="detail-row">
+              <text class="detail-label">总金额</text>
+              <text class="detail-value fee-value">¥{{item.processingFeeFormatted}}</text>
+            </view>
+          </view>
         </view>
-        <view class="meta-row">
-          <text class="meta-text">用纱: {{item.actualYarnUsageFormatted}}kg</text>
-          <text class="meta-separator">·</text>
-          <text class="meta-text">{{item.returnDateFormatted}}</text>
+        
+        <view class="order-meta">
+          <view class="meta-row">
+            <text class="meta-text" wx:if="{{item.color}}">{{item.color}}</text>
+            <text class="meta-separator" wx:if="{{item.color && item.size}}">·</text>
+            <text class="meta-text" wx:if="{{item.size}}">{{item.size}}</text>
+          </view>
+          <view class="meta-row">
+            <text class="meta-text">用纱: {{item.actualYarnUsageFormatted}}kg</text>
+            <text class="meta-separator">·</text>
+            <text class="meta-text">{{item.returnDateFormatted}}</text>
+          </view>
+        </view>
+        </view>
+        </view>
+        <!-- 左滑操作按钮 -->
+        <view class="swipe-actions">
+          <view class="swipe-action-btn swipe-edit-btn" bindtap="onEditReturn" data-id="{{item._id || item.id}}" data-index="{{index}}" wx:if="{{!item.voided}}">
+            <text>编辑</text>
+          </view>
+          <view class="swipe-action-btn swipe-void-btn" bindtap="onVoidReturn" data-id="{{item._id || item.id}}" data-index="{{index}}">
+            <text>{{item.voided ? '恢复' : '作废'}}</text>
+          </view>
+        </view>
         </view>
       </view>
     </view>
+  </list-pagination>
+
+  <view class="empty-tip" wx:if="{{filteredOrders.length === 0}}">
+    <text>暂无回货单数据</text>
   </view>
+
+  <!-- 悬浮新增按钮（按需求移除） -->
 
   <!-- 隐藏的画布用于生成分享图片 -->
   <canvas 
     canvas-id="shareCanvas" 
-    style="position: fixed; top: -9999px; left: -9999px; width: 750px; height: 1200px;"
+    style="position: fixed; top: -9999px; left: -9999px; width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
     disable-scroll="true"
   ></canvas>
 

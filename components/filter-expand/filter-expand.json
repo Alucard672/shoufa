@@ -1,5 +1,8 @@
 {
   "component": true,
-  "usingComponents": {}
+  "usingComponents": {},
+  "options": {
+    "multipleSlots": true
+  }
 }
 

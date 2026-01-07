@@ -7,13 +7,15 @@ Page({
   data: {
     factoryId: '',
     isEdit: false,
+    disabled: false,     // 是否已停用
     name: '',
     contact: '',
     phone: '',
     settlementMethod: '月结',
     settlementMethodIndex: 0,
     remark: '',
-    settlementMethods: ['月结', '单次结算']
+    settlementMethods: ['月结', '单次结算'],
+    submitting: false
   },
 
   async onLoad(options) {
@@ -21,12 +23,27 @@ Page({
     if (!checkLogin()) {
       return
     }
+    console.log('加工厂编辑页面 onLoad，options:', options)
     if (options.id) {
+      console.log('检测到编辑模式，ID:', options.id)
       this.setData({
         factoryId: options.id,
         isEdit: true
       })
       await this.loadFactory(options.id)
+    } else {
+      console.log('新增模式')
+      // 新增模式，重置表单
+      this.setData({
+        factoryId: '',
+        isEdit: false,
+        name: '',
+        contact: '',
+        phone: '',
+        settlementMethod: '月结',
+        settlementMethodIndex: 0,
+        remark: ''
+      })
     }
   },
 
@@ -36,38 +53,64 @@ Page({
         title: '加载中...'
       })
 
+      console.log('开始加载加工厂数据，ID:', factoryId)
+
       const result = await queryByIds('factories', [factoryId], {
         excludeDeleted: true
       })
 
+      console.log('查询结果:', result)
+
       if (result.data && result.data.length > 0) {
         const factoryData = result.data[0]
+        console.log('加工厂原始数据:', factoryData)
         
         // 验证租户权限
         if (factoryData.tenantId && factoryData.tenantId !== app.globalData.tenantId) {
           throw new Error('无权访问该加工厂')
         }
 
+        // 使用数据库中的实际 _id 作为 factoryId（确保ID类型一致）
+        const actualId = factoryData._id || factoryData.id || factoryId
+
         const settlementMethod = factoryData.settlementMethod || factoryData.settlement_method || '月结'
         const settlementMethodIndex = this.data.settlementMethods.indexOf(settlementMethod)
 
-        this.setData({
+        const formData = {
+          factoryId: actualId, // 保存实际的数据库ID
+          disabled: factoryData.disabled || false, // 是否已停用
           name: factoryData.name || '',
           contact: factoryData.contact || '',
           phone: factoryData.phone || '',
           settlementMethod: settlementMethod,
           settlementMethodIndex: settlementMethodIndex >= 0 ? settlementMethodIndex : 0,
           remark: factoryData.remark || ''
+        }
+
+        console.log('设置表单数据:', formData)
+        this.setData(formData)
+        
+        wx.hideLoading()
+        wx.showToast({
+          title: '加载成功',
+          icon: 'success',
+          duration: 1000
+        })
+      } else {
+        wx.hideLoading()
+        console.error('未找到加工厂数据')
+        wx.showToast({
+          title: '未找到加工厂数据',
+          icon: 'none'
         })
       }
-
-      wx.hideLoading()
     } catch (error) {
       wx.hideLoading()
       console.error('加载加工厂失败:', error)
       wx.showToast({
-        title: '加载失败',
-        icon: 'none'
+        title: '加载失败: ' + (error.message || '未知错误'),
+        icon: 'none',
+        duration: 3000
       })
     }
   },
@@ -106,31 +149,36 @@ Page({
   },
 
   async onSubmit() {
-    // 验证必填字段
-    if (!this.data.name || !this.data.contact || !this.data.phone) {
+    // 防止重复提交
+    if (this.data.submitting) {
+      return
+    }
+
+    // 验证必填字段（手机号改为非必填）
+    if (!this.data.name || !this.data.contact) {
       wx.showToast({
-        title: '请填写必填字段',
+        title: '请填写必填字段（加工厂名称、联系人）',
         icon: 'none'
       })
       return
     }
 
+    this.setData({ submitting: true })
+
     try {
       const factoryData = {
         name: this.data.name,
         contact: this.data.contact,
-        phone: this.data.phone,
+        phone: this.data.phone || '',
         settlementMethod: this.data.settlementMethod,
         remark: this.data.remark || ''
       }
 
       if (this.data.isEdit) {
-        // 编辑模式
-        const id = typeof this.data.factoryId === 'string' && /^\d+$/.test(this.data.factoryId) 
-          ? parseInt(this.data.factoryId) 
-          : this.data.factoryId
+        // 编辑模式：优先使用 _id，如果没有则使用 id
+        const id = this.data.factoryId
         await update('factories', factoryData, {
-          id: id
+          _id: id // 使用 _id 确保类型匹配
         })
       } else {
         // 新增模式
@@ -151,11 +199,67 @@ Page({
         title: '保存失败',
         icon: 'none'
       })
+      this.setData({ submitting: false })
     }
   },
 
   onCancel() {
     wx.navigateBack()
+  },
+
+  // 停用/启用加工厂
+  onToggleDisabled() {
+    const newStatus = !this.data.disabled
+    const action = newStatus ? '停用' : '启用'
+    
+    wx.showModal({
+      title: '确认' + action,
+      content: `确定要${action}加工厂 "${this.data.name}" 吗？${newStatus ? '停用后该加工厂将不会出现在选择列表中。' : ''}`,
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            wx.showLoading({ title: '处理中...' })
+            
+            console.log('开始' + action + '加工厂:', this.data.factoryId)
+            
+            const db = wx.cloud.database()
+            const result = await db.collection('factories')
+              .doc(this.data.factoryId)
+              .update({
+                data: {
+                  disabled: newStatus,
+                  updateTime: db.serverDate()
+                }
+              })
+            
+            console.log(action + '结果:', result)
+            
+            if (result.stats.updated === 0) {
+              throw new Error('权限不足或记录不存在，请检查数据库权限设置')
+            }
+            
+            wx.hideLoading()
+            wx.showToast({
+              title: action + '成功',
+              icon: 'success'
+            })
+            
+            // 延迟返回列表
+            setTimeout(() => {
+              wx.navigateBack()
+            }, 1500)
+          } catch (error) {
+            wx.hideLoading()
+            console.error(action + '失败:', error)
+            wx.showToast({
+              title: action + '失败: ' + (error.message || '未知错误'),
+              icon: 'none',
+              duration: 3000
+            })
+          }
+        }
+      }
+    })
   }
 })
 

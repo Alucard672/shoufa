@@ -22,12 +22,15 @@
     "pages/yarn/index",
     "pages/yarn/create",
     "pages/settings/index",
+    "pages/settings/system",
     "pages/settings/color",
     "pages/settings/size",
     "pages/settings/employees",
     "pages/mine/invite",
     "pages/accounting/index",
-    "pages/accounting/detail"
+    "pages/accounting/detail",
+    "pages/issue/detail",
+    "pages/return/detail"
   ],
   "window": {
     "navigationBarTitleText": "纱线收发",

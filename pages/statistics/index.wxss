@@ -1,6 +1,8 @@
 /* pages/statistics/index.wxss */
-.container {
-  padding: 16px;
+@import "../../styles/big-design-common.wxss";
+
+.design-page {
+  /* 使用 big-design-common 的 16px 页面留白与背景 */
 }
 
 .page-header {
@@ -21,47 +23,72 @@
   display: block;
 }
 
-/* 统计卡片 */
-.stats-cards {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.stats-cards.second-row {
+/* 顶部统计卡：一排三个 */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
   margin-bottom: 12px;
 }
 
 .stats-card {
   flex: 1;
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 12px;
+  border-radius: 14px;
   color: #FFFFFF;
-  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
 }
 
-.stats-content {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+.stats-card:active {
+  opacity: 0.9;
 }
 
 .stats-label {
   font-size: 11px;
-  opacity: 0.85;
-  line-height: 1.2;
+  opacity: 0.8;
+}
+
+.stats-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 6px;
 }
 
 .stats-value {
   font-size: 20px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 28px;
 }
 
 .stats-unit {
   font-size: 11px;
-  opacity: 0.85;
-  line-height: 1.2;
+  opacity: 0.8;
+}
+
+.stats-blue {
+  background: linear-gradient(135deg, rgba(43, 127, 255, 1) 0%, rgba(21, 93, 252, 1) 100%);
+}
+
+.stats-green {
+  background: linear-gradient(135deg, rgba(0, 201, 80, 1) 0%, rgba(0, 166, 62, 1) 100%);
+}
+
+.stats-green-2 {
+  background: linear-gradient(135deg, rgba(0, 201, 80, 1) 0%, rgba(0, 166, 62, 1) 100%);
+}
+
+.stats-orange {
+  background: linear-gradient(135deg, rgba(255, 166, 0, 1) 0%, rgba(255, 140, 0, 1) 100%);
+}
+
+.stats-purple {
+  background: linear-gradient(135deg, rgba(173, 70, 255, 1) 0%, rgba(152, 16, 250, 1) 100%);
+}
+
+.stats-teal {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 1) 0%, rgba(5, 150, 105, 1) 100%);
 }
 
 /* 统计区域 */
@@ -212,31 +239,81 @@
 
 /* 统计列表 */
 .statistics-list {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .stat-card {
   margin-bottom: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.stat-card-warn {
+  background: #FFF7ED; /* 浅橙色 - 未回货 */
+  border-color: #FFD6A7;
+}
+
+.stat-card-info {
+  background: #EFF6FF; /* 浅蓝色 - 部分回货 */
+  border-color: #BEDBFF;
+}
+
+.stat-card-ok {
+  background: #F0FDF4; /* 浅绿色 - 已完成 */
+  border-color: #BBF7D0;
 }
 
 .stat-header {
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  display: none;
 }
 
 .stat-title {
+  display: none;
+}
+
+.stat-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
-  width: 100%;
+  margin-bottom: 8px;
 }
 
 .stat-no {
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   color: #101828;
+}
+
+.stat-style-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.style-line-text {
+  font-size: 14px;
+  color: #4A5565;
+  font-weight: 500;
+}
+
+.style-line-meta {
+  font-size: 14px;
+  color: #9810FA;
+  font-weight: 500;
+}
+
+/* 搜索框（按 Figma） */
+.search-wrap {
+  margin: 8px 0 12px;
+}
+
+.search-input {
+  height: 36px;
+  border-radius: 8px;
 }
 
 .stat-style-row {

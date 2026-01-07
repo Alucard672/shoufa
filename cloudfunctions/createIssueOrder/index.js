@@ -27,53 +27,62 @@ exports.main = async (event, context) => {
       // 2. 如果有关联的纱线，扣减库存
       if (yarnIds.length > 0 && issueWeight > 0) {
         // 获取所有关联的纱线库存信息
-        const yarnPromises = yarnIds.map(yarnId => 
-          transaction.collection('yarn_inventory').doc(yarnId).get()
+        // 按用户需求：不因“纱线不存在/库存不足”阻断发料单创建，所以这里对单条查询做容错
+        const yarnSettled = await Promise.allSettled(
+          yarnIds.map(yarnId => transaction.collection('yarn_inventory').doc(yarnId).get())
         )
-        const yarns = await Promise.all(yarnPromises)
+        // 保持 yarnId 与查询结果的映射关系
+        const yarns = yarnSettled.map((r, idx) => ({
+          yarnId: yarnIds[idx],
+          doc: r.status === 'fulfilled' ? r.value : null
+        }))
         
         // 计算每个纱线的扣减量（按比例分配）
         // 如果只有一个纱线，全部扣减该纱线
         // 如果有多个纱线，按库存比例分配
         let totalStock = 0
-        yarns.forEach(yarn => {
-          if (yarn.data && !yarn.data.deleted) {
+        yarns.forEach(item => {
+          const yarn = item.doc
+          if (yarn && yarn.data && !yarn.data.deleted) {
             totalStock += yarn.data.currentStock || 0
           }
         })
         
+        // 按用户需求：去掉“库存不足/不存在”的强校验，不阻止发料单创建。
+        // 若库存为 0，则跳过扣减逻辑（保持数据不变）。
         if (totalStock <= 0) {
-          throw new Error('关联的纱线库存不足或不存在')
+          // 不扣减库存，继续创建发料单
+          totalStock = 0
         }
         
         // 按比例扣减每个纱线的库存
-        for (let i = 0; i < yarns.length; i++) {
-          const yarn = yarns[i]
-          if (!yarn.data || yarn.data.deleted) {
+        // totalStock 为 0 时，无法按比例分摊，直接跳过扣减
+        if (totalStock <= 0) {
+          // do nothing
+        } else {
+          for (let i = 0; i < yarns.length; i++) {
+            const yarn = yarns[i].doc
+            if (!yarn || !yarn.data || yarn.data.deleted) {
             continue
-          }
-          
-          const yarnStock = yarn.data.currentStock || 0
-          if (yarnStock <= 0) {
-            continue
-          }
-          
-          // 计算该纱线应扣减的数量（按库存比例）
-          const deductAmount = (yarnStock / totalStock) * issueWeight
-          
-          // 检查库存是否充足
-          if (yarnStock < deductAmount) {
-            throw new Error(`纱线"${yarn.data.yarnName}"库存不足，当前库存：${yarnStock}kg，需要扣减：${deductAmount.toFixed(2)}kg`)
-          }
-          
-          // 扣减库存
-          const newStock = yarnStock - deductAmount
-          await transaction.collection('yarn_inventory').doc(yarnIds[i]).update({
-            data: {
-              currentStock: Math.max(0, newStock), // 确保不为负数
-              updateTime: db.serverDate()
             }
-          })
+          
+            const yarnStock = yarn.data.currentStock || 0
+            if (yarnStock <= 0) {
+              continue
+            }
+          
+            // 计算该纱线应扣减的数量（按库存比例）
+            const deductAmount = (yarnStock / totalStock) * issueWeight
+          
+            // 按用户需求：不做库存充足校验；不足时扣到 0，不阻止发料单创建
+            const newStock = yarnStock - deductAmount
+            await transaction.collection('yarn_inventory').doc(yarns[i].yarnId).update({
+              data: {
+                currentStock: Math.max(0, newStock), // 确保不为负数
+                updateTime: db.serverDate()
+              }
+            })
+          }
         }
       }
       

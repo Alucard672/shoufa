@@ -28,6 +28,10 @@
       "installDependency": true
     },
     {
+      "name": "employees",
+      "installDependency": true
+    },
+    {
       "name": "updateStyle",
       "installDependency": true
     },

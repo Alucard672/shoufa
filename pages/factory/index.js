@@ -3,6 +3,7 @@ import { getFactories } from '../../utils/db.js'
 import { formatAmount, formatWeight } from '../../utils/calc.js'
 import { count, query } from '../../utils/db.js'
 import { checkLogin } from '../../utils/auth.js'
+import { pickNumber } from '../../utils/summary.js'
 const app = getApp()
 const db = wx.cloud.database()
 const _ = db.command
@@ -13,7 +14,13 @@ Page({
     unpaidAmount: 0,
     unpaidAmountFormatted: '¥0',
     factories: [],
-    searchKeyword: ''
+    searchKeyword: '',
+    showDisabled: false,  // 是否显示已停用的加工厂，默认不显示
+    filterOptions: [
+      { value: false, label: '仅显示启用' },
+      { value: true, label: '显示全部' }
+    ],
+    filterIndex: 0
   },
 
   onLoad() {
@@ -69,8 +76,8 @@ Page({
 
     let totalAmount = 0
     returnOrders.forEach(order => {
-      const processingFee = order.processingFee || order.processing_fee || 0
-      const settledAmount = order.settledAmount || order.settled_amount || 0
+      const processingFee = pickNumber(order, ['processingFee', 'processing_fee'], 0)
+      const settledAmount = pickNumber(order, ['settledAmount', 'settled_amount'], 0)
       totalAmount += processingFee - settledAmount
     })
 
@@ -109,17 +116,31 @@ Page({
           const factoryId = factory._id || factory.id
           
           // 查询该工厂的发料单
-          const issueOrdersRes = await query('issue_orders', {
-            factoryId: factoryId
-          }, {
-            excludeDeleted: true
+          const [issueById, issueBy_id] = await Promise.all([
+            query('issue_orders', { factoryId: factoryId }, { excludeDeleted: true }).catch(() => ({ data: [] })),
+            query('issue_orders', { factory_id: factoryId }, { excludeDeleted: true }).catch(() => ({ data: [] }))
+          ])
+          const issueOrdersData = []
+          const issueSeen = new Set()
+          ;(issueById.data || []).concat(issueBy_id.data || []).forEach((o) => {
+            const key = String(o._id || o.id || '')
+            if (!key || issueSeen.has(key)) return
+            issueSeen.add(key)
+            issueOrdersData.push(o)
           })
 
           // 查询该工厂的回货单
-          const returnOrdersRes = await query('return_orders', {
-            factoryId: factoryId
-          }, {
-            excludeDeleted: true
+          const [retById, retBy_id] = await Promise.all([
+            query('return_orders', { factoryId: factoryId }, { excludeDeleted: true }).catch(() => ({ data: [] })),
+            query('return_orders', { factory_id: factoryId }, { excludeDeleted: true }).catch(() => ({ data: [] }))
+          ])
+          const returnOrdersData = []
+          const retSeen = new Set()
+          ;(retById.data || []).concat(retBy_id.data || []).forEach((o) => {
+            const key = String(o._id || o.id || '')
+            if (!key || retSeen.has(key)) return
+            retSeen.add(key)
+            returnOrdersData.push(o)
           })
 
           let totalIssueWeight = 0
@@ -127,20 +148,21 @@ Page({
           let totalProcessingFee = 0
           let totalSettledAmount = 0
 
-          issueOrdersRes.data.forEach(order => {
-            totalIssueWeight += order.issueWeight || order.issue_weight || 0
+          issueOrdersData.forEach(order => {
+            totalIssueWeight += pickNumber(order, ['issueWeight', 'issue_weight'], 0)
           })
 
-          returnOrdersRes.data.forEach(order => {
-            totalUsedYarn += order.actualYarnUsage || order.actual_yarn_usage || 0
-            totalProcessingFee += order.processingFee || order.processing_fee || 0
-            totalSettledAmount += order.settledAmount || order.settled_amount || 0
+          returnOrdersData.forEach(order => {
+            totalUsedYarn += pickNumber(order, ['actualYarnUsage', 'actual_yarn_usage'], 0)
+            totalProcessingFee += pickNumber(order, ['processingFee', 'processing_fee'], 0)
+            totalSettledAmount += pickNumber(order, ['settledAmount', 'settled_amount'], 0)
           })
 
           const unpaidFee = totalProcessingFee - totalSettledAmount
 
           return {
             ...factory,
+            disabled: factory.disabled || false,  // 是否已停用
             totalIssueWeight,
             totalUsedYarn,
             unpaidFee,
@@ -163,9 +185,44 @@ Page({
       })
     )
 
+    // 根据筛选条件过滤
+    let displayFactories = factoriesWithStats
+    if (!this.data.showDisabled) {
+      displayFactories = factoriesWithStats.filter(f => !f.disabled)
+    }
+    
+    // 缓存全部数据用于筛选切换
+    this._allFactories = factoriesWithStats
+
     this.setData({
-      factories: factoriesWithStats
+      factories: displayFactories,
+      factoryCount: displayFactories.length  // 更新统计数量
     })
+  },
+
+  // 切换是否显示已停用的加工厂
+  onFilterChange(e) {
+    const index = e.detail.value
+    const showDisabled = this.data.filterOptions[index].value
+    
+    this.setData({
+      filterIndex: index,
+      showDisabled: showDisabled
+    })
+    
+    // 如果已有缓存数据，直接过滤；否则重新加载
+    if (this._allFactories) {
+      let displayFactories = this._allFactories
+      if (!showDisabled) {
+        displayFactories = this._allFactories.filter(f => !f.disabled)
+      }
+      this.setData({
+        factories: displayFactories,
+        factoryCount: displayFactories.length
+      })
+    } else {
+      this.loadFactories()
+    }
   },
 
   onSearch(e) {
@@ -193,7 +250,19 @@ Page({
   },
 
   navigateToSettlement(e) {
+    // 检查登录状态
+    if (!checkLogin()) {
+      return
+    }
+    // 注意：使用 catchtap 时不需要 stopPropagation，catchtap 会自动阻止冒泡
     const factoryId = e.currentTarget.dataset.id
+    if (!factoryId) {
+      wx.showToast({
+        title: '无法获取加工厂ID',
+        icon: 'none'
+      })
+      return
+    }
     wx.navigateTo({
       url: `/pages/factory/settlement?factoryId=${factoryId}`
     })
@@ -204,7 +273,16 @@ Page({
     if (!checkLogin()) {
       return
     }
+    // 注意：使用 catchtap 时不需要 stopPropagation，catchtap 会自动阻止冒泡
     const factoryId = e.currentTarget.dataset.id
+    if (!factoryId) {
+      wx.showToast({
+        title: '无法获取加工厂ID',
+        icon: 'none'
+      })
+      return
+    }
+    console.log('编辑加工厂，ID:', factoryId)
     wx.navigateTo({
       url: `/pages/factory/create?id=${factoryId}`
     })

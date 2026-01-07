@@ -2,6 +2,8 @@
 import { formatDate, formatDateTime, formatQuantity } from '../../utils/calc.js'
 import { count, query, queryByIds } from '../../utils/db.js'
 import { checkLogin } from '../../utils/auth.js'
+import { normalizeImageUrl, batchGetImageUrls } from '../../utils/image.js'
+import { pickNumber } from '../../utils/summary.js'
 const app = getApp()
 const db = wx.cloud.database()
 const _ = db.command
@@ -13,6 +15,17 @@ Page({
     unpaidAmount: 0,
     recentActivities: [],
     displayActivities: [] // 用于显示的数据（默认10条）
+  },
+
+  // 图片加载失败：降级为占位图
+  onStyleImageError(e) {
+    const index = e.currentTarget.dataset.index
+    if (typeof index === 'number' || (typeof index === 'string' && index !== '')) {
+      const i = typeof index === 'number' ? index : parseInt(index, 10)
+      if (!Number.isNaN(i) && this.data.displayActivities && this.data.displayActivities[i]) {
+        this.setData({ [`displayActivities[${i}].styleImageUrl`]: '' })
+      }
+    }
   },
 
   onLoad() {
@@ -86,17 +99,21 @@ Page({
   },
 
   async loadUnpaidAmount() {
-    // 查询未结算的回货单（使用IN查询）
-    const result = await query('return_orders', {
-      settlementStatus: _.in(['未结算', '部分结算'])
-    }, {
+    // 查询所有回货单，然后在客户端过滤未结算和部分结算（兼容字段名）
+    const result = await query('return_orders', {}, {
       excludeDeleted: true
     })
 
+    // 客户端过滤：只统计未结算和部分结算的回货单
+    const unpaidOrders = result.data.filter(order => {
+      const status = order.settlementStatus || order.settlement_status || '未结算'
+      return status === '未结算' || status === '部分结算'
+    })
+
     let totalAmount = 0
-    result.data.forEach(order => {
-      const processingFee = order.processingFee || order.processing_fee || 0
-      const settledAmount = order.settledAmount || order.settled_amount || 0
+    unpaidOrders.forEach(order => {
+      const processingFee = pickNumber(order, ['processingFee', 'processing_fee'], 0)
+      const settledAmount = pickNumber(order, ['settledAmount', 'settled_amount'], 0)
       totalAmount += processingFee - settledAmount
     })
 
@@ -168,6 +185,28 @@ Page({
 
       const factoriesMap = Object.fromEntries(factoriesRes.data.map(f => [f._id || f.id, f]))
       const stylesMap = Object.fromEntries(stylesRes.data.map(s => [s._id || s.id, s]))
+      
+      // 批量转换图片URL（cloud:// -> 临时链接）
+      try {
+        const imageUrls = stylesRes.data
+          .map(style => normalizeImageUrl(style))
+          .filter(url => url && url.startsWith('cloud://'))
+        
+        if (imageUrls.length > 0) {
+          const imageUrlMap = await batchGetImageUrls(imageUrls)
+          // 更新 stylesMap 中的图片URL
+          stylesRes.data.forEach(style => {
+            const id = style._id || style.id
+            const originalUrl = normalizeImageUrl(style)
+            if (originalUrl && imageUrlMap.has(originalUrl)) {
+              stylesMap[id].styleImageUrl = imageUrlMap.get(originalUrl)
+            }
+          })
+        }
+      } catch (error) {
+        console.error('批量转换图片URL失败:', error)
+        // 失败不影响主流程，继续使用原 cloud:// URL
+      }
 
       // 5. 组装显示数据
       const displayActivities = topActivities.map(item => {
@@ -185,7 +224,7 @@ Page({
           ...item,
           factoryName: factory?.name || '未知工厂',
           styleName: styleName,
-          styleImageUrl: (style?.imageUrl || style?.image_url || style?.image || '').trim(),
+          styleImageUrl: normalizeImageUrl(style),
           dateFormatted: formatDateTime(item.createTime || item.create_time || item.date),
           styleDisplay: `${styleCode}${styleName}`,
           actionInfo: `${issueInfo} · ${item.color || ''}`
@@ -199,9 +238,9 @@ Page({
   },
 
   onShowMoreActivities() {
-    // 默认跳转到发料记录
-    wx.switchTab({
-      url: '/pages/issue/index'
+    // 跳转到新的全部动态页面
+    wx.navigateTo({
+      url: '/pages/index/activities'
     })
   },
 
@@ -220,6 +259,19 @@ Page({
     wx.switchTab({
       url: '/pages/return/index'
     })
+  },
+
+  navigateToDetail(e) {
+    const { id, type } = e.currentTarget.dataset
+    if (type === 'issue') {
+      wx.navigateTo({
+        url: `/pages/issue/detail?id=${id}`
+      })
+    } else if (type === 'return') {
+      wx.navigateTo({
+        url: `/pages/return/detail?id=${id}`
+      })
+    }
   },
 
   onPreviewImage(e) {

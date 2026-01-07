@@ -26,7 +26,48 @@
   "compileType": "miniprogram",
   "simulatorPluginLibVersion": {},
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "file",
+        "value": "sync-db-auto.js"
+      },
+      {
+        "type": "file",
+        "value": "sync-db-schema.js"
+      },
+      {
+        "type": "file",
+        "value": "api_key_config.sh"
+      },
+      {
+        "type": "file",
+        "value": "api_key_config_bak.sh"
+      },
+      {
+        "type": "file",
+        "value": "deploy_db.sh"
+      },
+      {
+        "type": "file",
+        "value": "deploy_fn.sh"
+      },
+      {
+        "type": "file",
+        "value": "deploy-db-to-prod.sh"
+      },
+      {
+        "type": "file",
+        "value": "deploy-dev.sh"
+      },
+      {
+        "type": "file",
+        "value": "deploy-prod.sh"
+      },
+      {
+        "type": "file",
+        "value": "sync-db-to-dev.sh"
+      }
+    ],
     "include": []
   },
   "appid": "wx85e4109a73be8c46",

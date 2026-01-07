@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "发料单详情",
+  "usingComponents": {
+    "badge": "../../components/badge/badge"
+  }
+}
+

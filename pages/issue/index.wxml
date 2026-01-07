@@ -1,10 +1,14 @@
 <!--pages/issue/index.wxml-->
-<view class="container">
+<view class="design-page">
   <!-- 页面标题 -->
   <view class="page-header">
     <view class="header-left">
       <text class="page-title">发料单</text>
       <text class="page-subtitle">纱线发料记录</text>
+    </view>
+    <view class="create-btn" bindtap="navigateToCreate">
+      <text class="create-btn-icon">+</text>
+      <text>新建</text>
     </view>
   </view>
 
@@ -23,149 +27,175 @@
     </view>
   </view>
 
-  <!-- 时间筛选 -->
-  <filter-tabs 
-    options="{{['全部时间', '今天', '本周', '本月']}}"
-    current="{{timeFilterIndex}}"
-    bindchange="onTimeFilterChange"
-  />
+  <!-- 时间筛选（按设计稿按钮样式） -->
+  <view class="seg-block">
+    <view class="seg-row">
+      <view class="seg-btn {{timeFilterIndex === 0 ? 'is-active' : ''}}" data-index="0" bindtap="onTimeSegTap">全部时间</view>
+      <view class="seg-btn {{timeFilterIndex === 1 ? 'is-active' : ''}}" data-index="1" bindtap="onTimeSegTap">今天</view>
+      <view class="seg-btn {{timeFilterIndex === 2 ? 'is-active' : ''}}" data-index="2" bindtap="onTimeSegTap">本周</view>
+      <view class="seg-btn {{timeFilterIndex === 3 ? 'is-active' : ''}}" data-index="3" bindtap="onTimeSegTap">本月</view>
+    </view>
+  </view>
 
-  <!-- 状态筛选 -->
-  <filter-tabs 
-    options="{{['全部 (' + totalIssueCount + ')', '未回货', '部分回货', '已回货', '已完成']}}"
-    current="{{statusFilterIndex}}"
-    bindchange="onStatusFilterChange"
-  />
+  <!-- 状态筛选（按设计稿按钮样式） -->
+  <view class="seg-block">
+    <view class="seg-row">
+      <view class="seg-btn {{statusFilterIndex === 0 ? 'is-active' : ''}}" data-index="0" bindtap="onStatusSegTap">全部 ({{totalIssueCount}})</view>
+      <view class="seg-btn {{statusFilterIndex === 1 ? 'is-active' : ''}}" data-index="1" bindtap="onStatusSegTap">未回货</view>
+      <view class="seg-btn {{statusFilterIndex === 2 ? 'is-active' : ''}}" data-index="2" bindtap="onStatusSegTap">部分回货</view>
+      <view class="seg-btn {{statusFilterIndex === 3 ? 'is-active' : ''}}" data-index="3" bindtap="onStatusSegTap">已回货</view>
+      <view class="seg-btn {{statusFilterIndex === 4 ? 'is-active' : ''}}" data-index="4" bindtap="onStatusSegTap">已完成</view>
+    </view>
+  </view>
 
-  <!-- 基础筛选条件 -->
-  <view class="filter-section">
-    <search-box 
-      placeholder="搜索发料单号或工厂名称"
-      bindsearch="onSearch"
-    />
+  <!-- 搜索（按设计稿：左侧图标、灰底输入框） -->
+  <view class="filter-section issue-search">
+    <view class="search-wrap">
+      <image class="search-icon-left" src="/images/icons/search.svg" mode="aspectFit"></image>
+      <input
+        class="search-input search-left-icon"
+        placeholder="搜索发料单号或工厂名称"
+        value="{{searchKeyword}}"
+        bindinput="onSearch"
+        bindconfirm="onSearch"
+      />
+    </view>
   </view>
 
   <!-- 发料单列表 -->
-  <view class="order-list">
-    <view class="order-card card" wx:for="{{displayOrders}}" wx:key="_id">
-      <!-- 第一行：单号和状态标签 -->
-      <view class="order-header">
-        <text class="order-no">{{item.issueNo}}</text>
-        <badge type="{{item.status === '未回货' ? 'warning' : (item.status === '已完成' || (item.progress && item.progress.status === '已完成') ? 'success' : 'info')}}" text="{{item.status === '已完成' || (item.progress && item.progress.status === '已完成') ? '已完成' : (item.progress && item.progress.status ? item.progress.status : item.status)}}" />
-      </view>
-      
-      <!-- 第二行：工厂名称和分享按钮 -->
-      <view class="order-factory-row">
-        <text class="factory-name">{{item.factoryName}}</text>
-        <view class="share-btn" catchtap="onShareIssueOrder" data-id="{{item._id}}">
-          <text>分享</text>
-        </view>
-      </view>
-      
-      <!-- 图片和款号信息 -->
-      <view class="order-content-row">
-        <!-- 图片（可点击放大） -->
-        <view class="order-image-section">
-          <view class="style-image-container" bindtap="onPreviewImage" data-url="{{item.styleImageUrl}}" wx:if="{{item.styleImageUrl}}">
-            <image class="style-image" src="{{item.styleImageUrl}}" mode="aspectFill"></image>
+  <list-pagination 
+    list="{{filteredOrders}}" 
+    pageSize="{{pageSize}}"
+    bindloadmore="onLoadMore"
+  >
+    <view class="order-list">
+      <view class="swipe-item" wx:for="{{displayOrders}}" wx:key="index" data-index="{{index}}">
+        <view class="swipe-container">
+        <view class="swipe-content" style="transform: translateX({{item.swipeOffset || 0}}px);" 
+          bindtouchstart="onSwipeStart" 
+          bindtouchmove="onSwipeMove" 
+          bindtouchend="onSwipeEnd"
+          data-index="{{index}}">
+          <view class="order-card card issue-order-card {{(item.progress && item.progress.status === '已完成') || item.status === '已完成' ? 'issue-card--default' : (item.progress && item.progress.status === '部分回货' ? 'issue-card--info' : 'issue-card--warning')}}" bindtap="navigateToDetail" data-id="{{item._id || item.id}}">
+        <!-- 第一行：单号和状态标签 -->
+        <view class="order-header">
+          <view class="order-no-row">
+            <text class="order-no {{item.voided ? 'voided-text' : ''}}">{{item.issueNo}}</text>
+            <view class="voided-badge" wx:if="{{item.voided}}">已作废</view>
           </view>
-          <view class="style-image-placeholder" wx:else>
-            <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+          <badge type="{{item.status === '未回货' ? 'warning' : (item.status === '已完成' || (item.progress && item.progress.status === '已完成') ? 'success' : 'info')}}" text="{{item.status === '已完成' || (item.progress && item.progress.status === '已完成') ? '已完成' : (item.progress && item.progress.status ? item.progress.status : item.status)}}" />
+        </view>
+        
+        <!-- 第二行：工厂名称和分享按钮 -->
+        <view class="order-factory-row">
+          <text class="factory-name">{{item.factoryName}}</text>
+          <view class="share-btn" catchtap="onShareIssueOrder" data-id="{{item._id || item.id}}">
+            <text>分享</text>
           </view>
         </view>
         
-        <!-- 款号名称和克重损耗 -->
-        <view class="order-style-section">
-          <view class="style-name-row">
-            <text class="style-code" wx:if="{{item.styleCode}}">{{item.styleCode}}</text>
-            <text class="style-name">{{item.styleName || '未知款号'}}</text>
+        <!-- 图片和款号信息 -->
+        <view class="order-content-row">
+          <!-- 图片（可点击放大） -->
+          <view class="order-image-section">
+            <view class="style-image-container" catchtap="onPreviewImage" data-url="{{item.styleImageUrl}}" wx:if="{{item.styleImageUrl}}">
+              <image class="style-image" src="{{item.styleImageUrl}}" mode="aspectFill" binderror="onStyleImageError" data-id="{{item._id || item.id}}" data-index="{{index}}" data-url="{{item.styleImageUrl}}"></image>
+            </view>
+            <view class="style-image-placeholder" wx:else>
+              <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+            </view>
           </view>
-          <view class="style-meta-row">
-            <text class="meta-usage" wx:if="{{item.yarnUsagePerPiece > 0}}">{{item.yarnUsagePerPieceFormatted}}g/件</text>
-            <text class="meta-separator" wx:if="{{item.yarnUsagePerPiece > 0 && item.lossRate > 0}}">·</text>
-            <text class="meta-loss" wx:if="{{item.lossRate > 0}}">损耗{{item.lossRateFormatted}}%</text>
-          </view>
-        </view>
-      </view>
-      
-      <!-- 发料日期和重量 -->
-      <view class="order-footer">
-        <view class="footer-item">
-          <image class="footer-icon" src="/images/icons/calendar.svg" mode="aspectFit"></image>
-          <text class="footer-text">{{item.issueDateFormatted}}</text>
-        </view>
-        <text class="footer-weight">{{item.issueWeightFormatted}} kg</text>
-      </view>
-      
-      <view class="order-progress" wx:if="{{item.status !== '未回货' && item.status !== '已完成'}}">
-        <view class="progress-row">
-          <text class="progress-label">回货进度</text>
-          <text class="progress-value">{{item.progress.totalReturnPiecesFormatted}} · {{item.progress.totalReturnYarnFormatted}} kg</text>
-        </view>
-        <view class="progress-row">
-          <text class="progress-label progress-label-warning">剩余待回</text>
-          <text class="progress-value progress-value-warning">{{item.progress.remainingPiecesFormatted}} · {{item.progress.remainingYarnFormatted}} kg</text>
-        </view>
-        <view class="progress-bar">
-          <view class="progress-fill" style="width: {{item.issueWeight > 0 ? (item.progress.totalReturnYarn / item.issueWeight * 100) : 0}}%"></view>
-        </view>
-        <view class="return-details" wx:if="{{item.returnOrders && item.returnOrders.length > 1}}">
-          <text class="details-title">回货明细（{{item.returnOrders.length}}次）</text>
-          <view class="details-list">
-            <view class="detail-item" wx:for="{{item.returnOrders}}" wx:key="_id" wx:for-item="returnOrder">
-              <view class="detail-header">
-                <text class="detail-no">#{{returnOrder.returnOrderIndex}}</text>
-                <text class="detail-date">{{returnOrder.returnDateFormatted}}</text>
-              </view>
-              <text class="detail-info">{{returnOrder.quantityFormatted}} · {{returnOrder.actualYarnUsageFormatted}}kg</text>
-              <text class="detail-color-size" wx:if="{{returnOrder.color || returnOrder.size}}">
-                {{returnOrder.color}}{{returnOrder.size ? ' · ' + returnOrder.size : ''}}
-              </text>
+          
+          <!-- 款号名称和克重损耗 -->
+          <view class="order-style-section">
+            <view class="style-name-row">
+              <text class="style-code" wx:if="{{item.styleCode}}">{{item.styleCode}}</text>
+              <text class="style-name">{{item.styleName || '未知款号'}}</text>
+            </view>
+            <view class="style-meta-row">
+              <text class="meta-usage" wx:if="{{item.yarnUsagePerPiece > 0}}">{{item.yarnUsagePerPieceFormatted}}g/件</text>
+              <text class="meta-separator" wx:if="{{item.yarnUsagePerPiece > 0 && item.lossRate > 0}}">·</text>
+              <text class="meta-loss" wx:if="{{item.lossRate > 0}}">损耗{{item.lossRateFormatted}}%</text>
             </view>
           </view>
         </view>
-      </view>
-      
-      <view class="order-status-completed" wx:if="{{item.status === '已完成' || (item.progress && item.progress.status === '已完成')}}">
-        <text class="completed-text">✓ 已完成</text>
-      </view>
-      
-      <view class="order-actions">
-        <view class="btn btn-secondary" bindtap="navigateToReturn" data-id="{{item._id}}" wx:if="{{item.status !== '已完成' && !(item.progress && item.progress.status === '已完成')}}">
-          <text>{{(item.progress && item.progress.status === '未回货') || (!item.progress && item.status === '未回货') ? '登记回货' : '继续回货'}}</text>
+        
+        <!-- 发料日期和重量 -->
+        <view class="order-footer">
+          <view class="footer-item">
+            <image class="footer-icon" src="/images/icons/calendar.svg" mode="aspectFit"></image>
+            <text class="footer-text">{{item.issueDateFormatted}}</text>
+          </view>
+          <text class="footer-weight">{{item.issueWeightFormatted}}</text>
         </view>
-        <view class="btn btn-primary" wx:if="{{item.status !== '已完成' && !(item.progress && item.progress.status === '已完成')}}" bindtap="onCompleteIssue" data-id="{{item._id}}">
-          <text>完成</text>
+        
+        <view class="order-progress" wx:if="{{item.status !== '未回货' && item.status !== '已完成'}}">
+          <view class="progress-row">
+            <text class="progress-label">回货进度</text>
+            <text class="progress-value">{{item.progress.totalReturnPiecesFormatted}} · {{item.progress.totalReturnYarnFormatted}} kg</text>
+          </view>
+          <view class="progress-row">
+            <text class="progress-label progress-label-warning">剩余待回</text>
+            <text class="progress-value progress-value-warning">{{item.progress.remainingPiecesFormatted}} · {{item.progress.remainingYarnFormatted}} kg</text>
+          </view>
+          <view class="progress-bar">
+            <view class="progress-fill" style="width: {{item.issueWeight > 0 ? (item.progress.totalReturnYarn / item.issueWeight * 100) : 0}}%"></view>
+          </view>
+          <view class="return-details" wx:if="{{item.returnOrders && item.returnOrders.length > 1}}">
+            <text class="details-title">回货明细（{{item.returnOrders.length}}次）</text>
+            <view class="details-list">
+              <view class="detail-item" wx:for="{{item.returnOrders}}" wx:key="_id" wx:for-item="returnOrder">
+                <view class="detail-header">
+                  <text class="detail-no">#{{returnOrder.returnOrderIndex}}</text>
+                  <text class="detail-date">{{returnOrder.returnDateFormatted}}</text>
+                </view>
+                <text class="detail-info">{{returnOrder.quantityFormatted}} · {{returnOrder.actualYarnUsageFormatted}}kg</text>
+                <text class="detail-color-size" wx:if="{{returnOrder.color || returnOrder.size}}">
+                  {{returnOrder.color}}{{returnOrder.size ? ' · ' + returnOrder.size : ''}}
+                </text>
+              </view>
+            </view>
+          </view>
+        </view>
+        
+        <view class="order-status-completed" wx:if="{{item.status === '已完成' || (item.progress && item.progress.status === '已完成')}}">
+          <text class="completed-text">✓ 已完成</text>
+        </view>
+        
+        <view class="order-actions" wx:if="{{item.status !== '已完成' && !(item.progress && item.progress.status === '已完成')}}">
+          <view class="btn btn-secondary" catchtap="navigateToReturn" data-id="{{item._id || item.id}}">
+            <text>{{(item.progress && item.progress.status === '未回货') || (!item.progress && item.status === '未回货') ? '登记回货' : '继续回货'}}</text>
+          </view>
+          <view class="btn btn-primary" catchtap="onCompleteIssue" data-id="{{item._id || item.id}}">
+            <text>完成</text>
+          </view>
+        </view>
+        </view>
+        </view>
+        <!-- 左滑操作按钮 -->
+        <view class="swipe-actions">
+          <view class="swipe-action-btn swipe-edit-btn" bindtap="onEditIssue" data-id="{{item._id || item.id}}" data-index="{{index}}" wx:if="{{!item.voided}}">
+            <text>编辑</text>
+          </view>
+          <view class="swipe-action-btn swipe-void-btn" bindtap="onVoidIssue" data-id="{{item._id || item.id}}" data-index="{{index}}">
+            <text>{{item.voided ? '恢复' : '作废'}}</text>
+          </view>
+        </view>
         </view>
       </view>
     </view>
-    
-    <view class="empty-tip" wx:if="{{filteredOrders.length === 0}}">
-      <text>暂无发料单数据</text>
-    </view>
+  </list-pagination>
+
+  <view class="empty-tip" wx:if="{{filteredOrders.length === 0}}">
+    <text>暂无发料单数据</text>
   </view>
 
-  <!-- 加载更多按钮 -->
-  <view class="load-more-section" wx:if="{{displayOrders.length < filteredOrders.length && filteredOrders.length > 0}}">
-    <view class="load-more-btn" bindtap="onLoadMore">
-      <text>加载更多（{{displayOrders.length}}/{{filteredOrders.length}}）</text>
-    </view>
-  </view>
-
-  <!-- 已显示全部 -->
-  <view class="list-end" wx:if="{{displayOrders.length === filteredOrders.length && filteredOrders.length > 0}}">
-    <text>已显示全部 {{filteredOrders.length}} 条数据</text>
-  </view>
-
-  <!-- 悬浮新增按钮 -->
-  <view class="fab-btn" bindtap="navigateToCreate">
-    <text class="fab-text">+</text>
-  </view>
+  <!-- 设计稿已在顶部提供“新建”按钮，这里不再重复提供 FAB -->
 
   <!-- 隐藏的画布用于生成分享图片 -->
   <canvas 
     canvas-id="shareCanvas" 
-    style="position: fixed; top: -9999px; left: -9999px; width: 750px; height: 1200px;"
+    style="position: fixed; top: -9999px; left: -9999px; width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
     disable-scroll="true"
   ></canvas>
 

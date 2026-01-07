@@ -20,11 +20,38 @@ export function getStyles() {
 }
 
 /**
- * 获取款号详情
+ * 获取款号详情（兼容 _id 和 id 字段）
  */
 export async function getStyleById(styleId) {
-  const res = await query('styles', { _id: styleId })
-  return { data: res.data.length > 0 ? res.data[0] : null }
+  if (!styleId) return { data: null }
+  
+  // 先尝试使用 queryByIds（它已经处理了多种ID格式）
+  const result = await queryByIds('styles', [styleId], { excludeDeleted: true })
+  if (result.data && result.data.length > 0) {
+    return { data: result.data[0] }
+  }
+  
+  // 如果 queryByIds 失败，尝试直接查询
+  try {
+    const res = await query('styles', { _id: styleId }, { excludeDeleted: true })
+    if (res.data && res.data.length > 0) {
+      return { data: res.data[0] }
+    }
+  } catch (e) {
+    console.warn('使用 _id 查询失败，尝试 id 字段:', e)
+  }
+  
+  // 尝试使用 id 字段查询
+  try {
+    const res = await query('styles', { id: styleId }, { excludeDeleted: true })
+    if (res.data && res.data.length > 0) {
+      return { data: res.data[0] }
+    }
+  } catch (e) {
+    console.warn('使用 id 查询失败:', e)
+  }
+  
+  return { data: null }
 }
 
 /**
@@ -154,8 +181,47 @@ export function updateIssueOrderStatus(issueId, status) {
 /**
  * 获取发料单关联的回货单
  */
-export function getReturnOrdersByIssueId(issueId) {
-  return query('return_orders', { issueId: issueId })
+export async function getReturnOrdersByIssueId(issueId) {
+  if (!issueId) return { data: [] }
+  
+  const _ = db.command
+  const idStr = String(issueId)
+  const idNum = /^\d+$/.test(idStr) ? parseInt(idStr) : null
+
+  // 构建 ID 列表（包含字符串和数字形式）
+  const idList = [issueId]
+  if (typeof issueId === 'string' && idNum !== null) idList.push(idNum)
+  if (typeof issueId === 'number') idList.push(idStr)
+
+  try {
+    // 同时查询 issueId 和 issue_id，并支持多种 ID 类型
+    const [res1, res2] = await Promise.all([
+      query('return_orders', { issueId: _.in(idList) }),
+      query('return_orders', { issue_id: _.in(idList) })
+    ])
+
+    // 合并并去重
+    const merged = [...res1.data, ...res2.data]
+    const seen = new Set()
+    return {
+      data: merged.filter(item => {
+        const key = item._id || item.id
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+    }
+  } catch (error) {
+    console.error('getReturnOrdersByIssueId 失败，尝试全量内存过滤:', error)
+    const allRes = await query('return_orders', {})
+    const ids = idList.map(id => String(id))
+    return {
+      data: allRes.data.filter(ro => {
+        const roIssueId = ro.issueId || ro.issue_id
+        return roIssueId !== undefined && roIssueId !== null && ids.includes(String(roIssueId))
+      })
+    }
+  }
 }
 
 /**
@@ -187,28 +253,30 @@ export async function calculateIssueProgress(issueId) {
   }
   
   const style = styleRes.data
-  const yarnUsagePerPiece = style.yarnUsagePerPiece || 0
+  const yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
 
   let totalReturnPieces = 0
   let totalReturnYarn = 0
   let totalReturnQuantity = 0
 
   returnOrders.forEach(order => {
-    totalReturnPieces += order.returnPieces || 0
-    totalReturnYarn += order.actualYarnUsage || 0
-    totalReturnQuantity += order.returnQuantity || 0
+    totalReturnPieces += parseFloat(order.returnPieces || order.return_pieces || 0) || 0
+    totalReturnYarn += parseFloat(order.actualYarnUsage || order.actual_yarn_usage || 0) || 0
+    totalReturnQuantity += parseFloat(order.returnQuantity || order.return_quantity || 0) || 0
   })
 
-  const issueWeight = issueOrder.issueWeight || 0
+  const issueWeight = issueOrder.issueWeight || issueOrder.issue_weight || 0
+  const issuePieces = yarnUsagePerPiece > 0 ? Math.floor((issueWeight * 1000) / yarnUsagePerPiece) : 0
   const remainingYarn = issueWeight - totalReturnYarn
-  const remainingPieces = Math.floor(remainingYarn / (yarnUsagePerPiece / 1000))
+  const remainingPieces = yarnUsagePerPiece > 0
+    ? Math.floor(remainingYarn / (yarnUsagePerPiece / 1000))
+    : 0
   const remainingQuantity = remainingPieces / 12
 
   // 判断状态
   let status = '未回货'
-  if (totalReturnYarn > 0) {
-    if (remainingYarn <= 0.01) {
-      // 回货完成，标记为已完成
+  if (totalReturnYarn > 0 || totalReturnPieces > 0) {
+    if (remainingYarn <= 0.01 || (issuePieces > 0 && totalReturnPieces >= issuePieces)) {
       status = '已完成'
     } else {
       status = '部分回货'
@@ -231,6 +299,7 @@ export async function calculateIssueProgress(issueId) {
     remainingPieces,
     remainingQuantity,
     remainingQuantityFormatted: remainingQuantity.toFixed(1),
+    issuePieces,
     status
   }
 }
@@ -361,40 +430,117 @@ export async function update(table, data, where) {
     updateTime: db.serverDate()
   })
 
-  // 如果where包含_id，使用doc更新
+  // 如果where包含_id，使用doc更新（优先使用_id）
   if (where._id || where.id) {
     const id = where._id || where.id
-    return db.collection(table)
-      .doc(id)
-      .update({
-        data: updateData
-      })
+    try {
+      const result = await db.collection(table)
+        .doc(id)
+        .update({
+          data: updateData
+        })
+      // 微信小程序 SDK 返回格式可能不同，检查多种情况
+      // 有些版本返回 { stats: { updated: 1 } }，有些直接返回 { updated: 1 }
+      const updated = (result.stats && result.stats.updated) || result.updated || 0
+      if (updated > 0) {
+        return result
+      }
+      // doc 更新未成功，但不抛错，继续 fallback 尝试
+      console.warn('使用 doc 更新未找到记录，尝试 fallback:', { table, id })
+    } catch (error) {
+      console.warn('使用 doc 更新失败，尝试 fallback:', error)
+    }
+    
+    // Fallback: 使用 tenantId 条件更新（绕过 _openid 权限限制）
+    const tenantId = getTenantId()
+    console.log('Fallback: 尝试使用 tenantId 条件更新, tenantId:', tenantId)
+    
+    if (tenantId) {
+      // 尝试用 tenantId + _id 条件更新
+      try {
+        const forceUpdate = await db.collection(table)
+          .where({
+            tenantId: tenantId,
+            deleted: false
+          })
+          .doc(id)
+          .update({ data: updateData })
+        
+        const forceUpdated = (forceUpdate.stats && forceUpdate.stats.updated) || forceUpdate.updated || 0
+        if (forceUpdated > 0) {
+          console.log('Fallback: tenantId + doc 更新成功')
+          return forceUpdate
+        }
+      } catch (e) {
+        console.warn('Fallback: tenantId + doc 更新失败:', e.message)
+      }
+      
+      // 尝试先查询再更新
+      try {
+        const queryRes = await db.collection(table)
+          .where({
+            tenantId: tenantId,
+            deleted: false
+          })
+          .get()
+        
+        console.log('Fallback: 查询到记录数:', queryRes.data.length)
+        
+        // 找到匹配 _id 的记录
+        const targetRecord = queryRes.data.find(r => r._id === id)
+        if (targetRecord) {
+          console.log('Fallback: 找到目标记录，尝试更新')
+          const updateRes = await db.collection(table)
+            .doc(targetRecord._id)
+            .update({ data: updateData })
+          return updateRes
+        }
+      } catch (e) {
+        console.warn('Fallback: 查询后更新失败:', e.message)
+      }
+    }
+    
+    // 都找不到，抛出错误
+    throw new Error(`未找到要更新的记录 (table: ${table}, id: ${id})`)
   }
   
-  // 否则使用where条件更新（需要先查询再更新）
+  // 没有 _id 或 id，使用其他 where 条件更新
   const tenantId = getTenantId()
+  const whereClause = {
+    deleted: false
+  }
+  
+  if (tenantId) {
+    whereClause.tenantId = tenantId
+  }
+  
+  // 合并 where 条件（排除 _id 和 id）
+  const { _id, id, ...otherWhere } = where
+  
+  // 安全检查：必须有有效的查询条件，防止批量更新所有记录
+  if (Object.keys(otherWhere).length === 0) {
+    throw new Error('更新操作必须提供有效的查询条件')
+  }
+  
+  Object.assign(whereClause, otherWhere)
+  
   const queryRes = await db.collection(table)
-    .where({
-      tenantId: tenantId,
-      deleted: false,
-      ...where
-    })
+    .where(whereClause)
     .get()
   
   if (queryRes.data.length === 0) {
     throw new Error('未找到要更新的记录')
   }
   
-  // 批量更新
-  const updatePromises = queryRes.data.map(item => {
-    return db.collection(table)
-      .doc(item._id)
-      .update({
-        data: updateData
-      })
-  })
+  // 安全检查：如果查到多条记录，警告并只更新第一条
+  if (queryRes.data.length > 1) {
+    console.warn(`警告：查询到 ${queryRes.data.length} 条记录，只更新第一条`, { table, where: whereClause })
+  }
   
-  return Promise.all(updatePromises)
+  // 只更新第一条记录
+  return db.collection(table)
+    .doc(queryRes.data[0]._id)
+    .update({ data: updateData })
 }
 
 /**
@@ -436,14 +582,63 @@ export async function queryByIds(table, ids, options = {}) {
   }
   
   const tenantId = getTenantId()
-  return db.collection(table)
-    .where({
-      tenantId: tenantId,
-      deleted: false,
-      _id: _.in(ids)
-    })
-    .limit(100)
-    .get()
+  // 兼容：id 可能是 string/number；有些表可能使用自定义字段 id（数字）而不是 _id
+  const idStrs = []
+  const idNums = []
+  ids.forEach((raw) => {
+    if (raw === undefined || raw === null) return
+    const s = String(raw)
+    if (s) idStrs.push(s)
+    if (/^\d+$/.test(s)) idNums.push(parseInt(s, 10))
+    if (typeof raw === 'number') idNums.push(raw)
+  })
+
+  const baseWhere = {
+    tenantId: tenantId,
+    deleted: false
+  }
+
+  // 1) 优先按 _id（字符串）查
+  let resById = { data: [] }
+  try {
+    resById = await db.collection(table)
+      .where({
+        ...baseWhere,
+        _id: _.in(idStrs.length ? idStrs : ids)
+      })
+      .limit(100)
+      .get()
+  } catch (e) {
+    // ignore
+  }
+
+  // 2) 如仍不足，尝试按自定义 id（数字）补齐
+  let resByCustomId = { data: [] }
+  if (idNums.length > 0) {
+    try {
+      resByCustomId = await db.collection(table)
+        .where({
+          ...baseWhere,
+          id: _.in(Array.from(new Set(idNums)))
+        })
+        .limit(100)
+        .get()
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // 3) 合并去重
+  const merged = []
+  const seen = new Set()
+  ;(resById.data || []).concat(resByCustomId.data || []).forEach((item) => {
+    const key = String(item?._id || item?.id || '')
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    merged.push(item)
+  })
+
+  return { data: merged }
 }
 
 /**

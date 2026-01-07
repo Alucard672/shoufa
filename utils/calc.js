@@ -1,5 +1,6 @@
 // utils/calc.js
 // 计算工具函数
+import { getPiecesPerDozenSync } from './systemParams.js'
 
 /**
  * 精确加法
@@ -62,7 +63,8 @@ export function calculatePlanYarnUsage(planQuantity, yarnUsagePerPiece) {
  * @returns {Number} 回货件数
  */
 export function calculateReturnPieces(returnQuantity) {
-  return accMul(returnQuantity, 12)
+  const piecesPerDozen = getPiecesPerDozenSync()
+  return accMul(returnQuantity, piecesPerDozen)
 }
 
 /**
@@ -101,7 +103,8 @@ export function calculateRemainingYarn(totalIssueWeight, totalUsedYarn) {
  * @returns {String} 格式化后的金额字符串（不带¥）
  */
 export function formatAmount(amount) {
-  return amount.toFixed(2)
+  const a = parseFloat(amount) || 0
+  return a.toFixed(2)
 }
 
 /**
@@ -110,7 +113,8 @@ export function formatAmount(amount) {
  * @returns {String} 格式化后的重量字符串
  */
 export function formatWeight(weight) {
-  return `${weight.toFixed(2)} kg`
+  const w = parseFloat(weight) || 0
+  return `${w.toFixed(2)} kg`
 }
 
 /**
@@ -245,8 +249,9 @@ export function getTimeRange(type) {
  */
 export function formatQuantity(pieces) {
   const p = Math.floor(pieces || 0)
-  const doz = Math.floor(p / 12)
-  const rem = p % 12
+  const piecesPerDozen = getPiecesPerDozenSync()
+  const doz = Math.floor(p / piecesPerDozen)
+  const rem = p % piecesPerDozen
 
   if (doz > 0 && rem > 0) {
     return `${doz}打 ${rem}件`

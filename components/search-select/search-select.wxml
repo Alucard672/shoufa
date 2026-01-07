@@ -62,10 +62,18 @@
         </view>
       </view>
 
-      <!-- 显示快速新增提示 -->
+      <!-- 显示快速新增提示（有搜索关键词时） -->
       <view class="add-tip" wx:if="{{allowAdd && searchKeyword && !showAddForm}}">
         <text class="add-tip-text">未找到所需？</text>
         <text class="add-tip-link" bindtap="onShowAddForm">快速新增 "{{searchKeyword}}"</text>
+      </view>
+      
+      <!-- 快速新增按钮（始终显示，即使没有搜索关键词） -->
+      <view class="quick-add-btn-wrapper" wx:if="{{allowAdd && !showAddForm}}">
+        <view class="quick-add-btn" bindtap="onShowAddForm">
+          <image class="quick-add-icon" src="/images/icons/add.svg" mode="aspectFit"></image>
+          <text class="quick-add-text">快速新增{{addType === 'color' ? '颜色' : addType === 'size' ? '尺码' : ''}}</text>
+        </view>
       </view>
       
       <scroll-view class="options-list" scroll-y>

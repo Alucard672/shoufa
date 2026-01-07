@@ -68,16 +68,17 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  min-width: 150px;
+  min-width: 170px;
   padding: 8px 0;
   cursor: pointer;
   flex: 1;
   margin-left: 16px;
 }
 
-.info-value.picker text {
+.picker-date {
   flex: 1;
   text-align: right;
+  white-space: nowrap; /* 日期不折行 */
 }
 
 .picker-arrow {

@@ -1,89 +1,155 @@
 <!--pages/issue/create.wxml-->
-<view class="container">
-  <view class="form">
-    <view class="form-item">
-      <text class="form-label">加工厂</text>
-      <search-select 
-        placeholder="请搜索选择加工厂"
-        options="{{factories}}"
-        display-key="name"
-        value-key="_id"
-        selected-values="{{selectedFactory ? [selectedFactory] : []}}"
-        multiple="{{false}}"
-        bindchange="onFactoryChange"
-      />
-    </view>
-
-    <view class="form-item">
-      <text class="form-label">款号</text>
-      <search-select 
-        placeholder="请搜索选择款号"
-        options="{{styles}}"
-        display-key="styleName"
-        value-key="_id"
-        format-display="style"
-        selected-values="{{selectedStyle ? [selectedStyle] : []}}"
-        multiple="{{false}}"
-        bindchange="onStyleChange"
-      />
-    </view>
-
-    <view class="form-item" wx:if="{{selectedStyleId}}">
-      <text class="form-label">颜色</text>
-      <search-select 
-        placeholder="请搜索选择颜色"
-        options="{{colorOptions}}"
-        display-key="name"
-        value-key="_id"
-        selected-values="{{selectedColors}}"
-        multiple="{{false}}"
-        bindchange="onColorChange"
-      />
-    </view>
-
-    <view class="form-item">
-      <text class="form-label">发料重量 (kg)</text>
-      <input 
-        class="form-input" 
-        type="digit" 
-        placeholder="请输入发料重量"
-        value="{{issueWeight}}"
-        bindinput="onWeightInput"
-      />
-    </view>
-
-    <view class="form-item" wx:if="{{selectedStyleId && selectedFactoryId}}">
-      <text class="form-label">加工单价</text>
-      <input 
-        class="form-input" 
-        type="digit" 
-        placeholder="请输入加工单价"
-        value="{{processingFeePerDozen}}"
-        bindinput="onProcessingFeeInput"
-      />
-      <view class="form-hint-row" wx:if="{{processingFeePerDozen}}">
-        <text class="form-hint-label">上次价：</text>
-        <text class="form-hint-value">一打 ¥{{processingFeePerDozen}}元</text>
-        <text class="form-hint-separator" wx:if="{{processingFeePerPiece}}">·</text>
-        <text class="form-hint-value" wx:if="{{processingFeePerPiece}}">一件 ¥{{processingFeePerPiece}}元</text>
+<view class="page-wrapper">
+  <!-- 顶部橙色背景区域（参考发料明细页） -->
+  <view class="header-bg">
+    <view class="header-content">
+      <view class="header-icon-box">
+        <text class="header-icon-text">发</text>
+      </view>
+      <view class="header-text-group">
+        <text class="header-title">{{isEdit ? '编辑发料单' : (selectedFactory.name || '新建发料单')}}</text>
+        <text class="header-subtitle">{{selectedStyle ? ('款号: ' + (selectedStyle.styleCode || selectedStyle.style_code || '-') + ' ' + (selectedStyle.styleName || selectedStyle.style_name || selectedStyle.name || '')) : '请选择加工厂与款号'}}</text>
       </view>
     </view>
-
-    <view class="form-item">
-      <text class="form-label">发料日期</text>
-      <picker 
-        mode="date" 
-        value="{{issueDate}}"
-        bindchange="onDateChange"
-      >
-        <view class="picker">
-          {{issueDate || '请选择日期'}}
-        </view>
-      </picker>
+    <view class="header-time">
+      <image class="time-icon" src="/images/icons/calendar.svg" mode="aspectFit" style="filter: brightness(0) invert(1);"></image>
+      <text>发料日期: {{issueDate || '-'}}</text>
     </view>
+  </view>
 
-    <view class="form-actions">
-      <button class="btn btn-primary" bindtap="onSubmit">提交</button>
+  <!-- 款式信息卡片（含图片，参考明细页） -->
+  <view class="section" wx:if="{{selectedStyle}}">
+    <view class="card style-card">
+      <view class="style-info-row">
+        <view class="style-image-container" catchtap="onPreviewImage" data-url="{{selectedStyleImageUrl}}">
+          <image class="style-image" src="{{selectedStyleImageUrl}}" mode="aspectFill" wx:if="{{selectedStyleImageUrl}}" binderror="onStyleImageError"></image>
+          <view class="style-image-placeholder" wx:else>
+            <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+          </view>
+        </view>
+        <view class="style-text-content">
+          <view class="style-name-row">
+            <text class="style-code" wx:if="{{selectedStyle.styleCode || selectedStyle.style_code}}">[{{selectedStyle.styleCode || selectedStyle.style_code}}]</text>
+            <text class="style-name">{{selectedStyle.styleName || selectedStyle.style_name || selectedStyle.name || '未知款号'}}</text>
+          </view>
+          <view class="style-meta-row">
+            <text class="meta-item" wx:if="{{selectedStyle.yarnUsagePerPiece || selectedStyle.yarn_usage_per_piece}}">单件用量: {{selectedStyle.yarnUsagePerPiece || selectedStyle.yarn_usage_per_piece}}g</text>
+            <text class="meta-item" wx:if="{{selectedStyle.lossRate || selectedStyle.loss_rate}}">损耗: {{selectedStyle.lossRate || selectedStyle.loss_rate}}%</text>
+          </view>
+        </view>
+      </view>
+      <view class="img-tip" wx:if="{{styleImageError}}">
+        <text>图片加载失败，请检查款号图片是否为 cloud:// 文件ID</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 快速概览网格（参考明细页元素） -->
+  <view class="summary-grid-section">
+    <view class="summary-grid">
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/issue.svg" mode="aspectFit"></image>
+        <text class="grid-label">发料重量</text>
+        <text class="grid-value">{{issueWeight ? (issueWeight + ' kg') : '--'}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/shirt.svg" mode="aspectFit"></image>
+        <text class="grid-label">预计件数</text>
+        <text class="grid-value">{{estimatedPiecesFormatted || '--'}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/statistics.svg" mode="aspectFit"></image>
+        <text class="grid-label">加工单价</text>
+        <text class="grid-value">{{processingFeePerDozen ? ('¥' + processingFeePerDozen + '/打') : '--'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 表单卡片（统一样式） -->
+  <view class="section">
+    <view class="card form-card">
+      <view class="form-item">
+        <text class="form-label">加工厂 *</text>
+        <search-select 
+          placeholder="请搜索选择加工厂"
+          options="{{factories}}"
+          display-key="name"
+          value-key="_id"
+          selected-values="{{selectedFactory ? [selectedFactory] : []}}"
+          multiple="{{false}}"
+          bindchange="onFactoryChange"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">款号 *</text>
+        <search-select 
+          placeholder="请搜索选择款号"
+          options="{{styles}}"
+          display-key="styleName"
+          value-key="_id"
+          format-display="style"
+          selected-values="{{selectedStyle ? [selectedStyle] : []}}"
+          multiple="{{false}}"
+          bindchange="onStyleChange"
+        />
+      </view>
+
+      <view class="form-item" wx:if="{{selectedStyleId}}">
+        <text class="form-label">颜色</text>
+        <search-select 
+          placeholder="请搜索选择颜色"
+          options="{{colorOptions}}"
+          display-key="name"
+          value-key="_id"
+          selected-values="{{selectedColors}}"
+          multiple="{{false}}"
+          bindchange="onColorChange"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">发料重量 (kg) *</text>
+        <input 
+          class="form-input" 
+          type="digit" 
+          placeholder="请输入发料重量"
+          value="{{issueWeight}}"
+          bindinput="onWeightInput"
+        />
+      </view>
+
+      <view class="form-item" wx:if="{{selectedStyleId && selectedFactoryId}}">
+        <text class="form-label">加工单价 (元/打) *</text>
+        <input 
+          class="form-input" 
+          type="digit" 
+          placeholder="请输入加工单价"
+          value="{{processingFeePerDozen}}"
+          bindinput="onProcessingFeeInput"
+        />
+        <view class="form-hint-row" wx:if="{{processingFeePerDozen}}">
+          <text class="form-hint-label">折算：</text>
+          <text class="form-hint-value">一件 ¥{{processingFeePerPiece}}元</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">发料日期 *</text>
+        <picker 
+          mode="date" 
+          value="{{issueDate}}"
+          bindchange="onDateChange"
+        >
+          <view class="picker">
+            {{issueDate || '请选择日期'}}
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-actions">
+        <button class="btn btn-primary" bindtap="onSubmit" disabled="{{submitting}}">{{isEdit ? '保存' : '提交'}}</button>
+      </view>
     </view>
   </view>
 </view>

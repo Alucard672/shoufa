@@ -1,13 +1,16 @@
 // pages/style/create.js
 import { query, getStyleById, insert, update } from '../../utils/db.js'
 import { checkLogin } from '../../utils/auth.js'
+import { getImageUrl } from '../../utils/image.js'
 const app = getApp()
 
 Page({
   data: {
     styleId: '',
     isEdit: false,
-    imageUrl: '',
+    disabled: false,     // 是否已停用
+    imageUrl: '',        // 原始 cloud:// URL，用于保存到数据库
+    imageDisplayUrl: '', // 临时URL，用于页面显示
     styleCode: '',
     styleName: '',
     category: '',
@@ -25,7 +28,25 @@ Page({
     yarnOptions: [],
     selectedYarns: [],
     yarnIds: [],
-    remark: ''
+    remark: '',
+    imageError: false,
+    submitting: false
+  },
+
+  onPreviewImage(e) {
+    const url = e.currentTarget.dataset.url
+    if (url) {
+      wx.previewImage({
+        urls: [url],
+        current: url
+      })
+    }
+  },
+
+  onImageError() {
+    this.setData({
+      imageError: true
+    })
   },
 
   async onLoad(options) {
@@ -33,16 +54,42 @@ Page({
     if (!checkLogin()) {
       return
     }
+    console.log('款号编辑页面 onLoad，options:', options)
     // 先加载字典数据（包括纱线列表）
     await this.loadDictionaries()
 
     if (options.id) {
+      console.log('检测到编辑模式，ID:', options.id)
       this.setData({
         styleId: options.id,
         isEdit: true
       })
       // 等待字典数据加载完成后再加载款号数据
       await this.loadStyle(options.id)
+    } else {
+      console.log('新增模式')
+      // 新增模式，重置表单
+      this.setData({
+        styleId: '',
+        isEdit: false,
+        imageUrl: '',
+        imageDisplayUrl: '',
+        styleCode: '',
+        styleName: '',
+        category: '',
+        yarnUsagePerPiece: '',
+        lossRate: '',
+        actualUsage: '',
+        processingFeePerDozen: '',
+        processingFeePerPiece: '',
+        availableColors: [],
+        availableSizes: [],
+        selectedColors: [],
+        selectedSizes: [],
+        selectedYarns: [],
+        yarnIds: [],
+        remark: ''
+      })
     }
   },
 
@@ -52,14 +99,21 @@ Page({
         title: '加载中...'
       })
 
+      console.log('开始加载款号数据，ID:', styleId)
+
       const styleRes = await getStyleById(styleId)
+      console.log('查询结果:', styleRes)
       const styleData = styleRes.data
 
       if (styleData) {
+        console.log('款号原始数据:', styleData)
         // 验证租户，防止水平越权
         if (styleData.tenantId && styleData.tenantId !== app.globalData.tenantId) {
           throw new Error('无权访问该款号')
         }
+
+        // 使用数据库中的实际 _id 作为 styleId（确保ID类型一致）
+        const actualId = styleData._id || styleData.id || styleId
 
         // 确保字典数据已加载（如果还没有，重新加载）
         if (!this.data.colorOptions || this.data.colorOptions.length === 0) {
@@ -276,8 +330,25 @@ Page({
           selectedSizes: selectedSizes.map(s => s.name || s)
         })
 
-        this.setData({
-          imageUrl: styleData.imageUrl || styleData.image_url || '',
+        // 处理图片URL
+        const rawImageUrl = (styleData.imageUrl || styleData.image_url || '').toString().trim()
+        let displayImageUrl = rawImageUrl
+        if (rawImageUrl && rawImageUrl.startsWith('cloud://')) {
+          try {
+            console.log('尝试获取图片临时URL, 原始URL:', rawImageUrl)
+            displayImageUrl = await getImageUrl(rawImageUrl)
+            console.log('获取到的临时URL:', displayImageUrl)
+          } catch (e) {
+            console.warn('获取图片临时URL失败:', e)
+          }
+        }
+
+        const formData = {
+          styleId: actualId, // 保存实际的数据库ID
+          disabled: styleData.disabled || false,  // 是否已停用
+          imageUrl: rawImageUrl,  // 原始URL用于保存
+          imageDisplayUrl: displayImageUrl,  // 临时URL用于显示
+          imageError: false,
           styleCode: styleData.styleCode || styleData.style_code || '',
           styleName: styleData.styleName || styleData.style_name || '',
           category: styleData.category || '',
@@ -285,7 +356,11 @@ Page({
           lossRate: (styleData.lossRate || styleData.loss_rate) ? (styleData.lossRate || styleData.loss_rate).toString() : '',
           actualUsage: (styleData.actualUsage || styleData.actual_usage) ? (styleData.actualUsage || styleData.actual_usage).toString() : '',
           processingFeePerDozen: (styleData.processingFeePerDozen || styleData.processing_fee_per_dozen) ? (styleData.processingFeePerDozen || styleData.processing_fee_per_dozen).toString() : '',
-          processingFeePerPiece: (styleData.processingFeePerDozen || styleData.processing_fee_per_dozen) ? ((parseFloat(styleData.processingFeePerDozen || styleData.processing_fee_per_dozen) / 12).toFixed(2)) : '0.00',
+          processingFeePerPiece: (() => {
+            const { getPiecesPerDozenSync } = require('../../utils/systemParams.js')
+            const piecesPerDozen = getPiecesPerDozenSync()
+            return (styleData.processingFeePerDozen || styleData.processing_fee_per_dozen) ? ((parseFloat(styleData.processingFeePerDozen || styleData.processing_fee_per_dozen) / piecesPerDozen).toFixed(2)) : '0.00'
+          })(),
           availableColors: availableColors || [],
           availableSizes: availableSizes || [],
           selectedColors: selectedColors,
@@ -293,18 +368,39 @@ Page({
           selectedYarns: selectedYarns,
           yarnIds: yarnIds || [],
           remark: styleData.remark || ''
+        }
+
+        console.log('设置表单数据:', {
+          ...formData,
+          selectedColorsCount: selectedColors.length,
+          selectedSizesCount: selectedSizes.length,
+          selectedYarnsCount: selectedYarns.length
         })
+        this.setData(formData)
 
         this.calculateActualUsage()
+        
+        wx.hideLoading()
+        wx.showToast({
+          title: '加载成功',
+          icon: 'success',
+          duration: 1000
+        })
+      } else {
+        wx.hideLoading()
+        console.error('未找到款号数据')
+        wx.showToast({
+          title: '未找到款号数据',
+          icon: 'none'
+        })
       }
-
-      wx.hideLoading()
     } catch (error) {
       wx.hideLoading()
       console.error('加载款号失败:', error)
       wx.showToast({
-        title: '加载失败',
-        icon: 'none'
+        title: '加载失败: ' + (error.message || '未知错误'),
+        icon: 'none',
+        duration: 3000
       })
     }
   },
@@ -388,9 +484,11 @@ Page({
   },
 
   onProcessingFeeInput(e) {
+    const { getPiecesPerDozenSync } = require('../../utils/systemParams.js')
+    const piecesPerDozen = getPiecesPerDozenSync()
     const value = e.detail.value
     const feePerDozen = parseFloat(value) || 0
-    const feePerPiece = (feePerDozen / 12).toFixed(2)
+    const feePerPiece = (feePerDozen / piecesPerDozen).toFixed(2)
     this.setData({
       processingFeePerDozen: value,
       processingFeePerPiece: feePerPiece
@@ -635,6 +733,11 @@ Page({
   },
 
   async onSubmit() {
+    // 防止重复提交
+    if (this.data.submitting) {
+      return
+    }
+
     // 验证必填字段
     if (!this.data.styleCode || !this.data.styleName || !this.data.yarnUsagePerPiece || !this.data.processingFeePerDozen) {
       wx.showToast({
@@ -642,6 +745,37 @@ Page({
         icon: 'none'
       })
       return
+    }
+
+    this.setData({ submitting: true })
+
+    try {
+      // 检查款号是否重复
+      const existingStyles = await query('styles', { 
+        styleCode: this.data.styleCode.trim() 
+      }, { excludeDeleted: true })
+      
+      // 新增模式：不能有同名款号
+      // 编辑模式：不能有同名款号（排除自己）
+      const duplicates = existingStyles.data.filter(s => {
+        if (this.data.isEdit) {
+          return s._id !== this.data.styleId
+        }
+        return true
+      })
+      
+      if (duplicates.length > 0) {
+        wx.showToast({
+          title: '款号已存在，请使用其他款号',
+          icon: 'none',
+          duration: 2000
+        })
+        this.setData({ submitting: false })
+        return
+      }
+    } catch (e) {
+      console.warn('检查款号重复失败:', e)
+      // 检查失败不阻止保存，继续执行
     }
 
     try {
@@ -699,14 +833,14 @@ Page({
 
       let result
       if (this.data.isEdit) {
-        // 编辑模式
+        // 编辑模式：优先使用 _id，确保类型匹配
         console.log('更新款号数据到数据库:', {
           styleId: this.data.styleId,
           styleData: styleData
         })
 
         await update('styles', styleData, {
-          id: this.data.styleId
+          _id: this.data.styleId // 使用 _id 确保类型匹配
         })
 
         result = { _id: this.data.styleId }
@@ -734,11 +868,69 @@ Page({
         icon: 'none',
         duration: 3000
       })
+      this.setData({ submitting: false })
     }
   },
 
   onCancel() {
     wx.navigateBack()
+  },
+
+  // 停用/启用款号
+  onToggleDisabled() {
+    const newStatus = !this.data.disabled
+    const action = newStatus ? '停用' : '启用'
+    
+    wx.showModal({
+      title: '确认' + action,
+      content: `确定要${action}款号 "${this.data.styleCode}" 吗？${newStatus ? '停用后该款号将不会出现在选择列表中。' : ''}`,
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            wx.showLoading({ title: '处理中...' })
+            
+            console.log('开始' + action + '款号:', this.data.styleId)
+            
+            // 直接使用云数据库操作，强制设置属性
+            const db = wx.cloud.database()
+            const result = await db.collection('styles')
+              .doc(this.data.styleId)
+              .update({
+                data: {
+                  disabled: newStatus,
+                  updateTime: db.serverDate()
+                }
+              })
+            
+            console.log('停用操作数据库返回:', result)
+            
+            // 确认更新成功
+            if (result.stats.updated === 0) {
+              throw new Error('权限不足或记录不存在，请检查数据库权限设置')
+            }
+            
+            wx.hideLoading()
+            wx.showToast({
+              title: action + '成功',
+              icon: 'success'
+            })
+            
+            // 延迟返回列表
+            setTimeout(() => {
+              wx.navigateBack()
+            }, 1500)
+          } catch (error) {
+            wx.hideLoading()
+            console.error(action + '失败:', error)
+            wx.showToast({
+              title: action + '失败: ' + (error.message || '未知错误'),
+              icon: 'none',
+              duration: 3000
+            })
+          }
+        }
+      }
+    })
   },
 
   // 选择图片
@@ -798,11 +990,21 @@ Page({
         filePath: filePath
       })
 
-      // 获取文件ID（可以直接使用，也可以获取下载链接）
+      // 获取文件ID
       const fileID = uploadResult.fileID
+      
+      // 保存原始 fileID 用于数据库存储，同时获取临时URL用于显示
+      let displayUrl = fileID
+      try {
+        displayUrl = await getImageUrl(fileID)
+      } catch (e) {
+        console.warn('获取临时URL失败，使用原始fileID:', e)
+      }
 
       this.setData({
-        imageUrl: fileID
+        imageUrl: fileID,  // 保存原始 cloud:// URL 到数据库
+        imageDisplayUrl: displayUrl,  // 用于页面显示
+        imageError: false
       })
 
       wx.hideLoading()
@@ -841,7 +1043,9 @@ Page({
           }
 
           this.setData({
-            imageUrl: ''
+            imageUrl: '',
+            imageDisplayUrl: '',
+            imageError: false
           })
         }
       }

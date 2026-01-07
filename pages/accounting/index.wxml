@@ -1,15 +1,18 @@
 <!--pages/accounting/index.wxml-->
-<view class="container">
-  <!-- 页面标题 -->
-  <view class="page-header">
-    <view class="header-left">
-      <text class="page-title">账款管理</text>
-      <text class="page-subtitle">查看各加工厂的账款明细</text>
+<view class="page-wrapper">
+  <!-- 顶部蓝色背景区域 -->
+  <view class="header-bg">
+    <view class="header-content">
+      <image class="header-icon" src="/images/icons/folder.svg" mode="aspectFit" style="filter: brightness(0) invert(1);"></image>
+      <view class="header-text-group">
+        <text class="header-title">账款管理</text>
+        <text class="header-subtitle">加工厂对账汇总</text>
+      </view>
     </view>
   </view>
 
   <!-- 加工厂列表 -->
-  <view class="factory-list">
+  <view class="factory-list-section">
     <view 
       class="factory-card card" 
       wx:for="{{factories}}" 
@@ -20,27 +23,28 @@
       <view class="factory-header">
         <view class="factory-info">
           <text class="factory-name">{{item.name}}</text>
-          <text class="factory-contact" wx:if="{{item.contact}}">{{item.contact}} {{item.phone}}</text>
+          <text class="factory-contact" wx:if="{{item.contact}}">{{item.contact}} · {{item.phone}}</text>
         </view>
-        <text class="factory-arrow">›</text>
+        <view class="factory-actions">
+          <view class="settle-btn" catchtap="onSettleFactory" data-id="{{item._id || item.id}}">
+            <text class="settle-btn-text">结算</text>
+          </view>
+          <text class="factory-arrow">›</text>
+        </view>
       </view>
       
-      <view class="factory-summary">
-        <view class="summary-row">
+      <view class="factory-summary-grid">
+        <view class="summary-item">
           <text class="summary-label">总金额</text>
-          <text class="summary-value total">¥{{item.summaryFormatted.totalAmount}}</text>
+          <text class="summary-value">¥{{item.summaryFormatted.totalAmount}}</text>
         </view>
-        <view class="summary-row">
-          <text class="summary-label">已结算</text>
-          <text class="summary-value settled">¥{{item.summaryFormatted.settledAmount}}</text>
-        </view>
-        <view class="summary-row">
+        <view class="summary-item">
           <text class="summary-label">未结算</text>
           <text class="summary-value unpaid">¥{{item.summaryFormatted.unpaidAmount}}</text>
         </view>
-        <view class="summary-row" wx:if="{{item.orderCount > 0}}">
+        <view class="summary-item">
           <text class="summary-label">回货单数</text>
-          <text class="summary-value">{{item.orderCount}}单</text>
+          <text class="summary-value">{{item.orderCount}} 单</text>
         </view>
       </view>
     </view>
@@ -48,11 +52,11 @@
 
   <!-- 空状态 -->
   <view class="empty-tip" wx:if="{{factories.length === 0 && !loading}}">
-    <text>暂无加工厂数据</text>
+    <text>暂无加工厂对账数据</text>
   </view>
 
   <!-- 加载中 -->
   <view class="loading-tip" wx:if="{{loading}}">
-    <text>加载中...</text>
+    <text>正在加载账款汇总...</text>
   </view>
 </view>

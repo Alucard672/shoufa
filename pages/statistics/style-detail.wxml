@@ -1,98 +1,152 @@
 <!--pages/statistics/style-detail.wxml-->
-<view class="container">
-  <!-- 款号汇总 -->
-  <view class="summary-card card">
-    <view class="summary-header">
-      <view class="style-image-container" wx:if="{{styleImageUrl}}" bindtap="onPreviewImage" data-url="{{styleImageUrl}}">
-        <image class="style-image" src="{{styleImageUrl}}" mode="aspectFill"></image>
+<view class="page-wrapper">
+  <!-- 顶部青色背景区域（对齐回货明细页） -->
+  <view class="header-bg">
+    <view class="header-content">
+      <view class="header-icon-box">
+        <text class="header-icon-text">款</text>
       </view>
-      <view class="style-image-placeholder" wx:else>
-        <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
-      </view>
-      <view class="style-info">
-        <text class="style-code" wx:if="{{styleCode}}">{{styleCode}}</text>
-        <text class="style-name">{{styleName}}</text>
+      <view class="header-text-group">
+        <text class="header-title">{{styleName || '款号明细'}}</text>
+        <text class="header-subtitle">款号: {{styleCode ? ('[' + styleCode + ']') : '-'}}</text>
       </view>
     </view>
+    <view class="header-time">
+      <image class="time-icon" src="/images/icons/calendar.svg" mode="aspectFit" style="filter: brightness(0) invert(1);"></image>
+      <text>统计周期: {{timeFilterLabel}}</text>
+    </view>
+  </view>
+
+  <!-- 汇总统计网格 (3x2) -->
+  <view class="summary-grid-section">
     <view class="summary-grid">
-      <view class="summary-item">
-        <text class="summary-label">发料单数</text>
-        <text class="summary-value">{{summary.totalIssueCount}}笔</text>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/issue.svg" mode="aspectFit"></image>
+        <text class="grid-label">发料单数</text>
+        <text class="grid-value">{{summary.totalIssueCount || 0}}</text>
       </view>
-      <view class="summary-item">
-        <text class="summary-label">发料重量</text>
-        <text class="summary-value">{{summary.totalIssueWeightFormatted}}</text>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/issue.svg" mode="aspectFit"></image>
+        <text class="grid-label">发料重量</text>
+        <text class="grid-value">{{summary.totalIssueWeightFormatted || '0.00kg'}}</text>
       </view>
-      <view class="summary-item">
-        <text class="summary-label">回货件数</text>
-        <text class="summary-value return">{{summary.totalReturnPiecesFormatted}}</text>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/shirt.svg" mode="aspectFit"></image>
+        <text class="grid-label">回货件数</text>
+        <text class="grid-value">{{summary.totalReturnPiecesFormatted || '0打0件'}}</text>
       </view>
-      <view class="summary-item">
-        <text class="summary-label">回货重量</text>
-        <text class="summary-value return">{{summary.totalReturnWeightFormatted}}</text>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/package.svg" mode="aspectFit"></image>
+        <text class="grid-label">回货重量</text>
+        <text class="grid-value">{{summary.totalReturnWeightFormatted || '0.00kg'}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/factory.svg" mode="aspectFit"></image>
+        <text class="grid-label">工厂数</text>
+        <text class="grid-value">{{summary.factoryCount || 0}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/check.svg" mode="aspectFit"></image>
+        <text class="grid-label">已回单数</text>
+        <text class="grid-value highlight">{{summary.returnedIssueCount || 0}}</text>
       </view>
     </view>
   </view>
 
-  <!-- 查询条件 -->
-  <view class="filter-section">
-    <view class="filter-item filter-item-row" hover-class="none">
-      <text class="filter-label-inline">工厂</text>
-      <input 
-        class="search-input" 
-        type="text" 
-        placeholder="请输入加工厂名称"
-        value="{{factoryKeyword}}"
-        bindinput="onFactoryKeywordInput"
-      />
+  <!-- 款式信息卡片（对齐回货明细页“款式信息卡片”） -->
+  <view class="section">
+    <view class="card">
+      <view class="style-info-row">
+        <view class="style-image-container" wx:if="{{styleImageUrl}}" bindtap="onPreviewImage" data-url="{{styleImageUrl}}">
+          <image class="style-image" src="{{styleImageUrl}}" mode="aspectFill" binderror="onStyleImageError"></image>
+        </view>
+        <view class="style-image-placeholder" wx:else>
+          <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+        </view>
+        <view class="style-text-content">
+          <view class="style-name-row">
+            <text class="style-code" wx:if="{{styleCode}}">[{{styleCode}}]</text>
+            <text class="style-name">{{styleName}}</text>
+          </view>
+          <view class="style-meta-row" wx:if="{{factoryKeyword}}">
+            <text class="meta-pill">工厂筛选: {{factoryKeyword}}</text>
+          </view>
+          <text class="muted-text">点击列表可进入发料单明细</text>
+        </view>
+      </view>
     </view>
-    <view class="filter-item filter-item-row" hover-class="none">
-      <text class="filter-label-inline">日期</text>
-      <filter-tabs 
-        options="{{['全部时间', '今天', '本周', '本月']}}"
-        current="{{timeFilter === 'all' ? 0 : timeFilter === 'today' ? 1 : timeFilter === 'week' ? 2 : 3}}"
-        bindchange="onTimeFilterChange"
-      />
+  </view>
+
+  <!-- 筛选卡片 -->
+  <view class="section">
+    <view class="card">
+      <view class="filter-row">
+        <text class="filter-label">工厂</text>
+        <input 
+          class="filter-input" 
+          type="text" 
+          placeholder="请输入加工厂名称"
+          value="{{factoryKeyword}}"
+          bindinput="onFactoryKeywordInput"
+        />
+      </view>
+      <view class="filter-row">
+        <text class="filter-label">日期</text>
+        <view class="tabs-wrap">
+          <filter-tabs 
+            options="{{['全部时间', '今天', '本周', '本月']}}"
+            current="{{timeFilter === 'all' ? 0 : timeFilter === 'today' ? 1 : timeFilter === 'week' ? 2 : 3}}"
+            bindchange="onTimeFilterChange"
+          />
+        </view>
+      </view>
     </view>
   </view>
 
   <!-- 明细列表 -->
-  <view class="order-list">
-    <view class="order-card card" wx:for="{{filteredIssueOrders}}" wx:key="_id">
-      <view class="order-header">
-        <view class="order-title">
-          <text class="order-no">{{item.issueNo}}</text>
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">发料单明细</text>
+    </view>
+    <view class="order-list">
+      <view class="card order-card" wx:for="{{filteredIssueOrders}}" wx:key="_id" bindtap="navigateToDetail" data-id="{{item._id}}">
+        <view class="style-name-row" style="justify-content: space-between;">
+          <text class="style-name">{{item.issueNo}}</text>
           <badge type="{{item.status === '未回货' ? 'warning' : item.status === '部分回货' ? 'info' : 'success'}}" text="{{item.status}}" />
         </view>
-        <text class="factory-name">{{item.factoryName}}</text>
+        <text class="muted-text" style="margin-top: 10rpx;">加工厂：{{item.factoryName}}</text>
+
+        <view class="mini-grid">
+          <view class="mini-item">
+            <text class="mini-label">发料日期</text>
+            <text class="mini-value">{{item.issueDateFormatted}}</text>
+          </view>
+          <view class="mini-item">
+            <text class="mini-label">发料重量</text>
+            <text class="mini-value">{{item.issueWeightFormatted}}</text>
+          </view>
+          <view class="mini-item">
+            <text class="mini-label">回货件数</text>
+            <text class="mini-value green">{{item.totalReturnPiecesFormatted}}</text>
+          </view>
+          <view class="mini-item">
+            <text class="mini-label">回货重量</text>
+            <text class="mini-value green">{{item.totalReturnWeightFormatted}}</text>
+          </view>
+          <view class="mini-item" wx:if="{{item.status === '部分回货'}}">
+            <text class="mini-label">剩余待回</text>
+            <text class="mini-value unpaid">{{item.remainingYarnFormatted}}</text>
+          </view>
+          <view class="mini-item">
+            <text class="mini-label">最近回货</text>
+            <text class="mini-value">{{item.latestReturnDateFormatted}}</text>
+          </view>
+        </view>
       </view>
 
-      <view class="order-data">
-        <view class="data-row">
-          <text class="data-label">发料日期</text>
-          <text class="data-value">{{item.issueDateFormatted}}</text>
-        </view>
-        <view class="data-row">
-          <text class="data-label">发料重量</text>
-          <text class="data-value">{{item.issueWeightFormatted}} kg</text>
-        </view>
-        <view class="data-row">
-          <text class="data-label">回货进度</text>
-          <text class="data-value return">{{item.totalReturnPiecesFormatted}} ({{item.totalReturnWeightFormatted}}kg)</text>
-        </view>
-        <view class="data-row" wx:if="{{item.status === '部分回货'}}">
-          <text class="data-label">剩余待回</text>
-          <text class="data-value warning">{{item.remainingYarnFormatted}} kg</text>
-        </view>
-        <view class="data-row">
-          <text class="data-label">最近回货</text>
-          <text class="data-value">{{item.latestReturnDateFormatted}}</text>
-        </view>
+      <view class="empty-tip" wx:if="{{filteredIssueOrders.length === 0}}">
+        <text>暂无相关明细</text>
       </view>
-    </view>
-
-    <view class="empty-tip" wx:if="{{filteredIssueOrders.length === 0}}">
-      <text>暂无相关明细</text>
     </view>
   </view>
 </view>

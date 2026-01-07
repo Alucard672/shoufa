@@ -12,7 +12,7 @@
       <text class="info-label">结算日期起</text>
       <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
         <view class="info-value picker">
-          <text>{{startDate || '请选择开始日期'}}</text>
+          <text class="picker-date">{{startDate || '请选择开始日期'}}</text>
           <text class="picker-arrow">›</text>
         </view>
       </picker>
@@ -21,7 +21,7 @@
       <text class="info-label">结算日期止</text>
       <picker mode="date" value="{{endDate}}" bindchange="onEndDateChange">
         <view class="info-value picker">
-          <text>{{endDate || '请选择结束日期'}}</text>
+          <text class="picker-date">{{endDate || '请选择结束日期'}}</text>
           <text class="picker-arrow">›</text>
         </view>
       </picker>

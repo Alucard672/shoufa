@@ -1,0 +1,120 @@
+<!--pages/return/detail.wxml-->
+<view class="page-wrapper">
+  <!-- 顶部青色背景区域 -->
+  <view class="header-bg">
+    <view class="header-content">
+      <view class="header-icon-box">
+        <text class="header-icon-text">回</text>
+      </view>
+      <view class="header-text-group">
+        <text class="header-title">{{returnOrder.factoryName || '加工厂'}}</text>
+        <text class="header-subtitle">回货单号: {{returnOrder.returnNo || '-'}}</text>
+      </view>
+    </view>
+    <view class="header-time">
+      <image class="time-icon" src="/images/icons/calendar.svg" mode="aspectFit" style="filter: brightness(0) invert(1);"></image>
+      <text>回货日期: {{returnOrder.returnDateFormatted || '-'}}</text>
+    </view>
+  </view>
+
+  <!-- 汇总统计网格 (3x2) -->
+  <view class="summary-grid-section">
+    <view class="summary-grid">
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/shirt.svg" mode="aspectFit"></image>
+        <text class="grid-label">回货数量</text>
+        <text class="grid-value">{{returnOrder.quantityFormatted || '0打0件'}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/package.svg" mode="aspectFit"></image>
+        <text class="grid-label">回货重量</text>
+        <text class="grid-value">{{returnOrder.actualYarnUsageFormatted || '0.00'}}kg</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/issue.svg" mode="aspectFit"></image>
+        <text class="grid-label">对应发料单</text>
+        <text class="grid-value" style="font-size: 24rpx;">{{returnOrder.issueNo || '-'}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/statistics.svg" mode="aspectFit"></image>
+        <text class="grid-label">加工单价</text>
+        <text class="grid-value">¥{{returnOrder.pricePerDozenFormatted || '0.00'}}/打</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/statistics.svg" mode="aspectFit"></image>
+        <text class="grid-label">加工费总额</text>
+        <text class="grid-value highlight">¥{{returnOrder.processingFeeFormatted || '0.00'}}</text>
+      </view>
+      <view class="grid-item">
+        <image class="grid-icon" src="/images/icons/check.svg" mode="aspectFit"></image>
+        <text class="grid-label">结算状态</text>
+        <text class="grid-value {{returnOrder.settlementStatus === '已结算' ? 'success' : 'unpaid'}}">{{returnOrder.settlementStatus || '未结算'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 款式信息卡片 -->
+  <view class="section">
+    <view class="card style-card">
+      <view class="style-info-row">
+        <view class="style-image-container" bindtap="onPreviewImage" data-url="{{returnOrder.styleImageUrl}}">
+          <image class="style-image" src="{{returnOrder.styleImageUrl}}" mode="aspectFill" wx:if="{{returnOrder.styleImageUrl}}" binderror="onStyleImageError"></image>
+          <view class="style-image-placeholder" wx:else>
+            <image class="placeholder-icon" src="/images/icons/camera.svg" mode="aspectFit"></image>
+          </view>
+        </view>
+        <view class="style-text-content">
+          <view class="style-name-row">
+            <text class="style-code" wx:if="{{returnOrder.styleCode}}">[{{returnOrder.styleCode}}]</text>
+            <text class="style-name">{{returnOrder.styleName || '未知款号'}}</text>
+          </view>
+          <view class="style-meta-row">
+            <text class="meta-item" wx:if="{{returnOrder.color}}">颜色: {{returnOrder.color}}</text>
+            <text class="meta-item" wx:if="{{returnOrder.size}}">规格: {{returnOrder.size}}</text>
+          </view>
+          <view class="style-price-row">
+            <text class="price-label">单价: </text>
+            <text class="price-value">¥{{returnOrder.pricePerDozenFormatted}}/打</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作记录 -->
+  <view class="section">
+    <view class="card meta-card">
+      <view class="meta-row">
+        <text class="meta-label">登记时间</text>
+        <text class="meta-value">{{returnOrder.createTimeFormatted}}</text>
+      </view>
+      <view class="meta-row">
+        <text class="meta-label">操作人</text>
+        <text class="meta-value">{{returnOrder.operatorName || '系统管理员'}}</text>
+      </view>
+      <view class="meta-row" wx:if="{{returnOrder.settledAmount > 0}}">
+        <text class="meta-label">已结算金额</text>
+        <text class="meta-value">¥{{returnOrder.settledAmountFormatted}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 悬浮分享按钮 -->
+  <view class="fab-share-btn" bindtap="onShare">
+    <image class="fab-icon" src="/images/icons/image.svg" mode="aspectFit" style="filter: brightness(0) invert(1);"></image>
+    <text>生成分享图片</text>
+  </view>
+
+  <!-- 作废提示 -->
+  <view class="voided-banner" wx:if="{{returnOrder.voided}}">
+    <text>⚠️ 该回货单已作废</text>
+  </view>
+
+  <!-- 用于生成的画布 -->
+  <canvas 
+    canvas-id="shareCanvas" 
+    style="position: fixed; top: -9999px; left: -9999px; width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
+    disable-scroll="true"
+  ></canvas>
+</view>
+

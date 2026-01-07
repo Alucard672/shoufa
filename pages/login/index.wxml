@@ -44,7 +44,6 @@
             value="{{phoneNumber}}"
             bindinput="onPhoneInput"
             maxlength="11"
-            disabled="{{hasPhoneNumber}}"
           />
           <button 
             class="get-phone-btn" 

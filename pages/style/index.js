@@ -1,13 +1,23 @@
 // pages/style/index.js
 import { query } from '../../utils/db.js'
 import { checkLogin } from '../../utils/auth.js'
+import { normalizeImageUrl, batchGetImageUrls } from '../../utils/image.js'
 const app = getApp()
 
 Page({
   data: {
     styles: [],
-    searchKeyword: ''
+    searchKeyword: '',
+    styleCount: 0,
+    showDisabled: false,  // 是否显示已停用的款号，默认不显示
+    filterOptions: [
+      { value: false, label: '仅显示启用' },
+      { value: true, label: '显示全部' }
+    ],
+    filterIndex: 0
   },
+  
+  _loading: false,  // 加载锁
 
   onLoad() {
     // 检查登录状态
@@ -22,6 +32,7 @@ Page({
     if (!checkLogin()) {
       return
     }
+    // onShow 时重新加载，确保数据最新
     this.loadStyles()
   },
 
@@ -31,12 +42,57 @@ Page({
     })
   },
 
+  async onStyleImageError(e) {
+    const index = e.currentTarget.dataset.index
+    if (index === undefined || index === null) return
+    
+    const style = this.data.styles[index]
+    const originalUrl = e.currentTarget.dataset.originalUrl || style.originalImageUrl
+    
+    // 如果是 cloud:// URL，尝试重新获取临时URL
+    if (originalUrl && originalUrl.startsWith('cloud://')) {
+      try {
+        const res = await wx.cloud.getTempFileURL({
+          fileList: [originalUrl]
+        })
+        if (res.fileList && res.fileList[0] && res.fileList[0].tempFileURL) {
+          const path = `styles[${index}].imageUrl`
+          this.setData({
+            [path]: res.fileList[0].tempFileURL
+          })
+          return
+        }
+      } catch (err) {
+        console.warn('重新获取临时URL失败:', err)
+      }
+    }
+    
+    // 清空图片地址，触发占位图显示，避免"空白块"
+    const path = `styles[${index}].imageUrl`
+    this.setData({
+      [path]: ''
+    })
+  },
+
   async loadStyles() {
+    // 防止重复加载
+    if (this._loading) {
+      console.log('loadStyles: 正在加载中，跳过')
+      return
+    }
+    this._loading = true
+    
     try {
       const result = await query('styles', {}, {
         excludeDeleted: true,
         orderBy: { field: 'createTime', direction: 'DESC' }
       })
+      
+      console.log('=== 款号列表查询结果 ===')
+      console.log('数据库返回记录数:', result.data.length)
+      console.log('记录ID列表:', result.data.map(s => s._id))
+      console.log('记录款号列表:', result.data.map(s => s.styleCode || s.style_code))
+      
       const styles = { data: result.data }
 
       // 格式化数据
@@ -44,7 +100,7 @@ Page({
         // 兼容旧字段名
         const styleCode = style.styleCode || style.style_code || ''
         const styleName = style.styleName || style.style_name || ''
-        const imageUrl = (style.imageUrl || style.image_url || style.image || '').trim()
+        const imageUrl = normalizeImageUrl(style)
         const yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
         const lossRate = style.lossRate || style.loss_rate || 0
         const processingFeePerDozen = style.processingFeePerDozen || style.processing_fee_per_dozen || 0
@@ -104,24 +160,66 @@ Page({
           styleCode,
           styleName,
           imageUrl,
+          originalImageUrl: imageUrl,  // 保存原始URL用于重试
           processingFeePerDozen,
           yarnUsagePerPieceFormatted: yarnUsageKg.toFixed(2) + ' kg',
           actualUsageFormatted: actualUsage.toFixed(3),
           availableColors: availableColors,
-          availableSizes: availableSizes
+          availableSizes: availableSizes,
+          disabled: style.disabled || false  // 是否已停用
         }
       })
 
+      // 批量转换 cloud:// URL 为临时URL
+      const cloudUrls = formattedStyles
+        .map(s => s.imageUrl)
+        .filter(url => url && url.startsWith('cloud://'))
+      
+      if (cloudUrls.length > 0) {
+        try {
+          const urlMap = await batchGetImageUrls(cloudUrls)
+          formattedStyles.forEach(style => {
+            if (style.originalImageUrl && urlMap.has(style.originalImageUrl)) {
+              style.imageUrl = urlMap.get(style.originalImageUrl)
+            }
+          })
+        } catch (e) {
+          console.warn('批量转换图片URL失败:', e)
+        }
+      }
+
+      // 打印每条款号的停用状态
+      console.log('款号停用状态:', formattedStyles.map(s => ({ 
+        code: s.styleCode, 
+        disabled: s.disabled 
+      })))
+      
+      // 根据筛选条件过滤
+      let displayStyles = formattedStyles
+      console.log('当前筛选条件 showDisabled:', this.data.showDisabled)
+      if (!this.data.showDisabled) {
+        displayStyles = formattedStyles.filter(s => s.disabled !== true)
+      }
+      
+      console.log('过滤后款号数量:', displayStyles.length, '(总数:', formattedStyles.length, ')')
+      
+      // 缓存全部数据用于筛选切换
+      this._allStyles = formattedStyles
+      
       this.setData({
-        styles: formattedStyles,
-        styleCount: styles.data.length
+        styles: displayStyles,
+        styleCount: displayStyles.length
       })
+      
+      console.log('setData 完成，当前 styles 长度:', this.data.styles.length)
     } catch (error) {
       console.error('加载款号失败:', error)
       wx.showToast({
         title: '加载失败',
         icon: 'none'
       })
+    } finally {
+      this._loading = false
     }
   },
 
@@ -130,6 +228,31 @@ Page({
       searchKeyword: e.detail.value
     })
     this.loadStyles()
+  },
+
+  // 切换是否显示已停用的款号
+  onFilterChange(e) {
+    const index = e.detail.value
+    const showDisabled = this.data.filterOptions[index].value
+    
+    this.setData({
+      filterIndex: index,
+      showDisabled: showDisabled
+    })
+    
+    // 如果已有缓存数据，直接过滤；否则重新加载
+    if (this._allStyles) {
+      let displayStyles = this._allStyles
+      if (!showDisabled) {
+        displayStyles = this._allStyles.filter(s => !s.disabled)
+      }
+      this.setData({
+        styles: displayStyles,
+        styleCount: displayStyles.length
+      })
+    } else {
+      this.loadStyles()
+    }
   },
 
   navigateToCreate() {
@@ -147,7 +270,16 @@ Page({
     if (!checkLogin()) {
       return
     }
+    // 注意：使用 catchtap 时不需要 stopPropagation，catchtap 会自动阻止冒泡
     const styleId = e.currentTarget.dataset.id
+    if (!styleId) {
+      wx.showToast({
+        title: '无法获取款号ID',
+        icon: 'none'
+      })
+      return
+    }
+    console.log('编辑款号，ID:', styleId)
     wx.navigateTo({
       url: `/pages/style/create?id=${styleId}`
     })

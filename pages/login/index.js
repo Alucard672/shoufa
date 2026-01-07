@@ -13,6 +13,8 @@ Page({
         hasPhoneNumber: false // 是否已获取手机号
     },
 
+    // 移除之前的 onLogoTap 逻辑
+
     onLoad() {
         // 检查是否已登录，如果已登录，直接进入首页
         const tenantId = wx.getStorageSync('tenantId')
@@ -166,17 +168,64 @@ Page({
             // 检查是否有邀请租户ID
             const inviteTenantId = wx.getStorageSync('inviteTenantId')
             
-            // 如果有邀请ID，走加入逻辑；否则走正常登录逻辑
-            const action = inviteTenantId ? 'joinTenant' : 'login'
+            // 如果有邀请ID，调用 employees 云函数的 joinTenant 逻辑
+            if (inviteTenantId) {
+                const res = await wx.cloud.callFunction({
+                    name: 'employees',
+                    data: {
+                        action: 'joinTenant',
+                        payload: {
+                            tenantId: inviteTenantId,
+                            code: this.data.phoneCode || '', 
+                            phoneNumber: this.data.phoneNumber || '', 
+                            avatarUrl: this.data.avatarUrl,
+                            nickName: this.data.nickName
+                        }
+                    }
+                })
+
+                // employees 云函数返回格式为 { code, msg, data }
+                if (res.result.code === 0 && res.result.data.success) {
+                    const { user, tenant } = res.result.data
+                    
+                    wx.removeStorageSync('inviteTenantId')
+                    
+                    // 保存用户信息和租户信息
+                    wx.setStorageSync('userInfo', user)
+                    wx.setStorageSync('tenantInfo', tenant)
+                    wx.setStorageSync('tenantId', tenant._id)
+
+                    app.globalData.userInfo = user
+                    app.globalData.tenantId = tenant._id
+                    app.globalData.tenantInfo = tenant
+
+                    wx.showToast({
+                        title: '加入成功',
+                        icon: 'success'
+                    })
+
+                    setTimeout(() => {
+                        wx.switchTab({
+                            url: '/pages/index/index'
+                        })
+                    }, 1500)
+                } else {
+                    wx.showModal({
+                        title: '加入失败',
+                        content: res.result.msg || '加入企业失败，请稍后重试',
+                        showCancel: false
+                    })
+                }
+                return
+            }
             
-            // 调用登录云函数，传递头像、昵称和手机号
+            // 正常登录逻辑，继续使用 auth 云函数
             const res = await wx.cloud.callFunction({
                 name: 'auth',
                 data: {
-                    action: action,
-                    tenantId: inviteTenantId || '',
-                    code: this.data.phoneCode || '', // 如果通过按钮获取，使用 code
-                    phoneNumber: this.data.phoneNumber || '', // 如果手动输入，使用手机号
+                    action: 'login',
+                    code: this.data.phoneCode || '', 
+                    phoneNumber: this.data.phoneNumber || '', 
                     avatarUrl: this.data.avatarUrl,
                     nickName: this.data.nickName
                 }

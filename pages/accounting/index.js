@@ -2,6 +2,7 @@
 import { query } from '../../utils/db.js'
 import { checkLogin, getTenantId } from '../../utils/auth.js'
 import { formatAmount } from '../../utils/calc.js'
+import { pickNumber } from '../../utils/summary.js'
 const app = getApp()
 const db = wx.cloud.database()
 const _ = db.command
@@ -38,32 +39,49 @@ Page({
       // 加载所有加工厂
       const factoriesResult = await query('factories', {}, {
         excludeDeleted: true,
-        orderBy: 'createTime',
-        order: 'desc'
+        orderBy: { field: 'createTime', direction: 'DESC' }
       })
 
       const factories = factoriesResult.data || []
+
+      // 一次性拉取该租户全部回货单（避免每个工厂单独查询导致慢/丢数据）
+      const allReturnOrders = []
+      let skip = 0
+      const pageSize = 100
+      while (true) {
+        const res = await db.collection('return_orders')
+          .where({ tenantId: tenantId, deleted: false })
+          .orderBy('createTime', 'desc')
+          .skip(skip)
+          .limit(pageSize)
+          .get()
+          .catch(() => ({ data: [] }))
+        const batch = res.data || []
+        allReturnOrders.push(...batch)
+        if (batch.length < pageSize) break
+        skip += pageSize
+      }
+
+      // 按 factoryId / factory_id 分组
+      const roByFactory = new Map()
+      allReturnOrders.forEach((ro) => {
+        const fid = ro.factoryId || ro.factory_id
+        if (!fid) return
+        const key = String(fid)
+        if (!roByFactory.has(key)) roByFactory.set(key, [])
+        roByFactory.get(key).push(ro)
+      })
 
       // 为每个加工厂计算账款汇总
       const factoriesWithAccounting = await Promise.all(
         factories.map(async (factory) => {
           const factoryId = factory._id || factory.id
-
-          // 查询该加工厂的所有回货单
-          const returnOrdersRes = await db.collection('return_orders')
-            .where({
-              tenantId: tenantId,
-              factoryId: factoryId,
-              deleted: false
-            })
-            .get()
-
-          const returnOrders = returnOrdersRes.data || []
+          const returnOrders = roByFactory.get(String(factoryId)) || []
 
           // 计算汇总
           const summary = returnOrders.reduce((acc, order) => {
-            const processingFee = order.processingFee || 0
-            const settledAmount = order.settledAmount || 0
+            const processingFee = pickNumber(order, ['processingFee', 'processing_fee'], 0)
+            const settledAmount = pickNumber(order, ['settledAmount', 'settled_amount'], 0)
             acc.totalAmount += processingFee
             acc.settledAmount += settledAmount
             acc.unpaidAmount += (processingFee - settledAmount)
@@ -101,6 +119,14 @@ Page({
     const factoryId = e.currentTarget.dataset.id
     wx.navigateTo({
       url: `/pages/accounting/detail?id=${factoryId}`
+    })
+  },
+
+  onSettleFactory(e) {
+    const factoryId = e.currentTarget.dataset.id
+    if (!factoryId) return
+    wx.navigateTo({
+      url: `/pages/factory/settlement?factoryId=${factoryId}`
     })
   }
 })

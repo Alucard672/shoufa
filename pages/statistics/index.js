@@ -2,6 +2,8 @@
 import { query, queryByIds, getStyleById, getFactories, getStyles } from '../../utils/db.js'
 import { getTimeRange, formatDate, formatWeight, formatQuantity } from '../../utils/calc.js'
 import { checkLogin } from '../../utils/auth.js'
+import { normalizeImageUrl } from '../../utils/image.js'
+import { pickDateHybrid, filterByTimeFilter, pickNumber, pickId } from '../../utils/summary.js'
 const app = getApp()
 
 Page({
@@ -14,6 +16,39 @@ Page({
     statusFilter: 'all',
     searchKeyword: '',
     statistics: []
+  },
+
+  // 设计稿按钮点击：复用原 filter-tabs 的逻辑（不改功能）
+  onTimeSegTap(e) {
+    const index = parseInt(e.currentTarget.dataset.index, 10) || 0
+    this.onTimeFilterChange({ detail: { index } })
+  },
+
+  onStatusSegTap(e) {
+    const index = parseInt(e.currentTarget.dataset.index, 10) || 0
+    this.onStatusFilterChange({ detail: { index } })
+  },
+
+  // 图片加载失败：降级为占位图
+  onStyleImageError(e) {
+    const id = e.currentTarget.dataset.id
+    const index = e.currentTarget.dataset.index
+
+    if (typeof index === 'number' || (typeof index === 'string' && index !== '')) {
+      const i = typeof index === 'number' ? index : parseInt(index, 10)
+      if (!Number.isNaN(i) && this.data.statistics && this.data.statistics[i]) {
+        this.setData({ [`statistics[${i}].styleImageUrl`]: '' })
+        return
+      }
+    }
+
+    if (!id) return
+    const match = (o) => String(o?._id || o?.id || '') === String(id)
+    const list = this.data.statistics || []
+    const idx = list.findIndex(match)
+    if (idx >= 0) {
+      this.setData({ [`statistics[${idx}].styleImageUrl`]: '' })
+    }
   },
 
   onLoad() {
@@ -52,58 +87,15 @@ Page({
   },
 
   async loadStatistics() {
-    // 查询所有数据，然后在客户端进行时间筛选
+    // 查询所有数据，然后在客户端进行时间筛选（hybrid：业务日期优先，缺失用创建时间兜底）
     const issueOrdersRes = await query('issue_orders', {}, {
       excludeDeleted: true
     })
     let issueOrders = issueOrdersRes.data || []
 
-    // 客户端进行时间筛选
-    if (this.data.timeFilter !== 'all') {
-      const timeRange = getTimeRange(this.data.timeFilter)
-      if (timeRange.startDate && timeRange.endDate) {
-        const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
-        const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
-
-        issueOrders = issueOrders.filter(order => {
-          // 使用创建时间进行筛选
-          const date = order.createTime || order.create_time
-          if (!date) return false
-
-          let orderDate
-          try {
-            if (date instanceof Date) {
-              orderDate = date
-            } else if (typeof date === 'string') {
-              const dateStr = date.replace(/\//g, '-')
-              orderDate = new Date(dateStr)
-            } else if (date && typeof date === 'object') {
-              if (typeof date.getTime === 'function') {
-                orderDate = new Date(date.getTime())
-              } else if (date._seconds) {
-                orderDate = new Date(date._seconds * 1000)
-              } else {
-                orderDate = new Date(date)
-              }
-            } else {
-              orderDate = new Date(date)
-            }
-
-            if (isNaN(orderDate.getTime())) {
-              return false
-            }
-
-            const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
-            const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
-            const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
-
-            return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
-          } catch (e) {
-            return false
-          }
-        })
-      }
-    }
+    issueOrders = filterByTimeFilter(issueOrders, this.data.timeFilter, (o) =>
+      pickDateHybrid(o, ['issueDate', 'issue_date'], ['createTime', 'create_time'])
+    )
 
     const issueIds = issueOrders.map(order => order.id || order._id)
     console.log('统计页面loadStatistics - 发料单IDs:', issueIds)
@@ -152,53 +144,10 @@ Page({
         console.log('统计页面loadStatistics - 内存匹配结果:', returnOrdersRes.data.length, '条')
       }
 
-      // 根据时间筛选条件过滤回货单
-      let filteredReturnOrders = returnOrdersRes.data || []
-      if (this.data.timeFilter !== 'all') {
-        const timeRange = getTimeRange(this.data.timeFilter)
-        if (timeRange.startDate && timeRange.endDate) {
-          const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
-          const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
-
-          filteredReturnOrders = filteredReturnOrders.filter(order => {
-            // 使用创建时间或回货日期进行筛选
-            const date = order.createTime || order.create_time || order.returnDate || order.return_date
-            if (!date) return false
-
-            let orderDate
-            try {
-              if (date instanceof Date) {
-                orderDate = date
-              } else if (typeof date === 'string') {
-                const dateStr = date.replace(/\//g, '-')
-                orderDate = new Date(dateStr)
-              } else if (date && typeof date === 'object') {
-                if (typeof date.getTime === 'function') {
-                  orderDate = new Date(date.getTime())
-                } else if (date._seconds) {
-                  orderDate = new Date(date._seconds * 1000)
-                } else {
-                  orderDate = new Date(date)
-                }
-              } else {
-                orderDate = new Date(date)
-              }
-
-              if (isNaN(orderDate.getTime())) {
-                return false
-              }
-
-              const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
-              const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
-              const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
-
-              return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
-            } catch (e) {
-              return false
-            }
-          })
-        }
-      }
+      // 根据时间筛选条件过滤回货单（hybrid：returnDate 优先，缺失用 createTime 兜底）
+      let filteredReturnOrders = filterByTimeFilter(returnOrdersRes.data || [], this.data.timeFilter, (o) =>
+        pickDateHybrid(o, ['returnDate', 'return_date'], ['createTime', 'create_time'])
+      )
 
       // 将issueIds转换为字符串集合，以便匹配
       const issueIdsSet = new Set(issueIds.map(id => String(id)))
@@ -209,8 +158,8 @@ Page({
         // 确保回货单的issueId在发料单ID列表中
         if (issueId && issueIdsSet.has(issueId)) {
           returnedIssueIds.add(issueId)
-          totalReturnPieces += parseFloat(order.returnPieces || order.return_pieces || 0)
-          totalReturnWeight += parseFloat(order.actualYarnUsage || order.actual_yarn_usage || 0)
+          totalReturnPieces += pickNumber(order, ['returnPieces', 'return_pieces'], 0)
+          totalReturnWeight += pickNumber(order, ['actualYarnUsage', 'actual_yarn_usage'], 0)
         }
       })
       returnedCount = returnedIssueIds.size
@@ -364,19 +313,22 @@ Page({
         console.log('统计页面 - 内存匹配结果:', returnOrdersRes.data.length, '条')
       }
       
-      // 按 issueId 分组（直接使用原始issueId作为key，与首页动态页面保持一致）
+      // 按 issueId 分组（直接使用 String(issueId) 作为key，确保匹配）
       returnOrdersRes.data.forEach(returnOrder => {
-        const issueId = returnOrder.issueId || returnOrder.issue_id
-        if (!returnOrdersMap.has(issueId)) {
-          returnOrdersMap.set(issueId, [])
+        const issueId = String(returnOrder.issueId || returnOrder.issue_id || '')
+        if (issueId) {
+          if (!returnOrdersMap.has(issueId)) {
+            returnOrdersMap.set(issueId, [])
+          }
+          returnOrdersMap.get(issueId).push(returnOrder)
         }
-        returnOrdersMap.get(issueId).push(returnOrder)
       })
 
       // 确保所有发料单都有对应的数组（即使为空）
       issueIds.forEach(issueId => {
-        if (!returnOrdersMap.has(issueId)) {
-          returnOrdersMap.set(issueId, [])
+        const id = String(issueId)
+        if (!returnOrdersMap.has(id)) {
+          returnOrdersMap.set(id, [])
         }
       })
       
@@ -398,8 +350,8 @@ Page({
       issueOrders.data.map(async (issueOrder) => {
         const styleId = issueOrder.styleId || issueOrder.style_id
         const style = stylesMap.get(styleId) || {}
-        const issueOrderId = issueOrder.id || issueOrder._id
-        // 直接使用原始ID作为key，与首页动态页面保持一致
+        const issueOrderId = String(issueOrder.id || issueOrder._id)
+        // 直接使用 String(issueOrderId) 作为key
         const returnOrders = returnOrdersMap.get(issueOrderId) || []
 
         let totalReturnQuantity = 0
@@ -419,6 +371,7 @@ Page({
 
         const issueWeight = issueOrder.issueWeight || issueOrder.issue_weight || 0
         const yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
+        const issuePieces = yarnUsagePerPiece > 0 ? Math.floor((issueWeight * 1000) / yarnUsagePerPiece) : 0
         const remainingYarn = issueWeight - totalReturnYarn
         const remainingPieces = Math.floor(remainingYarn / (yarnUsagePerPiece / 1000))
         const remainingQuantity = remainingPieces / 12
@@ -433,8 +386,8 @@ Page({
         // 动态判断状态
         let displayStatus = issueOrder.status
         if (issueOrder.status !== '已完成') {
-          if (totalReturnYarn > 0) {
-            if (remainingYarn <= 0.01) {
+          if (totalReturnYarn > 0 || totalReturnPieces > 0) {
+            if (remainingYarn <= 0.01 || (issuePieces > 0 && totalReturnPieces >= issuePieces)) {
               // 回货完成，标记为已完成
               displayStatus = '已完成'
             } else {
@@ -451,7 +404,7 @@ Page({
           status: displayStatus,
           styleName: style.styleName || style.style_name || style.name || '未知款号',
           styleCode: style.styleCode || style.style_code || '',
-          styleImageUrl: (style.imageUrl || style.image_url || style.image || '').trim(),
+          styleImageUrl: normalizeImageUrl(style),
           yarnUsagePerPiece: yarnUsagePerPiece,
           lossRate: lossRate, // 款号设定的损耗率
           planYarnUsage: planYarnUsage, // 计划用纱量
@@ -552,6 +505,11 @@ Page({
     if (this.data.statusFilter !== 'all') {
       filteredStatistics = filteredStatistics.filter(item => {
         return item.status === this.data.statusFilter
+      })
+    } else {
+      // 全部选项下，排除已完成的单据
+      filteredStatistics = filteredStatistics.filter(item => {
+        return item.status !== '已完成'
       })
     }
 

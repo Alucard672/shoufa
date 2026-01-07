@@ -3,19 +3,26 @@ page {
   background-color: #F8FAFC;
 }
 
-.container {
-  padding-bottom: 160rpx; /* 留出底部按钮空间 */
+.page-wrapper {
+  width: 100%;
+  min-height: 100vh;
+  padding: 0;
+  margin: 0;
+  display: block;
+  background-color: #F8FAFC;
+  padding-bottom: 160rpx; 
 }
 
 /* 顶部蓝色背景区域 */
 .header-bg {
   background: linear-gradient(135deg, #155DFC 0%, #2B7FFF 100%);
-  padding: 40rpx 32rpx 120rpx; /* 底部留出空间给下面的卡片 */
-  border-bottom-left-radius: 40rpx;
-  border-bottom-right-radius: 40rpx;
+  padding: 60rpx 32rpx 120rpx; 
+  border-radius: 0 0 16rpx 16rpx; /* 圆角调小至 16rpx */
   position: relative;
   color: #fff;
-  margin-bottom: -80rpx; /* 负外边距让下面的卡片叠上来 */
+  margin-bottom: -80rpx;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .header-content {
@@ -23,6 +30,25 @@ page {
   align-items: center;
   gap: 24rpx;
   margin-bottom: 32rpx;
+}
+
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.header-action-btn {
+  padding: 14rpx 22rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.18);
+  border: 2rpx solid rgba(255, 255, 255, 0.28);
+}
+
+.header-action-text {
+  font-size: 26rpx;
+  color: #fff;
+  font-weight: 600;
 }
 
 .header-icon {
@@ -236,35 +262,26 @@ page {
   padding: 24rpx;
 }
 
-.detail-item {
+.detail-column {
   display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.detail-icon {
-  width: 36rpx;
-  height: 36rpx;
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: 8rpx;
 }
 
 .detail-label {
-  font-size: 26rpx;
-  color: #6A7282;
-  flex-shrink: 0;
+  font-size: 24rpx;
+  color: #94A3B8;
 }
 
 .detail-value {
-  font-size: 28rpx;
-  font-weight: 500;
-  color: #101828;
-  flex: 1;
-  text-align: right;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1E293B;
+  line-height: 1.2;
 }
 
 .detail-value.highlight {
-  color: #6366F1; /* 紫色 */
-  font-weight: bold;
+  color: #1E293B; /* 统一颜色，根据需求调整 */
 }
 
 .detail-value.unpaid {

@@ -4,10 +4,16 @@ import { formatDate, formatDateTime, formatAmount, formatQuantity, formatWeight 
 import { query, queryByIds } from '../../utils/db.js'
 import { getTimeRange } from '../../utils/calc.js'
 import { checkLogin } from '../../utils/auth.js'
+import { normalizeImageUrl, batchGetImageUrls } from '../../utils/image.js'
+import { pickDateHybrid, filterByTimeFilter, pickNumber } from '../../utils/summary.js'
 const app = getApp()
 
 Page({
   data: {
+    loading: false,
+    // 分享画布尺寸（必须和导出一致，否则可能出现底部黑/重叠）
+    canvasWidth: 750,
+    canvasHeight: 1200,
     totalReturnPieces: 0,
     totalReturnQuantityDisp: '', // 累计回货显示
     totalProcessingFee: 0,
@@ -18,25 +24,67 @@ Page({
     searchKeyword: '',
     returnOrders: [],
     filteredOrders: [],
+    displayOrders: [],
+    pageSize: 10,
     showShareModal: false,
     shareImagePath: '',
-    sharingReturnOrder: null
+    sharingReturnOrder: null,
+    swipeStartX: 0, // 左滑开始位置
+    swipeStartOffset: 0, // 开始滑动时的偏移量
+    currentSwipeIndex: -1 // 当前滑动的项索引
+  },
+
+  // 设计稿按钮点击：复用原来的 filter-tabs 逻辑
+  onTimeSegTap(e) {
+    const index = parseInt(e.currentTarget.dataset.index, 10) || 0
+    this.onTimeFilterChange({ detail: { index } })
+  },
+
+  onStatusSegTap(e) {
+    const index = parseInt(e.currentTarget.dataset.index, 10) || 0
+    this.onStatusFilterChange({ detail: { index } })
+  },
+
+  // 图片加载失败：降级为占位图
+  onStyleImageError(e) {
+    const id = e.currentTarget.dataset.id
+    const index = e.currentTarget.dataset.index
+
+    if (typeof index === 'number' || (typeof index === 'string' && index !== '')) {
+      const i = typeof index === 'number' ? index : parseInt(index, 10)
+      if (!Number.isNaN(i) && this.data.displayOrders && this.data.displayOrders[i]) {
+        this.setData({ [`displayOrders[${i}].styleImageUrl`]: '' })
+      }
+    }
+
+    if (!id) return
+    const match = (o) => String(o?._id || o?.id || '') === String(id)
+
+    const updateById = (listName) => {
+      const list = this.data[listName] || []
+      const idx = list.findIndex(match)
+      if (idx >= 0) {
+        this.setData({ [`${listName}[${idx}].styleImageUrl`]: '' })
+      }
+    }
+
+    updateById('returnOrders')
+    updateById('filteredOrders')
   },
 
   onLoad(options) {
-    // 检查登录状态
-    if (!checkLogin()) {
-      return
-    }
+    // ...
+  },
 
-    // 处理从统计页面跳转过来的筛选条件
-    if (options.timeFilter) {
-      this.setData({
-        timeFilter: decodeURIComponent(options.timeFilter)
+  // 预览图片
+  onPreviewImage(e) {
+    const url = e.currentTarget.dataset.url
+    if (url) {
+      wx.previewImage({
+        urls: [url],
+        current: url
       })
     }
-
-    this.loadData()
   },
 
   onShow() {
@@ -54,6 +102,8 @@ Page({
   },
 
   async loadData() {
+    if (this.data.loading) return
+    this.setData({ loading: true })
     try {
       await Promise.all([
         this.loadStatistics(),
@@ -65,6 +115,8 @@ Page({
         title: '加载失败',
         icon: 'none'
       })
+    } finally {
+      this.setData({ loading: false })
     }
   },
 
@@ -76,59 +128,17 @@ Page({
 
     let orders = result.data || []
     
-    // 客户端进行时间筛选
-    if (this.data.timeFilter !== 'all') {
-      const timeRange = getTimeRange(this.data.timeFilter)
-      if (timeRange.startDate && timeRange.endDate) {
-        const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
-        const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
-
-        orders = orders.filter(order => {
-          // 使用创建时间进行筛选
-          const date = order.createTime || order.create_time
-          if (!date) return false
-
-          let orderDate
-          try {
-            if (date instanceof Date) {
-              orderDate = date
-            } else if (typeof date === 'string') {
-              const dateStr = date.replace(/\//g, '-')
-              orderDate = new Date(dateStr)
-            } else if (date && typeof date === 'object') {
-              if (typeof date.getTime === 'function') {
-                orderDate = new Date(date.getTime())
-              } else if (date._seconds) {
-                orderDate = new Date(date._seconds * 1000)
-              } else {
-                orderDate = new Date(date)
-              }
-            } else {
-              orderDate = new Date(date)
-            }
-
-            if (isNaN(orderDate.getTime())) {
-              return false
-            }
-
-            const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
-            const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
-            const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
-
-            return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
-          } catch (e) {
-            return false
-          }
-        })
-      }
-    }
+    // 客户端进行时间筛选（hybrid：returnDate 优先，缺失用 createTime 兜底）
+    orders = filterByTimeFilter(orders, this.data.timeFilter, (o) =>
+      pickDateHybrid(o, ['returnDate', 'return_date'], ['createTime', 'create_time'])
+    )
 
     let totalPieces = 0
     let totalFee = 0
 
     orders.forEach(order => {
-      totalPieces += Math.floor(order.returnPieces || order.return_pieces || 0)
-      totalFee += order.processingFee || order.processing_fee || 0
+      totalPieces += Math.floor(pickNumber(order, ['returnPieces', 'return_pieces'], 0))
+      totalFee += pickNumber(order, ['processingFee', 'processing_fee'], 0)
     })
 
     this.setData({
@@ -146,54 +156,10 @@ Page({
       orderBy: { field: 'createTime', direction: 'DESC' }
     })
 
-    // 客户端进行时间筛选
-    let orders = ordersRes.data || []
-    if (this.data.timeFilter !== 'all') {
-      const timeRange = getTimeRange(this.data.timeFilter)
-      if (timeRange.startDate && timeRange.endDate) {
-        const filterStart = new Date(timeRange.startDate.getFullYear(), timeRange.startDate.getMonth(), timeRange.startDate.getDate(), 0, 0, 0, 0)
-        const filterEnd = new Date(timeRange.endDate.getFullYear(), timeRange.endDate.getMonth(), timeRange.endDate.getDate(), 23, 59, 59, 999)
-
-        orders = orders.filter(order => {
-          // 使用创建时间进行筛选
-          const date = order.createTime || order.create_time
-          if (!date) return false
-
-          let orderDate
-          try {
-            if (date instanceof Date) {
-              orderDate = date
-            } else if (typeof date === 'string') {
-              const dateStr = date.replace(/\//g, '-')
-              orderDate = new Date(dateStr)
-            } else if (date && typeof date === 'object') {
-              if (typeof date.getTime === 'function') {
-                orderDate = new Date(date.getTime())
-              } else if (date._seconds) {
-                orderDate = new Date(date._seconds * 1000)
-              } else {
-                orderDate = new Date(date)
-              }
-            } else {
-              orderDate = new Date(date)
-            }
-
-            if (isNaN(orderDate.getTime())) {
-              return false
-            }
-
-            const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
-            const filterStartOnly = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate())
-            const filterEndOnly = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate())
-
-            return orderDateOnly.getTime() >= filterStartOnly.getTime() && orderDateOnly.getTime() <= filterEndOnly.getTime()
-          } catch (e) {
-            console.error('日期解析错误:', order.createTime, e)
-            return false
-          }
-        })
-      }
-    }
+    // 客户端进行时间筛选（hybrid：returnDate 优先，缺失用 createTime 兜底）
+    let orders = filterByTimeFilter(ordersRes.data || [], this.data.timeFilter, (o) =>
+      pickDateHybrid(o, ['returnDate', 'return_date'], ['createTime', 'create_time'])
+    )
 
     // 客户端过滤搜索关键词
     if (this.data.searchKeyword) {
@@ -215,9 +181,31 @@ Page({
       issueIds.length > 0 ? queryByIds('issue_orders', issueIds, { excludeDeleted: true }) : { data: [] }
     ])
 
-    const factoriesMap = Object.fromEntries(factoriesRes.data.map(f => [f._id || f.id, f]))
-    const stylesMap = Object.fromEntries(stylesRes.data.map(s => [s._id || s.id, s]))
-    const issueOrdersMap = Object.fromEntries(issueOrdersRes.data.map(o => [o._id || o.id, o]))
+    const factoriesMap = Object.fromEntries(factoriesRes.data.map(f => [String(f._id || f.id), f]))
+    const stylesMap = Object.fromEntries(stylesRes.data.map(s => [String(s._id || s.id), s]))
+    const issueOrdersMap = Object.fromEntries(issueOrdersRes.data.map(o => [String(o._id || o.id), o]))
+    
+    // 批量转换图片URL（cloud:// -> 临时链接）
+    try {
+      const imageUrls = stylesRes.data
+        .map(style => normalizeImageUrl(style))
+        .filter(url => url && url.startsWith('cloud://'))
+      
+      if (imageUrls.length > 0) {
+        const imageUrlMap = await batchGetImageUrls(imageUrls)
+        // 更新 stylesMap 中的图片URL
+        stylesRes.data.forEach(style => {
+          const id = String(style._id || style.id)
+          const originalUrl = normalizeImageUrl(style)
+          if (originalUrl && imageUrlMap.has(originalUrl)) {
+            stylesMap[id].styleImageUrl = imageUrlMap.get(originalUrl)
+          }
+        })
+      }
+    } catch (error) {
+      console.error('批量转换图片URL失败:', error)
+      // 失败不影响主流程，继续使用原 cloud:// URL
+    }
 
     // 关联查询工厂、款号和发料单信息
     const ordersWithDetails = orders.map(order => {
@@ -226,9 +214,9 @@ Page({
         const styleId = order.styleId || order.style_id
         const issueId = order.issueId || order.issue_id
 
-        const factory = factoriesMap[factoryId]
-        const style = stylesMap[styleId]
-        const issueOrder = issueOrdersMap[issueId]
+        const factory = factoriesMap[String(factoryId)]
+        const style = stylesMap[String(styleId)]
+        const issueOrder = issueOrdersMap[String(issueId)]
 
         const processingFee = order.processingFee || order.processing_fee || 0
         const returnPieces = Math.floor(order.returnPieces || order.return_pieces || 0)
@@ -243,10 +231,11 @@ Page({
         const returnQuantity = order.returnQuantity || order.return_quantity || 0
         const pricePerDozen = returnQuantity > 0 ? (processingFee / returnQuantity) : 0
 
-        const styleImageUrl = (style?.imageUrl || style?.image_url || style?.image || '').trim()
+        const styleImageUrl = normalizeImageUrl(style)
 
         return {
           ...order,
+          voided: order.voided || false, // 是否已作废
           factoryName: factory?.name || '未知工厂',
           styleName: styleName,
           styleCode: styleCode,
@@ -263,7 +252,7 @@ Page({
           returnQuantity: returnQuantity,
           returnQuantityFormatted: formatQuantity(returnQuantity),
           quantityFormatted: formatQuantity(returnPieces),
-          returnPiecesFormatted: `${Math.floor(returnPieces / 12)}打${returnPieces % 12}件`,
+          returnPiecesFormatted: formatQuantity(returnPieces),
           returnDateFormatted: formatDateTime(order.createTime || order.create_time || order.returnDate || order.return_date),
           processingFeeFormatted: formatAmount(processingFee),
           pricePerPieceFormatted: pricePerPiece.toFixed(2),
@@ -299,10 +288,14 @@ Page({
       }
     })
 
-    // 应用状态筛选
+    // 应用状态筛选（排除已作废的单据，除非用户明确选择显示）
     let finalOrders = ordersWithDetails || []
+    
+    // 默认排除已作废的单据
+    finalOrders = ordersWithDetails.filter(order => !order.voided)
+    
     if (this.data.statusFilter !== 'all') {
-      finalOrders = ordersWithDetails.filter(order => {
+      finalOrders = finalOrders.filter(order => {
         const orderStatus = order.status || '进行中'
         return orderStatus === this.data.statusFilter
       })
@@ -310,7 +303,21 @@ Page({
 
     this.setData({
       returnOrders: ordersWithDetails,
-      filteredOrders: finalOrders
+      filteredOrders: finalOrders,
+      displayOrders: finalOrders.slice(0, this.data.pageSize).map(order => ({
+        ...order,
+        swipeOffset: 0 // 初始化左滑偏移量
+      }))
+    })
+  },
+
+  onLoadMore(e) {
+    const { displayCount } = e.detail
+    this.setData({
+      displayOrders: this.data.filteredOrders.slice(0, displayCount).map(order => ({
+        ...order,
+        swipeOffset: order.swipeOffset || 0 // 保留已有的滑动状态
+      }))
     })
   },
 
@@ -319,6 +326,170 @@ Page({
       searchKeyword: e.detail.value
     })
     this.loadReturnOrders()
+  },
+
+  navigateToDetail(e) {
+    const id = e.currentTarget.dataset.id
+    const index = e.currentTarget.dataset.index
+    
+    // 如果当前项已展开，点击卡片时先收回
+    if (this.data.currentSwipeIndex === index) {
+      const displayOrders = this.data.displayOrders
+      displayOrders[index].swipeOffset = 0
+      this.setData({
+        displayOrders: displayOrders,
+        currentSwipeIndex: -1
+      })
+      return
+    }
+    
+    // 如果有其他项展开，先收回
+    if (this.data.currentSwipeIndex >= 0 && this.data.currentSwipeIndex !== index) {
+      const displayOrders = this.data.displayOrders
+      displayOrders[this.data.currentSwipeIndex].swipeOffset = 0
+      this.setData({
+        displayOrders: displayOrders,
+        currentSwipeIndex: -1
+      })
+    }
+    
+    wx.navigateTo({
+      url: `/pages/return/detail?id=${id}`
+    })
+  },
+
+  // 左滑相关方法
+  onSwipeStart(e) {
+    const index = e.currentTarget.dataset.index
+    const touch = e.touches[0]
+    const currentOffset = this.data.displayOrders[index].swipeOffset || 0
+    this.setData({
+      swipeStartX: touch.clientX,
+      swipeStartOffset: currentOffset, // 记录开始滑动时的偏移量
+      currentSwipeIndex: index
+    })
+  },
+
+  onSwipeMove(e) {
+    const index = e.currentTarget.dataset.index
+    const touch = e.touches[0]
+    const deltaX = touch.clientX - this.data.swipeStartX
+    const startOffset = this.data.swipeStartOffset || 0
+    
+    // 计算新的偏移量
+    let newOffset = startOffset + deltaX
+    
+    // 限制在 -140 到 0 之间（两个按钮各 70px）
+    newOffset = Math.max(-140, Math.min(0, newOffset))
+    
+    const displayOrders = this.data.displayOrders
+    displayOrders[index].swipeOffset = newOffset
+    this.setData({
+      displayOrders: displayOrders
+    })
+  },
+
+  onSwipeEnd(e) {
+    const index = e.currentTarget.dataset.index
+    const displayOrders = this.data.displayOrders
+    const currentOffset = displayOrders[index].swipeOffset || 0
+    
+    // 如果滑动超过一半，则完全展开，否则收回
+    let finalOffset = 0
+    if (currentOffset < -70) {
+      finalOffset = -140 // 完全展开（两个按钮各 70px）
+    } else if (currentOffset < 0) {
+      finalOffset = 0 // 收回
+    }
+    
+    // 如果其他项已展开，先收回
+    if (this.data.currentSwipeIndex >= 0 && this.data.currentSwipeIndex !== index) {
+      displayOrders[this.data.currentSwipeIndex].swipeOffset = 0
+    }
+    
+    displayOrders[index].swipeOffset = finalOffset
+    this.setData({
+      displayOrders: displayOrders,
+      currentSwipeIndex: finalOffset < 0 ? index : -1
+    })
+  },
+
+  // 编辑回货单
+  onEditReturn(e) {
+    const id = e.currentTarget.dataset.id
+    const index = e.currentTarget.dataset.index
+    
+    // 收回滑动
+    const displayOrders = this.data.displayOrders
+    displayOrders[index].swipeOffset = 0
+    this.setData({
+      displayOrders: displayOrders,
+      currentSwipeIndex: -1
+    })
+    
+    wx.navigateTo({
+      url: `/pages/return/create?id=${id}`
+    })
+  },
+
+  // 作废/恢复回货单
+  async onVoidReturn(e) {
+    const id = e.currentTarget.dataset.id
+    const index = e.currentTarget.dataset.index
+    const item = this.data.displayOrders[index]
+    const isVoided = item.voided || false
+    const action = isVoided ? '恢复' : '作废'
+    
+    // 收回滑动
+    const displayOrders = this.data.displayOrders
+    displayOrders[index].swipeOffset = 0
+    this.setData({
+      displayOrders: displayOrders,
+      currentSwipeIndex: -1
+    })
+    
+    wx.showModal({
+      title: `确认${action}`,
+      content: `确定要${action}回货单 "${item.returnNo || ''}" 吗？`,
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            wx.showLoading({ title: `${action}中...` })
+            
+            const db = wx.cloud.database()
+            const result = await db.collection('return_orders')
+              .doc(id)
+              .update({
+                data: {
+                  voided: !isVoided,
+                  updateTime: db.serverDate()
+                }
+              })
+            
+            if (result.stats.updated === 0) {
+              throw new Error('权限不足或记录不存在')
+            }
+            
+            wx.hideLoading()
+            wx.showToast({
+              title: `${action}成功`,
+              icon: 'success'
+            })
+            
+            // 重新加载数据
+            await this.loadReturnOrders()
+          } catch (error) {
+            wx.hideLoading()
+            console.error(`${action}失败:`, error)
+            wx.showToast({
+              title: `${action}失败: ${error.message || '未知错误'}`,
+              icon: 'none',
+              duration: 3000
+            })
+          }
+        }
+      }
+    })
   },
 
   onTimeFilterChange(e) {
@@ -406,224 +577,190 @@ Page({
   },
 
   async generateShareImage() {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       const ctx = wx.createCanvasContext('shareCanvas')
       const returnOrder = this.data.sharingReturnOrder
 
       if (!returnOrder) {
-        reject(new Error('回货单数据不存在'))
+        reject(new Error('数据加载中，请稍后再试'))
         return
       }
 
-      // 画布尺寸
-      const canvasWidth = 750
-      const canvasHeight = 1200
-      const padding = 40
-      const contentWidth = canvasWidth - padding * 2
-
-      // 背景
-      ctx.setFillStyle('#ffffff')
-      ctx.fillRect(0, 0, canvasWidth, canvasHeight)
-
-      let y = padding
-
-      // 标题
-      ctx.setFillStyle('#333333')
-      ctx.setFontSize(36)
-      ctx.setTextAlign('center')
-      ctx.fillText('回货单', canvasWidth / 2, y)
-      y += 60
-
-      // 回货单号
-      ctx.setFillStyle('#666666')
-      ctx.setFontSize(24)
-      ctx.setTextAlign('center')
-      ctx.fillText(`单号：${returnOrder.returnNo || ''}`, canvasWidth / 2, y)
-      y += 50
-
-      // 分隔线
-      ctx.setStrokeStyle('#e5e5e5')
-      ctx.setLineWidth(2)
-      ctx.beginPath()
-      ctx.moveTo(padding, y)
-      ctx.lineTo(canvasWidth - padding, y)
-      ctx.stroke()
-      y += 40
-
-      // 加工厂信息
-      ctx.setFillStyle('#333333')
-      ctx.setFontSize(28)
-      ctx.setTextAlign('left')
-      ctx.fillText('加工厂：', padding, y)
-      ctx.setFillStyle('#2b7fff')
-      ctx.setFontSize(32)
-      ctx.fillText(returnOrder.factoryName || '未知工厂', padding + 120, y)
-      y += 50
-
-      // 款号信息
-      ctx.setFillStyle('#333333')
-      ctx.setFontSize(28)
-      ctx.fillText('款号：', padding, y)
-      const styleText = returnOrder.styleCode ? `[${returnOrder.styleCode}] ${returnOrder.styleName}` : returnOrder.styleName
-      ctx.setFillStyle('#101828')
-      ctx.setFontSize(32)
-      ctx.fillText(styleText || '未知款号', padding + 120, y)
-      y += 50
-
-      // 关联发料单信息
-      if (returnOrder.issueNo && returnOrder.issueNo !== '未知') {
-        ctx.setFillStyle('#333333')
-        ctx.setFontSize(28)
-        ctx.fillText('发料单号：', padding, y)
-        ctx.setFillStyle('#101828')
-        ctx.setFontSize(28)
-        ctx.fillText(returnOrder.issueNo, padding + 140, y)
-        y += 50
-
-        if (returnOrder.issueDateFormatted) {
-          ctx.setFillStyle('#333333')
-          ctx.setFontSize(28)
-          ctx.fillText('发料日期：', padding, y)
-          ctx.setFillStyle('#666666')
-          ctx.setFontSize(28)
-          ctx.fillText(returnOrder.issueDateFormatted, padding + 140, y)
-          y += 50
+      try {
+        // 1. 预加载图片
+        const imageUrl = returnOrder.styleImageUrl
+        let localImagePath = null
+        if (imageUrl && (imageUrl.startsWith('cloud://') || imageUrl.startsWith('http'))) {
+          localImagePath = await new Promise(res => {
+            wx.getImageInfo({
+              src: imageUrl,
+              success: (info) => res(info.path),
+              fail: () => res(null)
+            })
+          })
         }
 
-        if (returnOrder.issueWeight > 0) {
-          ctx.setFillStyle('#333333')
-          ctx.setFontSize(28)
-          ctx.fillText('发毛数：', padding, y)
-          ctx.setFillStyle('#666666')
-          ctx.setFontSize(28)
-          ctx.fillText(`${returnOrder.issueWeightFormatted} kg`, padding + 140, y)
-          y += 50
+        // 2. 动态计算画布高度
+        // 修复点：之前没把“款式信息卡片高度”算进去，导致底部系统戳画在卡片上发生重叠；
+        // 同时 canvas 在 wxml 里是固定高度，导出时可能出现底部黑屏。
+        const headerHeight = 320
+        const summaryHeight = 620 // 3x2 网格高度
+        const styleCardHeight = 160
+        const footerHeight = 120
+        const canvasWidth = 750
+        const gapAfterCard = 40
+        const canvasHeight = headerHeight + summaryHeight + styleCardHeight + gapAfterCard + footerHeight
+
+        // 让 canvas 真实高度跟着动态高度走（否则会出现底部黑）
+        this.setData({ canvasWidth, canvasHeight })
+
+        // 3. 绘制背景
+        ctx.setFillStyle('#F8FAFC')
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight)
+
+        // 4. 绘制青色浸入式头部 (回货单使用青色/翠绿色)
+        const grd = ctx.createLinearGradient(0, 0, canvasWidth, 320)
+        grd.addColorStop(0, '#10B981')
+        grd.addColorStop(1, '#059669')
+        ctx.setFillStyle(grd)
+        ctx.fillRect(0, 0, canvasWidth, 320)
+
+        const padding = 40
+        const cardPadding = 32
+
+        // 头部标题和图标盒
+        ctx.save()
+        ctx.setGlobalAlpha(0.15)
+        ctx.setFillStyle('#FFFFFF')
+        this.drawRoundedRect(ctx, padding, 60, 96, 96, 24)
+        ctx.fill()
+        ctx.restore()
+        
+        ctx.setFillStyle('#FFFFFF')
+        ctx.setFontSize(44)
+        ctx.setTextAlign('center')
+        ctx.fillText('回', padding + 48, 125)
+
+        ctx.setTextAlign('left')
+        ctx.setFontSize(48)
+        ctx.fillText(returnOrder.factoryName || '加工厂', padding + 120, 105)
+        ctx.setFontSize(26)
+        ctx.setGlobalAlpha(0.8)
+        ctx.fillText(`单号: ${returnOrder.returnNo || '-'}`, padding + 120, 148)
+        ctx.setGlobalAlpha(1)
+
+        // 时间日期
+        ctx.setFontSize(24)
+        ctx.fillText(`📅 回货日期: ${returnOrder.returnDateFormatted || '-'}`, padding, 250)
+
+        // 5. 汇总统计网格 (3x2)
+        const gridY = 290
+        const itemWidth = (canvasWidth - padding * 2 - 20) / 2
+        const itemHeight = 160
+        const gap = 20
+
+        const summaryItems = [
+          { label: '回货数量', value: returnOrder.quantityFormatted || '0打0件' },
+          { label: '实际用纱', value: `${returnOrder.actualYarnUsageFormatted}kg` },
+          { label: '发料单号', value: returnOrder.issueNo || '-' },
+          { label: '加工单价', value: `¥${returnOrder.pricePerDozenFormatted}/打` },
+          { label: '加工费总额', value: `¥${returnOrder.processingFeeFormatted}` },
+          { label: '结算状态', value: returnOrder.settlementStatus || '未结算' }
+        ]
+
+        summaryItems.forEach((item, index) => {
+          const col = index % 2
+          const row = Math.floor(index / 2)
+          const x = padding + col * (itemWidth + gap)
+          const y = gridY + row * (itemHeight + gap)
+
+          ctx.save()
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.05)'
+          ctx.shadowBlur = 10
+          ctx.shadowOffsetY = 4
+          ctx.setFillStyle('#FFFFFF')
+          this.drawRoundedRect(ctx, x, y, itemWidth, itemHeight, 24)
+          ctx.fill()
+          ctx.restore()
+
+          ctx.setFillStyle('#64748B')
+          ctx.setFontSize(24)
+          ctx.fillText(item.label, x + cardPadding, y + 54)
+
+          const isHighlight = item.label === '加工费总额'
+          const isWarning = item.label === '结算状态' && item.value !== '已结算'
+          ctx.setFillStyle(isHighlight ? '#10B981' : (isWarning ? '#F59E0B' : '#1E293B'))
+          ctx.setFontSize(isHighlight ? 40 : 34)
+          ctx.fillText(item.value, x + cardPadding, y + 115)
+        });
+
+        // 6. 款式信息预览卡片
+        let currentY = gridY + 3 * (itemHeight + gap) + 40
+        ctx.save()
+        ctx.setFillStyle('#FFFFFF')
+        this.drawRoundedRect(ctx, padding, currentY, canvasWidth - padding * 2, styleCardHeight, 24)
+        ctx.fill()
+        ctx.restore()
+
+        if (localImagePath) {
+          ctx.save()
+          this.drawRoundedRect(ctx, padding + 24, currentY + 30, 100, 100, 16)
+          ctx.clip()
+          ctx.drawImage(localImagePath, padding + 24, currentY + 30, 100, 100)
+          ctx.restore()
+        } else {
+          ctx.setFillStyle('#F1F5F9')
+          this.drawRoundedRect(ctx, padding + 24, currentY + 30, 100, 100, 16)
+          ctx.fill()
         }
+
+        ctx.setFillStyle('#1E293B')
+        ctx.setFontSize(32)
+        ctx.fillText(returnOrder.styleName || '未知款号', padding + 150, currentY + 70)
+        ctx.setFillStyle('#64748B')
+        ctx.setFontSize(26)
+        ctx.fillText(`款号: ${returnOrder.styleCode || '-'}  ·  颜色: ${returnOrder.color || '-'}`, padding + 150, currentY + 115)
+
+        // 8. 底部信息（放在款式卡片之后，避免重叠）
+        const footerY = currentY + styleCardHeight + gapAfterCard + 60
+        ctx.setFillStyle('#94A3B8')
+        ctx.setFontSize(22)
+        ctx.setTextAlign('center')
+        ctx.fillText('—— 由 首发 纱线管理系统 生成 ——', canvasWidth / 2, footerY)
+
+        ctx.draw(false, () => {
+          setTimeout(() => {
+            wx.canvasToTempFilePath({
+              canvasId: 'shareCanvas',
+              width: canvasWidth,
+              height: canvasHeight,
+              destWidth: canvasWidth,
+              destHeight: canvasHeight,
+              success: (res) => resolve(res.tempFilePath),
+              fail: (err) => reject(err)
+            }, this)
+          }, 1000)
+        })
+      } catch (err) {
+        console.error('generateShareImage error:', err)
+        reject(err)
       }
-
-      // 分隔线
-      y += 20
-      ctx.setStrokeStyle('#e5e5e5')
-      ctx.setLineWidth(2)
-      ctx.beginPath()
-      ctx.moveTo(padding, y)
-      ctx.lineTo(canvasWidth - padding, y)
-      ctx.stroke()
-      y += 40
-
-      // 回货信息
-      ctx.setFillStyle('#333333')
-      ctx.setFontSize(32)
-      ctx.fillText('回货信息', padding, y)
-      y += 50
-
-      ctx.setFontSize(28)
-      
-      // 回货日期
-      ctx.setFillStyle('#666666')
-      ctx.fillText('回货日期：', padding, y)
-      ctx.setFillStyle('#333333')
-      ctx.fillText(returnOrder.returnDateFormatted || '', padding + 140, y)
-      y += 45
-
-      // 回货数量
-      ctx.setFillStyle('#666666')
-      ctx.fillText('回货数量：', padding, y)
-      ctx.setFillStyle('#333333')
-      ctx.setFontSize(32)
-      // 只显示一种格式：打件格式（如 "30打5件"）
-      const quantityText = returnOrder.returnPiecesFormatted || returnOrder.quantityFormatted || '0件'
-      ctx.fillText(quantityText, padding + 140, y)
-      y += 45
-
-      // 实际用纱量
-      ctx.setFillStyle('#666666')
-      ctx.setFontSize(28)
-      ctx.fillText('实际用纱：', padding, y)
-      ctx.setFillStyle('#333333')
-      ctx.fillText(`${returnOrder.actualYarnUsageFormatted} kg`, padding + 140, y)
-      y += 45
-
-      // 分隔线
-      y += 20
-      ctx.setStrokeStyle('#e5e5e5')
-      ctx.setLineWidth(2)
-      ctx.beginPath()
-      ctx.moveTo(padding, y)
-      ctx.lineTo(canvasWidth - padding, y)
-      ctx.stroke()
-      y += 40
-
-      // 加工费信息
-      ctx.setFillStyle('#333333')
-      ctx.setFontSize(32)
-      ctx.fillText('加工费信息', padding, y)
-      y += 50
-
-      ctx.setFontSize(28)
-      
-      // 加工单价
-      if (returnOrder.pricePerDozenFormatted) {
-        ctx.setFillStyle('#666666')
-        ctx.fillText('加工单价：', padding, y)
-        ctx.setFillStyle('#333333')
-        ctx.fillText(`¥${returnOrder.pricePerDozenFormatted} /打`, padding + 140, y)
-        y += 45
-      }
-
-      // 加工费总额
-      ctx.setFillStyle('#666666')
-      ctx.fillText('加工费总额：', padding, y)
-      ctx.setFillStyle('#2b7fff')
-      ctx.setFontSize(36)
-      ctx.fillText(`${returnOrder.processingFeeFormatted}`, padding + 180, y)
-      y += 55
-
-      // 结算状态
-      ctx.setFillStyle('#666666')
-      ctx.setFontSize(28)
-      ctx.fillText('结算状态：', padding, y)
-      const statusColor = returnOrder.settlementStatus === '已结算' ? '#10b981' : 
-                          returnOrder.settlementStatus === '部分结算' ? '#f59e0b' : '#f56565'
-      ctx.setFillStyle(statusColor)
-      ctx.fillText(returnOrder.settlementStatus || '未结算', padding + 140, y)
-      y += 45
-
-      // 已结算金额（如果有）
-      if (returnOrder.settledAmount > 0) {
-        ctx.setFillStyle('#666666')
-        ctx.fillText('已结算：', padding, y)
-        ctx.setFillStyle('#10b981')
-        ctx.fillText(`${returnOrder.settledAmountFormatted}`, padding + 140, y)
-        y += 45
-      }
-
-      // 底部信息
-      y = canvasHeight - 60
-      ctx.setFillStyle('#999999')
-      ctx.setFontSize(20)
-      ctx.setTextAlign('center')
-      ctx.fillText(`生成时间：${new Date().toLocaleString('zh-CN')}`, canvasWidth / 2, y)
-
-      ctx.draw(false, () => {
-        setTimeout(() => {
-          wx.canvasToTempFilePath({
-            canvasId: 'shareCanvas',
-            width: canvasWidth,
-            height: canvasHeight,
-            destWidth: canvasWidth,
-            destHeight: canvasHeight,
-            success: (res) => {
-              resolve(res.tempFilePath)
-            },
-            fail: (err) => {
-              console.error('canvasToTempFilePath 失败:', err)
-              reject(err)
-            }
-          }, this)
-        }, 800)
-      })
     })
+  },
+
+  // 辅助函数：绘制圆角矩形
+  drawRoundedRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath()
+    ctx.moveTo(x + radius, y)
+    ctx.lineTo(x + width - radius, y)
+    ctx.arcTo(x + width, y, x + width, y + radius, radius)
+    ctx.lineTo(x + width, y + height - radius)
+    ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius)
+    ctx.lineTo(x + radius, y + height)
+    ctx.arcTo(x, y + height, x, y + height - radius, radius)
+    ctx.lineTo(x, y + radius)
+    ctx.arcTo(x, y, x + radius, y, radius)
+    ctx.closePath()
   },
 
   saveImageToAlbum() {

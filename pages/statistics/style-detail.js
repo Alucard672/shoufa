@@ -1,6 +1,9 @@
+// pages/statistics/style-detail.js
 import { query, queryByIds, getStyleById } from '../../utils/db.js'
 import { getTimeRange, formatWeight, formatQuantity, formatDateTime } from '../../utils/calc.js'
 import { checkLogin } from '../../utils/auth.js'
+import { normalizeImageUrl } from '../../utils/image.js'
+import { pickDateHybrid, filterByTimeFilter, pickNumber, pickId, pickFirst } from '../../utils/summary.js'
 
 Page({
   data: {
@@ -9,6 +12,7 @@ Page({
     styleName: '',
     styleImageUrl: '',
     timeFilter: 'all',
+    timeFilterLabel: '全部时间',
     factoryKeyword: '',
     issueOrders: [],
     filteredIssueOrders: [],
@@ -16,8 +20,25 @@ Page({
       totalIssueCount: 0,
       totalIssueWeight: 0,
       totalReturnPieces: 0,
-      totalReturnWeight: 0
+      totalReturnWeight: 0,
+      factoryCount: 0,
+      returnedIssueCount: 0
     }
+  },
+
+  getTimeFilterLabel(filter) {
+    const map = {
+      all: '全部时间',
+      today: '今天',
+      week: '本周',
+      month: '本月'
+    }
+    return map[filter] || '全部时间'
+  },
+
+  // 款号头图失败：降级为占位图
+  onStyleImageError() {
+    this.setData({ styleImageUrl: '' })
   },
 
   onLoad(options) {
@@ -31,6 +52,7 @@ Page({
         styleName: options.styleName ? decodeURIComponent(options.styleName) : '',
         timeFilter: options.timeFilter ? decodeURIComponent(options.timeFilter) : 'all'
       })
+      this.setData({ timeFilterLabel: this.getTimeFilterLabel(this.data.timeFilter) })
       wx.setNavigationBarTitle({
         title: this.data.styleCode ? `款号: ${this.data.styleCode}` : '款号明细'
       })
@@ -61,12 +83,11 @@ Page({
       const res = await getStyleById(this.data.styleId)
       if (res.data) {
         const style = res.data
-        const imageUrl = (style.imageUrl || style.image_url || style.image || '').trim()
-        console.log('款号明细 - 样式图片:', imageUrl)
+        const imageUrl = normalizeImageUrl(style)
         this.setData({
           styleImageUrl: imageUrl,
-          styleCode: style.styleCode || style.style_code || this.data.styleCode,
-          styleName: style.styleName || style.style_name || style.name || this.data.styleName
+          styleCode: pickFirst(style, ['styleCode', 'style_code']) || this.data.styleCode,
+          styleName: pickFirst(style, ['styleName', 'style_name', 'name']) || this.data.styleName
         })
       }
     } catch (error) {
@@ -96,40 +117,38 @@ Page({
     let issueOrders = ordersRes.data || []
 
     // 2. 批量查询工厂信息
-    const factoryIds = [...new Set(issueOrders.map(order => order.factoryId || order.factory_id).filter(Boolean))]
+    const factoryIds = [...new Set(issueOrders.map(order => pickId(order, ['factoryId', 'factory_id'])).filter(Boolean))]
     const factoriesRes = factoryIds.length > 0 ? await queryByIds('factories', factoryIds) : { data: [] }
     const factoriesMap = new Map()
-    factoriesRes.data.forEach(f => factoriesMap.set(String(f._id || f.id), f))
+    factoriesRes.data.forEach(f => factoriesMap.set(pickId(f, ['_id', 'id']), f))
 
-    // 3. 批量查询回货单 (使用内存匹配兜底)
-    const issueIds = issueOrders.map(order => order._id || order.id)
+    // 3. 批量查询回货单
+    const issueIds = issueOrders.map(order => pickId(order, ['_id', 'id']))
     const _ = wx.cloud.database().command
     
-    // 获取该款号下的所有回货单（如果 issueId 查询不准，可以按 styleId 过滤）
+    // 获取该款号下的所有回货单
     const allReturnOrdersRes = await query('return_orders', {
       styleId: this.data.styleId
     }, { excludeDeleted: true })
     
     const allReturnOrders = allReturnOrdersRes.data || []
-    const issueIdsStr = issueIds.map(id => String(id))
+    const issueIdsStrSet = new Set(issueIds.map(id => String(id)))
 
     const returnOrdersMap = new Map()
     allReturnOrders.forEach(ro => {
-      const roIssueId = ro.issueId || ro.issue_id
+      const roIssueId = pickId(ro, ['issueId', 'issue_id'])
       if (!roIssueId) return
       
-      const roIssueIdStr = String(roIssueId)
-      // 检查该回货单是否属于我们查询到的发料单
-      if (issueIdsStr.includes(roIssueIdStr) || issueIds.includes(roIssueId)) {
-        if (!returnOrdersMap.has(roIssueIdStr)) returnOrdersMap.set(roIssueIdStr, [])
-        returnOrdersMap.get(roIssueIdStr).push(ro)
+      if (issueIdsStrSet.has(roIssueId)) {
+        if (!returnOrdersMap.has(roIssueId)) returnOrdersMap.set(roIssueId, [])
+        returnOrdersMap.get(roIssueId).push(ro)
       }
     })
 
     // 4. 组装数据并计算每个发料单的进度
     const ordersWithDetails = issueOrders.map(order => {
-      const orderIdStr = String(order._id || order.id)
-      const factory = factoriesMap.get(String(order.factoryId || order.factory_id))
+      const orderIdStr = pickId(order, ['_id', 'id'])
+      const factory = factoriesMap.get(pickId(order, ['factoryId', 'factory_id']))
       const returnOrders = returnOrdersMap.get(orderIdStr) || []
       
       let totalReturnPieces = 0
@@ -137,18 +156,19 @@ Page({
       let latestReturnDate = null
 
       returnOrders.forEach(ro => {
-        totalReturnPieces += (ro.returnPieces || ro.return_pieces || 0)
-        totalReturnWeight += (ro.actualYarnUsage || ro.actual_yarn_usage || 0)
-        const date = ro.createTime || ro.create_time || ro.returnDate || ro.return_date
-        if (!latestReturnDate || new Date(date) > new Date(latestReturnDate)) latestReturnDate = date
+        totalReturnPieces += pickNumber(ro, ['returnPieces', 'return_pieces'], 0)
+        totalReturnWeight += pickNumber(ro, ['actualYarnUsage', 'actual_yarn_usage'], 0)
+        const date = pickDateHybrid(ro, ['returnDate', 'return_date'], ['createTime', 'create_time'])
+        if (!latestReturnDate || date > latestReturnDate) latestReturnDate = date
       })
 
-      const remainingYarn = (order.issueWeight || 0) - totalReturnWeight
+      const issueWeight = pickNumber(order, ['issueWeight', 'issue_weight'], 0)
+      const remainingYarn = issueWeight - totalReturnWeight
       
       // 状态逻辑
       let status = order.status || '未回货'
       if (status !== '已完成') {
-        if (totalReturnWeight > 0) {
+        if (totalReturnWeight > 0 || totalReturnPieces > 0) {
           status = remainingYarn <= 0.01 ? '已完成' : '部分回货'
         } else {
           status = '未回货'
@@ -166,9 +186,9 @@ Page({
         totalReturnPiecesFormatted: formatQuantity(totalReturnPieces),
         totalReturnWeight,
         totalReturnWeightFormatted: formatWeight(totalReturnWeight),
-        issueWeightFormatted: formatWeight(order.issueWeight || 0),
+        issueWeightFormatted: formatWeight(issueWeight),
         remainingYarnFormatted: formatWeight(remainingYarn),
-        issueDateFormatted: formatDateTime(order.createTime || order.create_time || order.issueDate),
+        issueDateFormatted: formatDateTime(pickDateHybrid(order, ['issueDate', 'issue_date'], ['createTime', 'create_time'])),
         latestReturnDateFormatted: latestReturnDate ? formatDateTime(latestReturnDate) : '-'
       }
     })
@@ -185,24 +205,22 @@ Page({
   onTimeFilterChange(e) {
     const index = parseInt(e.detail.index) || 0
     const filters = ['all', 'today', 'week', 'month']
-    this.setData({ timeFilter: filters[index] || 'all' })
+    const selected = filters[index] || 'all'
+    this.setData({
+      timeFilter: selected,
+      timeFilterLabel: this.getTimeFilterLabel(selected)
+    })
     this.applyFilters()
   },
 
   applyFilters() {
     let filtered = this.data.issueOrders
 
-    // 1. 时间筛选
+    // 1. 时间筛选（使用 hybrid 统一口径）
     if (this.data.timeFilter !== 'all') {
-      const range = getTimeRange(this.data.timeFilter)
-      if (range.startDate && range.endDate) {
-        const start = range.startDate.getTime()
-        const end = range.endDate.getTime()
-        filtered = filtered.filter(order => {
-          const date = new Date(order.createTime || order.create_time || order.issueDate).getTime()
-          return date >= start && date <= end
-        })
-      }
+      filtered = filterByTimeFilter(filtered, this.data.timeFilter, (o) =>
+        pickDateHybrid(o, ['issueDate', 'issue_date'], ['createTime', 'create_time'])
+      )
     }
 
     // 2. 工厂筛选
@@ -212,28 +230,41 @@ Page({
     }
 
     // 3. 计算汇总
-    const summary = filtered.reduce((acc, o) => {
+    const summaryRaw = filtered.reduce((acc, o) => {
       acc.totalIssueCount++
-      acc.totalIssueWeight += (o.issueWeight || 0)
+      const iWeight = pickNumber(o, ['issueWeight', 'issue_weight'], 0)
+      acc.totalIssueWeight += iWeight
       acc.totalReturnPieces += (o.totalReturnPieces || 0)
       acc.totalReturnWeight += (o.totalReturnWeight || 0)
+      if (o.totalReturnWeight > 0) acc.returnedIssueCount++
+      if (o.factoryName) acc.factoryNameSet.add(String(o.factoryName))
       return acc
-    }, { totalIssueCount: 0, totalIssueWeight: 0, totalReturnPieces: 0, totalReturnWeight: 0 })
+    }, { totalIssueCount: 0, totalIssueWeight: 0, totalReturnPieces: 0, totalReturnWeight: 0, returnedIssueCount: 0, factoryNameSet: new Set() })
 
     this.setData({
       filteredIssueOrders: filtered,
       summary: {
-        ...summary,
-        totalIssueWeightFormatted: formatWeight(summary.totalIssueWeight),
-        totalReturnPiecesFormatted: formatQuantity(summary.totalReturnPieces),
-        totalReturnWeightFormatted: formatWeight(summary.totalReturnWeight)
+        totalIssueCount: summaryRaw.totalIssueCount,
+        totalIssueWeight: summaryRaw.totalIssueWeight,
+        totalReturnPieces: summaryRaw.totalReturnPieces,
+        totalReturnWeight: summaryRaw.totalReturnWeight,
+        factoryCount: summaryRaw.factoryNameSet.size,
+        returnedIssueCount: summaryRaw.returnedIssueCount,
+        totalIssueWeightFormatted: formatWeight(summaryRaw.totalIssueWeight),
+        totalReturnPiecesFormatted: formatQuantity(summaryRaw.totalReturnPieces),
+        totalReturnWeightFormatted: formatWeight(summaryRaw.totalReturnWeight)
       }
     })
   },
 
-  onOrderItemClick(e) {
+  navigateToDetail(e) {
     const id = e.currentTarget.dataset.id
-    // 可选：跳转到发料详情或相关页面
+    wx.navigateTo({
+      url: `/pages/issue/detail?id=${id}`
+    })
+  },
+
+  onOrderItemClick(e) {
+    this.navigateToDetail(e)
   }
 })
-

@@ -30,18 +30,26 @@
     </view>
   </view>
 
-  <!-- 搜索框 -->
-  <view class="search-container">
-    <search-box 
-      placeholder="搜索工厂名称、联系人或电话..."
-      bindsearch="onSearch"
-    />
+  <!-- 搜索框和筛选 -->
+  <view class="search-filter-container">
+    <view class="search-wrapper">
+      <search-box 
+        placeholder="搜索工厂名称、联系人或电话..."
+        bindsearch="onSearch"
+      />
+    </view>
+    <picker class="filter-picker" bindchange="onFilterChange" value="{{filterIndex}}" range="{{filterOptions}}" range-key="label">
+      <view class="filter-btn">
+        <text>{{filterOptions[filterIndex].label}}</text>
+        <text class="filter-arrow">▼</text>
+      </view>
+    </picker>
   </view>
 
   <!-- 工厂列表 -->
   <view class="factory-list">
     <view 
-      class="factory-card card" 
+      class="factory-card card {{item.disabled ? 'card-disabled' : ''}}" 
       wx:for="{{factories}}" 
       wx:key="_id"
       bindtap="navigateToDetail"
@@ -49,12 +57,15 @@
     >
       <view class="factory-header">
         <view class="factory-info">
-          <text class="factory-name">{{item.name}}</text>
-          <text class="factory-contact">{{item.contact}} · {{item.phone}}</text>
+          <view class="factory-name-row">
+            <text class="factory-name {{item.disabled ? 'disabled-text' : ''}}">{{item.name}}</text>
+            <view class="disabled-badge" wx:if="{{item.disabled}}">已停用</view>
+          </view>
+          <text class="factory-contact {{item.disabled ? 'disabled-text' : ''}}">{{item.contact}} · {{item.phone}}</text>
         </view>
         <view class="factory-actions">
-          <view class="btn-settlement" bindtap="navigateToSettlement" data-id="{{item._id}}" catchtap="stopPropagation" wx:if="{{item.unpaidFee > 0}}">结算</view>
-          <view class="btn-edit" bindtap="onEditFactory" data-id="{{item._id}}" catchtap="stopPropagation">编辑</view>
+          <view class="btn-settlement" catchtap="navigateToSettlement" data-id="{{item._id}}" wx:if="{{item.unpaidFee > 0}}">结算</view>
+          <view class="btn-edit" catchtap="onEditFactory" data-id="{{item._id}}">编辑</view>
           <text class="factory-arrow" bindtap="navigateToDetail" data-id="{{item._id}}">›</text>
         </view>
       </view>
