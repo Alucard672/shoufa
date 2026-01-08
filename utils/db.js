@@ -740,8 +740,40 @@ export async function getStyleFactoryPrice(styleId, factoryId) {
     
     return { data: res.data.length > 0 ? res.data[0] : null }
   } catch (error) {
-    console.error('获取款号-工厂加工单价失败:', error)
-    return { data: null }
+    // 如果集合不存在，尝试创建集合后重试
+    if (error.errCode === -502005 || error.message?.includes('collection not exists')) {
+      console.log('style_factory_prices 集合不存在，尝试创建')
+      try {
+        await wx.cloud.callFunction({
+          name: 'initDatabase',
+          data: {
+            collections: ['style_factory_prices']
+          }
+        })
+        // 创建后再次查询（虽然应该是空的，但为了保持一致性）
+        try {
+          const res = await db.collection('style_factory_prices')
+            .where({
+              tenantId: tenantId,
+              styleId: styleId,
+              factoryId: factoryId,
+              deleted: false
+            })
+            .get()
+          return { data: res.data.length > 0 ? res.data[0] : null }
+        } catch (retryError) {
+          // 再次查询失败，返回 null
+          return { data: null }
+        }
+      } catch (createError) {
+        console.error('创建 style_factory_prices 集合失败:', createError)
+        // 创建失败，返回 null（不影响主流程）
+        return { data: null }
+      }
+    } else {
+      console.error('获取款号-工厂加工单价失败:', error)
+      return { data: null }
+    }
   }
 }
 
@@ -794,7 +826,42 @@ export async function saveStyleFactoryPrice(styleId, factoryId, processingFeePer
       return { data: { _id: result._id, ...data } }
     }
   } catch (error) {
-    console.error('保存款号-工厂加工单价失败:', error)
-    throw error
+    // 如果集合不存在，尝试创建集合后重试
+    if (error.errCode === -502005 || error.message?.includes('collection not exists')) {
+      console.log('style_factory_prices 集合不存在，尝试创建')
+      try {
+        await wx.cloud.callFunction({
+          name: 'initDatabase',
+          data: {
+            collections: ['style_factory_prices']
+          }
+        })
+        // 创建后再次尝试保存
+        try {
+          const result = await db.collection('style_factory_prices')
+            .add({
+              data: {
+                styleId: styleId,
+                factoryId: factoryId,
+                processingFeePerDozen: processingFeePerDozen,
+                tenantId: tenantId,
+                deleted: false,
+                createTime: db.serverDate(),
+                updateTime: db.serverDate()
+              }
+            })
+          return { data: { _id: result._id, styleId, factoryId, processingFeePerDozen } }
+        } catch (retryError) {
+          console.error('创建后保存失败:', retryError)
+          throw retryError
+        }
+      } catch (createError) {
+        console.error('创建 style_factory_prices 集合失败:', createError)
+        throw new Error('数据库集合不存在，请手动创建 style_factory_prices 集合')
+      }
+    } else {
+      console.error('保存款号-工厂加工单价失败:', error)
+      throw error
+    }
   }
 }

@@ -41,6 +41,7 @@
       <view class="seg-btn seg-btn-pill {{statusFilterIndex === 0 ? 'is-active' : ''}}" data-index="0" bindtap="onStatusSegTap">全部</view>
       <view class="seg-btn seg-btn-pill {{statusFilterIndex === 1 ? 'is-active' : ''}}" data-index="1" bindtap="onStatusSegTap">进行中</view>
       <view class="seg-btn seg-btn-pill {{statusFilterIndex === 2 ? 'is-active' : ''}}" data-index="2" bindtap="onStatusSegTap">已完成</view>
+      <view class="seg-btn seg-btn-pill {{statusFilterIndex === 3 ? 'is-active' : ''}}" data-index="3" bindtap="onStatusSegTap">已作废</view>
     </view>
   </view>
 

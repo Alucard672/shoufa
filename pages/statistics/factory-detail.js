@@ -76,7 +76,8 @@ Page({
       orderBy: { field: 'createTime', direction: 'DESC' }
     })
     
-    let issueOrders = ordersRes.data || []
+    // 排除已作废的发料单
+    let issueOrders = (ordersRes.data || []).filter(order => !order.voided)
 
     // 2. 批量查询款号信息
     const styleIds = [...new Set(issueOrders.map(order => pickId(order, ['styleId', 'style_id'])).filter(Boolean))]
@@ -93,7 +94,8 @@ Page({
       factoryId: this.data.factoryId
     }, { excludeDeleted: true })
     
-    const allReturnOrders = allReturnOrdersRes.data || []
+    // 排除已作废的回货单
+    const allReturnOrders = (allReturnOrdersRes.data || []).filter(order => !order.voided)
     const issueIdsStrSet = new Set(issueIds.map(id => String(id)))
 
     const returnOrdersMap = new Map()

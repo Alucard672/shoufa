@@ -153,14 +153,17 @@ Page({
 
       const merged = []
       const seen = new Set()
+      // 排除已作废的回货单
       ;(byFactoryId.data || []).concat(byFactory_id.data || []).forEach((o) => {
+        if (o.voided) return // 排除已作废的单据
         const key = String(o._id || o.id || '')
         if (!key || seen.has(key)) return
         seen.add(key)
         merged.push(o)
       })
 
-      const returnOrders = merged
+      // 再次确保排除已作废的回货单
+      const returnOrders = merged.filter(order => !order.voided)
 
       // 获取所有款号ID和发料单ID
       const styleIds = [...new Set(returnOrders.map(order => order.styleId || order.style_id).filter(Boolean))]

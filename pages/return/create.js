@@ -8,10 +8,9 @@ import {
   formatWeight,
   calculateReturnPieces,
   calculateActualYarnUsage,
-} from '../../utils/calc.js'
-import { getPiecesPerDozenSync } from '../../utils/systemParams.js'
   calculateProcessingFee
 } from '../../utils/calc.js'
+import { getPiecesPerDozenSync } from '../../utils/systemParams.js'
 import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 

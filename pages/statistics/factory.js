@@ -116,7 +116,9 @@ Page({
         
         const merged = []
         const seen = new Set()
+        // 排除已作废的回货单
         ;(byIssueId.data || []).concat(byIssue_id.data || []).forEach(ro => {
+          if (ro.voided) return // 排除已作废的单据
           const key = pickId(ro, ['_id', 'id'])
           if (key && !seen.has(key)) {
             seen.add(key)
@@ -133,10 +135,10 @@ Page({
       }
     }
 
-    // 4. 按工厂统计
+    // 4. 按工厂统计（排除已作废的发料单）
     const factoryStatsMap = new Map()
 
-    issueOrders.forEach(order => {
+    issueOrders.filter(order => !order.voided).forEach(order => {
       const factoryId = pickId(order, ['factoryId', 'factory_id'])
       if (!factoryId) return
 

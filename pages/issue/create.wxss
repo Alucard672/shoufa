@@ -18,6 +18,7 @@ page {
   padding: 60rpx 32rpx 120rpx;
   border-radius: 0 0 16rpx 16rpx;
   position: relative;
+  z-index: 1; /* 确保头部在白色卡片下方 */
   color: #fff;
   margin-bottom: -80rpx;
   width: 100%;
@@ -86,6 +87,13 @@ page {
 .section {
   margin-top: 32rpx;
   padding: 0 32rpx;
+}
+
+/* 让"款式详情卡"压住抬头背景（修复层级反了的问题） */
+.style-top {
+  margin-top: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .card {
@@ -171,11 +179,11 @@ page {
   color: #F59E0B;
 }
 
-/* 汇总统计网格（复用明细页元素） */
+/* 汇总统计网格（复用明细页元素，压住抬头背景） */
 .summary-grid-section {
   padding: 0 32rpx;
   position: relative;
-  z-index: 1;
+  z-index: 2;
   margin-top: 24rpx;
 }
 

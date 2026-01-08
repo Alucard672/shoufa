@@ -17,7 +17,9 @@ exports.main = async (event, context) => {
     'production_plans',
     'issue_orders',
     'return_orders',
-    'settlements'
+    'settlements',
+    'app_config', // 应用全局配置（如版本号）
+    'system_params' // 系统参数（租户级别）
   ]
   
   const collections = event.collections || defaultCollections

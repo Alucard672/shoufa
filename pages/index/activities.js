@@ -86,20 +86,24 @@ Page({
         query('return_orders', {}, { excludeDeleted: true, orderBy: { field: 'createTime', direction: 'DESC' }, limit: 100 })
       ])
 
-      // 2. 预处理
-      let issues = issueRes.data.map(o => ({
-        ...o,
-        type: 'issue',
-        date: pickDateHybrid(o, ['issueDate', 'issue_date'], ['createTime', 'create_time']),
-        label: '发料给 '
-      }))
+      // 2. 预处理（过滤掉已作废的单据）
+      let issues = issueRes.data
+        .filter(o => !o.voided) // 排除已作废的发料单
+        .map(o => ({
+          ...o,
+          type: 'issue',
+          date: pickDateHybrid(o, ['issueDate', 'issue_date'], ['createTime', 'create_time']),
+          label: '发料给 '
+        }))
 
-      let returns = returnRes.data.map(o => ({
-        ...o,
-        type: 'return',
-        date: pickDateHybrid(o, ['returnDate', 'return_date'], ['createTime', 'create_time']),
-        label: '回货自 '
-      }))
+      let returns = returnRes.data
+        .filter(o => !o.voided) // 排除已作废的回货单
+        .map(o => ({
+          ...o,
+          type: 'return',
+          date: pickDateHybrid(o, ['returnDate', 'return_date'], ['createTime', 'create_time']),
+          label: '回货自 '
+        }))
 
       // 3. 合并
       let all = [...issues, ...returns]

@@ -155,7 +155,9 @@ Page({
         
         const merged = []
         const seen = new Set()
+        // 排除已作废的回货单
         ;(byIssueId.data || []).concat(byIssue_id.data || []).forEach(ro => {
+          if (ro.voided) return // 排除已作废的单据
           const key = pickId(ro, ['_id', 'id'])
           if (key && !seen.has(key)) {
             seen.add(key)
@@ -172,10 +174,10 @@ Page({
       }
     }
 
-    // 4. 按款号统计
+    // 4. 按款号统计（排除已作废的发料单）
     const styleStatsMap = new Map()
 
-    issueOrders.forEach(order => {
+    issueOrders.filter(order => !order.voided).forEach(order => {
       const styleId = pickId(order, ['styleId', 'style_id'])
       if (!styleId) return
 

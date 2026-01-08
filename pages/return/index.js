@@ -136,7 +136,10 @@ Page({
     let totalPieces = 0
     let totalFee = 0
 
-    orders.forEach(order => {
+    // 排除已作废的单据
+    const validOrders = orders.filter(order => !order.voided)
+    
+    validOrders.forEach(order => {
       totalPieces += Math.floor(pickNumber(order, ['returnPieces', 'return_pieces'], 0))
       totalFee += pickNumber(order, ['processingFee', 'processing_fee'], 0)
     })
@@ -288,17 +291,23 @@ Page({
       }
     })
 
-    // 应用状态筛选（排除已作废的单据，除非用户明确选择显示）
+    // 应用状态筛选
     let finalOrders = ordersWithDetails || []
     
-    // 默认排除已作废的单据
-    finalOrders = ordersWithDetails.filter(order => !order.voided)
-    
-    if (this.data.statusFilter !== 'all') {
-      finalOrders = finalOrders.filter(order => {
-        const orderStatus = order.status || '进行中'
-        return orderStatus === this.data.statusFilter
-      })
+    if (this.data.statusFilter === '已作废') {
+      // 只显示已作废的单据
+      finalOrders = ordersWithDetails.filter(order => order.voided)
+    } else if (this.data.statusFilter !== 'all') {
+      // 排除已作废的单据，按状态筛选
+      finalOrders = ordersWithDetails
+        .filter(order => !order.voided)
+        .filter(order => {
+          const orderStatus = order.status || '进行中'
+          return orderStatus === this.data.statusFilter
+        })
+    } else {
+      // 如果选择"全部"，排除已作废的单据
+      finalOrders = ordersWithDetails.filter(order => !order.voided)
     }
 
     this.setData({
@@ -330,27 +339,31 @@ Page({
 
   navigateToDetail(e) {
     const id = e.currentTarget.dataset.id
-    const index = e.currentTarget.dataset.index
+    const index = parseInt(e.currentTarget.dataset.index, 10)
     
     // 如果当前项已展开，点击卡片时先收回
     if (this.data.currentSwipeIndex === index) {
       const displayOrders = this.data.displayOrders
-      displayOrders[index].swipeOffset = 0
-      this.setData({
-        displayOrders: displayOrders,
-        currentSwipeIndex: -1
-      })
+      if (displayOrders && displayOrders[index]) {
+        displayOrders[index].swipeOffset = 0
+        this.setData({
+          displayOrders: displayOrders,
+          currentSwipeIndex: -1
+        })
+      }
       return
     }
     
     // 如果有其他项展开，先收回
     if (this.data.currentSwipeIndex >= 0 && this.data.currentSwipeIndex !== index) {
       const displayOrders = this.data.displayOrders
-      displayOrders[this.data.currentSwipeIndex].swipeOffset = 0
-      this.setData({
-        displayOrders: displayOrders,
-        currentSwipeIndex: -1
-      })
+      if (displayOrders && displayOrders[this.data.currentSwipeIndex]) {
+        displayOrders[this.data.currentSwipeIndex].swipeOffset = 0
+        this.setData({
+          displayOrders: displayOrders,
+          currentSwipeIndex: -1
+        })
+      }
     }
     
     wx.navigateTo({
@@ -360,7 +373,13 @@ Page({
 
   // 左滑相关方法
   onSwipeStart(e) {
-    const index = e.currentTarget.dataset.index
+    const index = parseInt(e.currentTarget.dataset.index, 10)
+    // 安全检查：确保索引有效且元素存在
+    if (isNaN(index) || !this.data.displayOrders || !this.data.displayOrders[index]) {
+      console.warn('onSwipeStart: 无效的索引或元素不存在', { index, displayOrdersLength: this.data.displayOrders?.length })
+      return
+    }
+    
     const touch = e.touches[0]
     const currentOffset = this.data.displayOrders[index].swipeOffset || 0
     this.setData({
@@ -371,7 +390,12 @@ Page({
   },
 
   onSwipeMove(e) {
-    const index = e.currentTarget.dataset.index
+    const index = parseInt(e.currentTarget.dataset.index, 10)
+    // 安全检查：确保索引有效且元素存在
+    if (isNaN(index) || !this.data.displayOrders || !this.data.displayOrders[index]) {
+      return
+    }
+    
     const touch = e.touches[0]
     const deltaX = touch.clientX - this.data.swipeStartX
     const startOffset = this.data.swipeStartOffset || 0
@@ -383,14 +407,23 @@ Page({
     newOffset = Math.max(-140, Math.min(0, newOffset))
     
     const displayOrders = this.data.displayOrders
-    displayOrders[index].swipeOffset = newOffset
-    this.setData({
-      displayOrders: displayOrders
-    })
+    // 再次检查元素是否存在（防止在移动过程中数据被更新）
+    if (displayOrders[index]) {
+      displayOrders[index].swipeOffset = newOffset
+      this.setData({
+        displayOrders: displayOrders
+      })
+    }
   },
 
   onSwipeEnd(e) {
-    const index = e.currentTarget.dataset.index
+    const index = parseInt(e.currentTarget.dataset.index, 10)
+    // 安全检查：确保索引有效且元素存在
+    if (isNaN(index) || !this.data.displayOrders || !this.data.displayOrders[index]) {
+      console.warn('onSwipeEnd: 无效的索引或元素不存在', { index, displayOrdersLength: this.data.displayOrders?.length })
+      return
+    }
+    
     const displayOrders = this.data.displayOrders
     const currentOffset = displayOrders[index].swipeOffset || 0
     
@@ -402,30 +435,37 @@ Page({
       finalOffset = 0 // 收回
     }
     
-    // 如果其他项已展开，先收回
+    // 如果其他项已展开，先收回（需要检查元素是否存在）
     if (this.data.currentSwipeIndex >= 0 && this.data.currentSwipeIndex !== index) {
-      displayOrders[this.data.currentSwipeIndex].swipeOffset = 0
+      if (displayOrders[this.data.currentSwipeIndex]) {
+        displayOrders[this.data.currentSwipeIndex].swipeOffset = 0
+      }
     }
     
-    displayOrders[index].swipeOffset = finalOffset
-    this.setData({
-      displayOrders: displayOrders,
-      currentSwipeIndex: finalOffset < 0 ? index : -1
-    })
+    // 再次检查元素是否存在（防止在滑动过程中数据被更新）
+    if (displayOrders[index]) {
+      displayOrders[index].swipeOffset = finalOffset
+      this.setData({
+        displayOrders: displayOrders,
+        currentSwipeIndex: finalOffset < 0 ? index : -1
+      })
+    }
   },
 
   // 编辑回货单
   onEditReturn(e) {
     const id = e.currentTarget.dataset.id
-    const index = e.currentTarget.dataset.index
+    const index = parseInt(e.currentTarget.dataset.index, 10)
     
-    // 收回滑动
-    const displayOrders = this.data.displayOrders
-    displayOrders[index].swipeOffset = 0
-    this.setData({
-      displayOrders: displayOrders,
-      currentSwipeIndex: -1
-    })
+    // 收回滑动（安全检查）
+    if (!isNaN(index) && this.data.displayOrders && this.data.displayOrders[index]) {
+      const displayOrders = this.data.displayOrders
+      displayOrders[index].swipeOffset = 0
+      this.setData({
+        displayOrders: displayOrders,
+        currentSwipeIndex: -1
+      })
+    }
     
     wx.navigateTo({
       url: `/pages/return/create?id=${id}`
@@ -435,18 +475,31 @@ Page({
   // 作废/恢复回货单
   async onVoidReturn(e) {
     const id = e.currentTarget.dataset.id
-    const index = e.currentTarget.dataset.index
+    const index = parseInt(e.currentTarget.dataset.index, 10)
+    
+    // 安全检查：确保索引有效且元素存在
+    if (isNaN(index) || !this.data.displayOrders || !this.data.displayOrders[index]) {
+      console.warn('onVoidReturn: 无效的索引或元素不存在', { index, displayOrdersLength: this.data.displayOrders?.length })
+      wx.showToast({
+        title: '操作失败，数据已更新',
+        icon: 'none'
+      })
+      return
+    }
+    
     const item = this.data.displayOrders[index]
     const isVoided = item.voided || false
     const action = isVoided ? '恢复' : '作废'
     
     // 收回滑动
     const displayOrders = this.data.displayOrders
-    displayOrders[index].swipeOffset = 0
-    this.setData({
-      displayOrders: displayOrders,
-      currentSwipeIndex: -1
-    })
+    if (displayOrders[index]) {
+      displayOrders[index].swipeOffset = 0
+      this.setData({
+        displayOrders: displayOrders,
+        currentSwipeIndex: -1
+      })
+    }
     
     wx.showModal({
       title: `确认${action}`,
@@ -457,17 +510,70 @@ Page({
             wx.showLoading({ title: `${action}中...` })
             
             const db = wx.cloud.database()
-            const result = await db.collection('return_orders')
-              .doc(id)
-              .update({
+            const docId = String(id || item._id || item.id || '')
+            let updated = 0
+
+            // 1) 优先按 doc(_id) 更新
+            try {
+              const r1 = await db.collection('return_orders').doc(docId).update({
                 data: {
                   voided: !isVoided,
                   updateTime: db.serverDate()
                 }
               })
+              // 某些 SDK 版本可能没有 stats.updated，这里只要不抛错就认为成功
+              updated = (r1 && r1.stats && typeof r1.stats.updated === 'number') ? r1.stats.updated : 1
+            } catch (e1) {
+              console.log('使用 doc 更新失败，尝试使用 where 查询:', e1)
+            }
+
+            // 2) 回退：按自定义 id 更新（数字 id）或使用 tenantId + _id 查询
+            if (updated === 0) {
+              const tenantId = app?.globalData?.tenantId || wx.getStorageSync('tenantId')
+              if (tenantId) {
+                try {
+                  // 先尝试用 tenantId + _id 查询
+                  const queryRes = await db.collection('return_orders')
+                    .where({
+                      tenantId: tenantId,
+                      _id: docId
+                    })
+                    .get()
+                  
+                  if (queryRes.data && queryRes.data.length === 1) {
+                    const r2 = await db.collection('return_orders')
+                      .doc(queryRes.data[0]._id)
+                      .update({
+                        data: {
+                          voided: !isVoided,
+                          updateTime: db.serverDate()
+                        }
+                      })
+                    updated = (r2 && r2.stats && typeof r2.stats.updated === 'number') ? r2.stats.updated : 1
+                  } else {
+                    // 尝试用数字 id
+                    const idStr = docId
+                    const idNum = /^\d+$/.test(idStr) ? parseInt(idStr, 10) : null
+                    if (idNum !== null) {
+                      const r3 = await db.collection('return_orders')
+                        .where({ tenantId: tenantId, deleted: false, id: idNum })
+                        .update({
+                          data: {
+                            voided: !isVoided,
+                            updateTime: db.serverDate()
+                          }
+                        })
+                      updated = (r3 && r3.stats && typeof r3.stats.updated === 'number') ? r3.stats.updated : 0
+                    }
+                  }
+                } catch (e2) {
+                  console.error('回退更新失败:', e2)
+                }
+              }
+            }
             
-            if (result.stats.updated === 0) {
-              throw new Error('权限不足或记录不存在')
+            if (updated === 0) {
+              throw new Error('未找到要更新的单据，请检查数据库权限')
             }
             
             wx.hideLoading()
@@ -504,7 +610,7 @@ Page({
 
   onStatusFilterChange(e) {
     const index = parseInt(e.detail.index) || 0
-    const filters = ['all', '进行中', '已完成']
+    const filters = ['all', '进行中', '已完成', '已作废']
     const selectedFilter = filters[index] || 'all'
     this.setData({
       statusFilter: selectedFilter,

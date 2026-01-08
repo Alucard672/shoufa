@@ -17,8 +17,8 @@
     </view>
   </view>
 
-  <!-- 款式信息卡片（含图片，参考明细页） -->
-  <view class="section" wx:if="{{selectedStyle}}">
+  <!-- 款式信息卡片（含图片，参考明细页，压住抬头背景） -->
+  <view class="section style-top" wx:if="{{selectedStyle}}">
     <view class="card style-card">
       <view class="style-info-row">
         <view class="style-image-container" catchtap="onPreviewImage" data-url="{{selectedStyleImageUrl}}">

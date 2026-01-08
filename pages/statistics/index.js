@@ -255,7 +255,10 @@ Page({
       excludeDeleted: true,
       orderBy: { field: 'createTime', direction: 'DESC' }
     })
-    let issueOrders = { data: issueOrdersRes.data || [] }
+    // 排除已作废的发料单
+    let issueOrders = { 
+      data: (issueOrdersRes.data || []).filter(order => !order.voided)
+    }
 
     // 批量查询回货单
     const issueIds = issueOrders.data.map(order => order.id || order._id)
@@ -267,8 +270,10 @@ Page({
       const allReturnOrdersRes = await query('return_orders', {}, {
         excludeDeleted: true
       })
-      console.log('统计页面 - 所有回货单:', allReturnOrdersRes.data.length, '条')
-      allReturnOrdersRes.data.forEach(ro => {
+      // 排除已作废的回货单
+      const validReturnOrders = (allReturnOrdersRes.data || []).filter(order => !order.voided)
+      console.log('统计页面 - 所有回货单:', validReturnOrders.length, '条（已排除作废）')
+      validReturnOrders.forEach(ro => {
         console.log('统计页面 - 回货单详情:', {
           returnNo: ro.returnNo || ro.return_no,
           issueId: ro.issueId || ro.issue_id,
@@ -281,27 +286,31 @@ Page({
       // 先尝试使用 issueId，如果失败再尝试 issue_id
       let returnOrdersRes
       try {
-        returnOrdersRes = await query('return_orders', {
+        const rawRes = await query('return_orders', {
           issueId: _.in(issueIds)
         }, {
           excludeDeleted: true
         })
-        console.log('统计页面 - 使用issueId查询回货单:', returnOrdersRes.data.length, '条', returnOrdersRes.data.map(o => ({ id: o._id, issueId: o.issueId || o.issue_id, returnNo: o.returnNo || o.return_no })))
+        // 排除已作废的回货单
+        returnOrdersRes = { data: (rawRes.data || []).filter(order => !order.voided) }
+        console.log('统计页面 - 使用issueId查询回货单:', returnOrdersRes.data.length, '条（已排除作废）', returnOrdersRes.data.map(o => ({ id: o._id, issueId: o.issueId || o.issue_id, returnNo: o.returnNo || o.return_no })))
       } catch (e) {
         console.log('统计页面 - issueId查询失败，尝试issue_id:', e)
-        returnOrdersRes = await query('return_orders', {
+        const rawRes = await query('return_orders', {
           issue_id: _.in(issueIds)
         }, {
           excludeDeleted: true
         })
-        console.log('统计页面 - 使用issue_id查询回货单:', returnOrdersRes.data.length, '条', returnOrdersRes.data.map(o => ({ id: o._id, issueId: o.issueId || o.issue_id, returnNo: o.returnNo || o.return_no })))
+        // 排除已作废的回货单
+        returnOrdersRes = { data: (rawRes.data || []).filter(order => !order.voided) }
+        console.log('统计页面 - 使用issue_id查询回货单:', returnOrdersRes.data.length, '条（已排除作废）', returnOrdersRes.data.map(o => ({ id: o._id, issueId: o.issueId || o.issue_id, returnNo: o.returnNo || o.return_no })))
       }
       
       // 如果查询结果为空，尝试在内存中过滤
-      if (returnOrdersRes.data.length === 0 && allReturnOrdersRes.data.length > 0) {
+      if (returnOrdersRes.data.length === 0 && validReturnOrders.length > 0) {
         console.log('统计页面 - 尝试在内存中匹配回货单')
         const issueIdsStr = issueIds.map(id => String(id))
-        returnOrdersRes.data = allReturnOrdersRes.data.filter(ro => {
+        returnOrdersRes.data = validReturnOrders.filter(ro => {
           const roIssueId = ro.issueId || ro.issue_id
           const roIssueIdStr = String(roIssueId)
           const matched = issueIdsStr.includes(roIssueIdStr) || issueIds.includes(roIssueId)

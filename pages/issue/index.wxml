@@ -45,6 +45,7 @@
       <view class="seg-btn {{statusFilterIndex === 2 ? 'is-active' : ''}}" data-index="2" bindtap="onStatusSegTap">部分回货</view>
       <view class="seg-btn {{statusFilterIndex === 3 ? 'is-active' : ''}}" data-index="3" bindtap="onStatusSegTap">已回货</view>
       <view class="seg-btn {{statusFilterIndex === 4 ? 'is-active' : ''}}" data-index="4" bindtap="onStatusSegTap">已完成</view>
+      <view class="seg-btn {{statusFilterIndex === 5 ? 'is-active' : ''}}" data-index="5" bindtap="onStatusSegTap">已作废</view>
     </view>
   </view>
 

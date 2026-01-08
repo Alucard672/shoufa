@@ -62,9 +62,12 @@ Page({
         skip += pageSize
       }
 
+      // 排除已作废的回货单
+      const validReturnOrders = allReturnOrders.filter(order => !order.voided)
+
       // 按 factoryId / factory_id 分组
       const roByFactory = new Map()
-      allReturnOrders.forEach((ro) => {
+      validReturnOrders.forEach((ro) => {
         const fid = ro.factoryId || ro.factory_id
         if (!fid) return
         const key = String(fid)

@@ -1,9 +1,8 @@
 // app.js
 // 导入环境配置
 const envConfig = require('./env-config.js')
-// 从 package.json 读取版本号（最直接的方式）
-const packageJson = require('./package.json')
-const VERSION = packageJson.version || '1.1.6'
+// 版本号配置（与 package.json 保持一致，需手动同步）
+const VERSION = '1.1.6'
 
 App({
   async onLaunch(options) {
@@ -27,8 +26,12 @@ App({
       console.log('云开发环境已初始化，envId:', envConfig.envId)
     }
 
-    // 加载版本号（同步，立即生效）
-    this.loadVersionInfo()
+    // 加载版本号（异步，不阻塞启动）
+    this.loadVersionInfo().catch(err => {
+      console.error('加载版本号失败:', err)
+      // 确保有默认值
+      this.globalData.version = VERSION
+    })
 
     // 从缓存恢复登录状态
     const tenantId = wx.getStorageSync('tenantId')
@@ -44,49 +47,87 @@ App({
 
   /**
    * 获取版本号
-   * 方式2: 使用 wx.getAccountInfoSync() 获取小程序信息
-   * 注意：虽然不能直接获取上传版本号，但可以获取环境信息
+   * 优先从云端读取，失败则使用本地默认值
    */
-  loadVersionInfo() {
-    let version = VERSION // 默认值
+  async loadVersionInfo() {
+    // 先设置本地默认值（确保有值可用）
+    let version = VERSION
+    this.globalData.version = version
 
     try {
-      // 方式2: 尝试从微信API获取小程序信息
-      const accountInfo = wx.getAccountInfoSync()
-      console.log('小程序账号信息:', accountInfo)
-      
-      // accountInfo.miniProgram 包含：
-      // - appId: 小程序 appId
-      // - envVersion: 当前环境版本（develop/trial/release）
-      // - version: 基础库版本（如果可用）
-      
-      const miniProgramInfo = accountInfo.miniProgram || {}
-      
-      // 尝试获取版本号（虽然通常不可用，但保留尝试）
-      if (miniProgramInfo.version) {
-        version = miniProgramInfo.version
-        console.log('从 wx.getAccountInfoSync() 读取版本号:', version)
-      } else {
-        // 如果获取不到，使用 package.json 的版本号
+      // 方式1: 尝试从云端数据库读取版本号（全局配置，不需要 tenantId）
+      const db = wx.cloud.database()
+      try {
+        const appConfigRes = await db.collection('app_config')
+          .where({
+            key: 'appVersion'
+          })
+          .limit(1)
+          .get()
+        
+        if (appConfigRes.data && appConfigRes.data.length > 0) {
+          const cloudVersion = appConfigRes.data[0].value
+          if (cloudVersion && cloudVersion.trim()) {
+            version = cloudVersion.trim()
+            console.log('从云端读取版本号:', version)
+          }
+        }
+      } catch (cloudError) {
+        // 如果集合不存在或查询失败，使用默认值
+        console.log('从云端读取版本号失败，使用本地默认值:', cloudError)
         version = VERSION
-        console.log('从 package.json 读取版本号:', version)
       }
 
-      // 保存环境信息到 globalData（可用于调试）
-      this.globalData.appInfo = {
-        appId: miniProgramInfo.appId,
-        envVersion: miniProgramInfo.envVersion, // develop/trial/release
-        version: version
+      // 方式2: 获取小程序环境信息（用于调试）
+      try {
+        const accountInfo = wx.getAccountInfoSync()
+        const miniProgramInfo = accountInfo.miniProgram || {}
+        
+        // 保存环境信息到 globalData（可用于调试）
+        this.globalData.appInfo = {
+          appId: miniProgramInfo.appId,
+          envVersion: miniProgramInfo.envVersion, // develop/trial/release
+          version: version
+        }
+      } catch (infoError) {
+        console.warn('获取小程序信息失败:', infoError)
       }
 
     } catch (error) {
-      console.warn('获取小程序信息失败，使用默认版本号:', error)
+      console.warn('加载版本号失败，使用默认版本号:', error)
       version = VERSION
     }
 
     // 设置全局版本号
     this.globalData.version = version
     console.log('小程序版本号:', version)
+    console.log('小程序环境:', this.globalData.appInfo?.envVersion || 'unknown')
+    
+    // 通知已加载版本号的页面更新（使用 setTimeout 延迟执行，避免在页面未完全初始化时调用）
+    if (typeof getCurrentPages === 'function') {
+      setTimeout(() => {
+        try {
+          const pages = getCurrentPages()
+          pages.forEach(page => {
+            if (page && typeof page.setData === 'function') {
+              try {
+                // 只更新有 globalData 的页面
+                if (page.data && page.data.globalData !== undefined) {
+                  page.setData({
+                    'globalData.version': version
+                  })
+                }
+              } catch (e) {
+                // 忽略设置失败（可能是页面已销毁）
+                console.warn('更新页面版本号失败:', e)
+              }
+            }
+          })
+        } catch (error) {
+          console.warn('获取页面列表失败:', error)
+        }
+      }, 100)
+    }
   },
 
   async checkAndMigrateDates() {

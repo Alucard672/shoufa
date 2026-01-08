@@ -122,7 +122,9 @@ Page({
           ])
           const issueOrdersData = []
           const issueSeen = new Set()
+          // 排除已作废的发料单
           ;(issueById.data || []).concat(issueBy_id.data || []).forEach((o) => {
+            if (o.voided) return // 排除已作废的单据
             const key = String(o._id || o.id || '')
             if (!key || issueSeen.has(key)) return
             issueSeen.add(key)
@@ -136,7 +138,9 @@ Page({
           ])
           const returnOrdersData = []
           const retSeen = new Set()
+          // 排除已作废的回货单
           ;(retById.data || []).concat(retBy_id.data || []).forEach((o) => {
+            if (o.voided) return // 排除已作废的单据
             const key = String(o._id || o.id || '')
             if (!key || retSeen.has(key)) return
             retSeen.add(key)

@@ -104,8 +104,10 @@ Page({
       excludeDeleted: true
     })
 
-    // 客户端过滤：只统计未结算和部分结算的回货单
+    // 客户端过滤：只统计未结算和部分结算的回货单，排除已作废的单据
     const unpaidOrders = result.data.filter(order => {
+      // 排除已作废的单据
+      if (order.voided) return false
       const status = order.settlementStatus || order.settlement_status || '未结算'
       return status === '未结算' || status === '部分结算'
     })
@@ -139,26 +141,30 @@ Page({
         })
       ])
 
-      // 2. 统一格式并打标
+      // 2. 统一格式并打标（过滤掉已作废的单据）
       const activities = [
-        ...issueRes.data.map(item => ({
-          ...item,
-          type: 'issue',
-          date: item.issueDate || item.issue_date,
-          createTime: item.createTime || item.create_time,
-          label: '发料给',
-          factoryId: item.factoryId || item.factory_id,
-          styleId: item.styleId || item.style_id
-        })),
-        ...returnRes.data.map(item => ({
-          ...item,
-          type: 'return',
-          date: item.returnDate || item.return_date,
-          createTime: item.createTime || item.create_time,
-          label: '回货自',
-          factoryId: item.factoryId || item.factory_id,
-          styleId: item.styleId || item.style_id
-        }))
+        ...issueRes.data
+          .filter(item => !item.voided) // 排除已作废的发料单
+          .map(item => ({
+            ...item,
+            type: 'issue',
+            date: item.issueDate || item.issue_date,
+            createTime: item.createTime || item.create_time,
+            label: '发料给',
+            factoryId: item.factoryId || item.factory_id,
+            styleId: item.styleId || item.style_id
+          })),
+        ...returnRes.data
+          .filter(item => !item.voided) // 排除已作废的回货单
+          .map(item => ({
+            ...item,
+            type: 'return',
+            date: item.returnDate || item.return_date,
+            createTime: item.createTime || item.create_time,
+            label: '回货自',
+            factoryId: item.factoryId || item.factory_id,
+            styleId: item.styleId || item.style_id
+          }))
       ]
 
       if (activities.length === 0) {

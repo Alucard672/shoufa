@@ -60,8 +60,13 @@ Component({
     'options': function(options) {
       // 当 options 更新时，如果有搜索关键词，需要重新过滤
       try {
-        const keyword = this.data?.searchKeyword || ''
-        const displayKey = this.properties?.displayKey || 'name'
+        // 安全检查：确保组件已初始化
+        if (!this || typeof this.setData !== 'function') {
+          return
+        }
+        
+        const keyword = (this.data && this.data.searchKeyword) || ''
+        const displayKey = (this.properties && this.properties.displayKey) || 'name'
         
         let filtered = options || []
         
@@ -73,12 +78,18 @@ Component({
           })
         }
         
-        // 更新过滤后的选项列表
-        if (this.setData) {
-          this.setData({
-            filteredOptions: filtered
-          })
-        }
+        // 更新过滤后的选项列表（使用 setTimeout 确保在下一个事件循环中执行）
+        setTimeout(() => {
+          if (this && typeof this.setData === 'function') {
+            try {
+              this.setData({
+                filteredOptions: filtered
+              })
+            } catch (e) {
+              console.error('search-select setData error in observer:', e)
+            }
+          }
+        }, 0)
       } catch (error) {
         console.error('search-select options observer error:', error)
       }
@@ -86,11 +97,23 @@ Component({
     'selectedValues': function(selectedValues) {
       // 更新内部选中值，保持弹窗打开状态（如果是多选模式）
       try {
-        if (this.setData) {
-          this.setData({
-            internalSelectedValues: selectedValues || []
-          })
+        // 安全检查：确保组件已初始化
+        if (!this || typeof this.setData !== 'function') {
+          return
         }
+        
+        // 使用 setTimeout 确保在下一个事件循环中执行
+        setTimeout(() => {
+          if (this && typeof this.setData === 'function') {
+            try {
+              this.setData({
+                internalSelectedValues: selectedValues || []
+              })
+            } catch (e) {
+              console.error('search-select setData error in observer:', e)
+            }
+          }
+        }, 0)
       } catch (error) {
         console.error('search-select selectedValues observer error:', error)
       }
