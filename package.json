@@ -1,6 +1,6 @@
 {
   "name": "shoufa-miniprogram",
-  "version": "1.1.6",
+  "version": "1.1.8",
   "description": "纱线收发加工小程序",
   "main": "app.js",
   "scripts": {

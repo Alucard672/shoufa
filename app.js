@@ -1,10 +1,9 @@
 // app.js
 // 导入环境配置
 const envConfig = require('./env-config.js')
-// 导入 app.json 配置（包含版本号）
-const appConfig = require('./app.json')
-// 版本号默认值（从 app.json 读取，如果不存在则使用硬编码值作为 fallback）
-const VERSION = appConfig.version || '1.1.6'
+// 版本号默认值（硬编码，可通过云端数据库动态更新）
+// 更新版本号时，修改这里的值，或通过云端 app_config 集合更新
+const VERSION = '1.1.8'
 
 App({
   async onLaunch(options) {
