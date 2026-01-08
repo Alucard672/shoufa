@@ -11,39 +11,43 @@
   <!-- 参数列表 -->
   <view class="section">
     <view class="menu-card card">
-      <!-- 一打是几件 -->
-      <view class="param-item">
+      <view class="param-item" wx:for="{{params}}" wx:key="key" wx:for-item="param" wx:for-index="index">
         <view class="param-content">
           <view class="param-header">
-            <text class="param-label">一打是几件</text>
-            <text class="param-value" wx:if="{{!editing}}">{{piecesPerDozen}}件</text>
+            <view class="param-header-left">
+              <text class="param-label">{{param.label}}</text>
+              <text class="param-value" wx:if="{{!param.editing}}">
+                {{param.value}}{{param.unit ? param.unit : ''}}
+              </text>
+            </view>
+            <!-- 操作按钮 -->
+            <view class="param-actions" wx:if="{{!param.editing}}">
+              <view class="param-btn-edit" bindtap="onEditParam" data-index="{{index}}">编辑</view>
+            </view>
           </view>
-          <text class="param-desc">定义一打包含的件数，用于打数和件数的换算</text>
+          <text class="param-desc">{{param.description}}</text>
           
           <!-- 编辑模式 -->
-          <view class="param-edit" wx:if="{{editing}}">
+          <view class="param-edit" wx:if="{{param.editing}}">
             <input 
               class="param-input" 
-              type="number" 
-              placeholder="请输入件数"
-              value="{{piecesPerDozen}}"
-              bindinput="onPiecesPerDozenInput"
+              type="{{param.type === 'number' ? 'number' : 'text'}}"
+              placeholder="请输入{{param.label}}"
+              value="{{param.tempValue}}"
+              bindinput="onParamInput"
+              data-index="{{index}}"
             />
-            <text class="param-unit">件</text>
+            <text class="param-unit" wx:if="{{param.unit}}">{{param.unit}}</text>
+            
+            <!-- 编辑模式按钮 -->
+            <view class="param-edit-actions">
+              <view class="param-btn-cancel" bindtap="onCancelEdit" data-index="{{index}}">取消</view>
+              <view class="param-btn-save" bindtap="onSaveParam" data-index="{{index}}">保存</view>
+            </view>
           </view>
         </view>
       </view>
     </view>
-  </view>
-
-  <!-- 操作按钮 -->
-  <view class="action-buttons" wx:if="{{!editing}}">
-    <button class="btn-edit" bindtap="onEdit">编辑</button>
-  </view>
-
-  <view class="action-buttons" wx:if="{{editing}}">
-    <button class="btn-cancel" bindtap="onCancel">取消</button>
-    <button class="btn-save" bindtap="onSave">保存</button>
   </view>
 </view>
 
