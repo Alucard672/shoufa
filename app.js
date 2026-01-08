@@ -1,8 +1,10 @@
 // app.js
 // 导入环境配置
 const envConfig = require('./env-config.js')
-// 版本号配置（与 package.json 保持一致，需手动同步）
-const VERSION = '1.1.6'
+// 导入 app.json 配置（包含版本号）
+const appConfig = require('./app.json')
+// 版本号默认值（从 app.json 读取，如果不存在则使用硬编码值作为 fallback）
+const VERSION = appConfig.version || '1.1.6'
 
 App({
   async onLaunch(options) {
@@ -78,10 +80,18 @@ App({
         version = VERSION
       }
 
-      // 方式2: 获取小程序环境信息（用于调试）
+      // 方式2: 尝试从小程序环境信息获取版本号（如果云端没有）
+      // 注意：wx.getAccountInfoSync().miniProgram.version 可能不是上传时的版本号
+      // 但如果云端也没有配置，可以尝试使用这个值
       try {
         const accountInfo = wx.getAccountInfoSync()
         const miniProgramInfo = accountInfo.miniProgram || {}
+        
+        // 如果云端没有获取到版本号，且小程序环境有版本号，则使用它
+        if (version === VERSION && miniProgramInfo.version) {
+          version = miniProgramInfo.version
+          console.log('从小程序环境信息获取版本号:', version)
+        }
         
         // 保存环境信息到 globalData（可用于调试）
         this.globalData.appInfo = {

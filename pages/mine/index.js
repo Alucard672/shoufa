@@ -2,6 +2,22 @@
 import { isLoggedIn } from '../../utils/auth.js'
 const app = getApp()
 
+// 获取默认版本号（尝试从小程序环境信息获取，失败则使用硬编码值）
+function getDefaultVersion() {
+  try {
+    const accountInfo = wx.getAccountInfoSync()
+    const miniProgramInfo = accountInfo?.miniProgram || {}
+    // 如果小程序环境有版本号，优先使用
+    if (miniProgramInfo.version) {
+      return miniProgramInfo.version
+    }
+  } catch (error) {
+    console.warn('获取小程序版本号失败:', error)
+  }
+  // Fallback 到硬编码值（如果所有方式都失败）
+  return '1.1.6'
+}
+
 Page({
   data: {
     isLoggedIn: false, // 是否已登录
@@ -95,7 +111,7 @@ Page({
     this.setData({
       isDev: accountInfo.miniProgram.envVersion === 'develop' || accountInfo.miniProgram.envVersion === 'trial',
       globalData: {
-        version: app.globalData.version || '1.1.6'
+        version: app.globalData.version || getDefaultVersion()
       }
     })
   },
@@ -104,7 +120,7 @@ Page({
     this.checkLoginStatus()
     // 更新版本号
     this.setData({
-      'globalData.version': app.globalData.version || '1.1.6'
+      'globalData.version': app.globalData.version || getDefaultVersion()
     })
   },
 

@@ -32,10 +32,11 @@ async function getReturnOrdersByIssueId(issueId, tenantId) {
     // 去重
     const uniqueIdList = [...new Set(idList.map(id => String(id)))]
 
-    // 构建查询条件
+    // 构建查询条件（使用 eq(false) 代替 neq(true) 以支持索引）
+    // 注意：为了兼容可能为 undefined 的 voided 字段，使用 or 查询
     const baseWhere = {
-      deleted: _.neq(true),
-      voided: _.neq(true) // 排除已作废的回货单
+      deleted: _.eq(false),
+      voided: _.or([_.eq(false), _.exists(false)]) // 匹配 false 或不存在（未设置）
     }
     
     // 如果传入了 tenantId，添加租户过滤
@@ -120,8 +121,8 @@ async function getReturnOrdersByIssueId(issueId, tenantId) {
     
     // 快速合并和过滤
     merged.forEach(item => {
-      // 排除已作废的回货单
-      if (item.voided || item.deleted) return
+      // 排除已作废的回货单（双重检查，虽然查询条件已过滤）
+      if (item.voided === true || item.deleted === true) return
       
       // 验证 issueId 是否匹配
       const roIssueId = item.issueId || item.issue_id
@@ -199,11 +200,11 @@ exports.main = async (event, context) => {
         }
       })
       
-      // 2. 查询该发料单的所有回货单
+      // 2. 查询该发料单的所有回货单（使用 eq(false) 支持索引）
       const allReturns = await transaction.collection('return_orders')
         .where({
           issueId: returnOrder.issueId,
-          deleted: _.neq(true)
+          deleted: _.eq(false)
         })
         .get()
       
