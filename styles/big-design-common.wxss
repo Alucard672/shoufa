@@ -5,8 +5,8 @@ page {
 
 /* 页面容器：对齐 Figma 16px 内边距 */
 .design-page {
-  /* 减小顶部留白，左右仍保持 16px（32rpx） */
-  padding: 16rpx 32rpx 32rpx;
+  /* 减小顶部留白（从16rpx减小到8rpx），左右仍保持 16px（32rpx） */
+  padding: 8rpx 32rpx 32rpx;
   box-sizing: border-box;
   width: 100%;
 }

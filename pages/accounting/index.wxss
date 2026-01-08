@@ -15,7 +15,7 @@ page {
 /* 顶部蓝色背景区域 */
 .header-bg {
   background: linear-gradient(135deg, #155DFC 0%, #2B7FFF 100%);
-  padding: 60rpx 32rpx 100rpx;
+  padding: 40rpx 32rpx 100rpx; /* 顶部间距减小：从60rpx改为40rpx */
   border-radius: 0 0 16rpx 16rpx; /* 圆角调小至 16rpx */
   position: relative;
   color: #fff;

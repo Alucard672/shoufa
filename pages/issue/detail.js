@@ -102,27 +102,97 @@ Page({
       const factory = factoryRes.data?.[0]
       const style = styleRes.data?.[0]
 
-      // 回货单：兼容各种 issueId 取值（_id / id / 传入 id）
-      const candidates = Array.from(new Set([
-        resolvedIssueId,
-        String(order.id || ''),
-        String(rawId || '')
-      ].filter(Boolean)))
-
-      const roResults = await Promise.all(
-        candidates.map((id) => getReturnOrdersByIssueId(id).catch(() => ({ data: [] })))
-      )
-      const merged = []
-      const seen = new Set()
-      roResults.forEach((r) => {
-        ;(r.data || []).forEach((o) => {
-          const key = String(o._id || o.id || '')
-          if (!key || seen.has(key)) return
-          seen.add(key)
-          merged.push(o)
+      // 回货单：使用云函数查询，优先使用发料单的 _id
+      const tenantId = getTenantId()
+      let returnOrdersList = []
+      
+      try {
+        // 使用 createReturnOrder 云函数的查询功能
+        const cloudRes = await wx.cloud.callFunction({
+          name: 'createReturnOrder',
+          data: { 
+            action: 'getReturnOrders', // 指定 action 为查询
+            issueId: resolvedIssueId,
+            tenantId: tenantId // 传入租户ID，确保数据隔离并提升查询性能
+          }
         })
+        
+        if (cloudRes.result && cloudRes.result.success) {
+          returnOrdersList = cloudRes.result.data || []
+          console.log('云函数查询成功，找到回货单:', returnOrdersList.length, '条')
+        } else {
+          // 云函数返回失败，回退到客户端查询
+          console.warn('云函数返回失败，使用客户端查询:', cloudRes.result?.error)
+          const returnOrdersRes = await getReturnOrdersByIssueId(resolvedIssueId).catch(() => ({ data: [] }))
+          returnOrdersList = returnOrdersRes.data || []
+          
+          // 如果客户端查询也没找到，尝试不使用 tenantId（可能是租户ID不匹配）
+          if (returnOrdersList.length === 0 && tenantId) {
+            console.log('尝试不使用 tenantId 查询')
+            try {
+              const cloudRes2 = await wx.cloud.callFunction({
+                name: 'createReturnOrder',
+                data: { 
+                  action: 'getReturnOrders',
+                  issueId: resolvedIssueId,
+                  tenantId: null // 不传入 tenantId
+                }
+              })
+              if (cloudRes2.result && cloudRes2.result.success && cloudRes2.result.data) {
+                // 在客户端过滤 tenantId
+                returnOrdersList = cloudRes2.result.data.filter(ro => {
+                  const roTenantId = ro.tenantId || ro.tenant_id
+                  return !tenantId || !roTenantId || String(roTenantId) === String(tenantId)
+                })
+                console.log('不使用 tenantId 查询到:', cloudRes2.result.data.length, '条，过滤后:', returnOrdersList.length, '条')
+              }
+            } catch (e) {
+              console.warn('不使用 tenantId 查询也失败:', e)
+            }
+          }
+        }
+      } catch (cloudError) {
+        // 云函数调用失败，回退到客户端查询
+        console.warn('云函数调用失败，使用客户端查询:', cloudError)
+        const returnOrdersRes = await getReturnOrdersByIssueId(resolvedIssueId).catch(() => ({ data: [] }))
+        returnOrdersList = returnOrdersRes.data || []
+        
+        // 如果还没找到，尝试使用 order.id 和 rawId
+        if (returnOrdersList.length === 0) {
+          const candidates = [
+            String(order.id || ''),
+            String(rawId || '')
+          ].filter(Boolean)
+          
+          if (candidates.length > 0) {
+            const roResults = await Promise.all(
+              candidates.map((id) => getReturnOrdersByIssueId(id).catch(() => ({ data: [] })))
+            )
+            const merged = []
+            const seen = new Set()
+            roResults.forEach((r) => {
+              ;(r.data || []).forEach((o) => {
+                const key = String(o._id || o.id || '')
+                if (!key || seen.has(key)) return
+                seen.add(key)
+                merged.push(o)
+              })
+            })
+            returnOrdersList = merged
+          }
+        }
+      }
+      
+      // 再次确保排除已作废的回货单和当前租户的数据
+      returnOrdersList = returnOrdersList.filter(ro => {
+        if (ro.voided || ro.deleted) return false
+        // 如果传入了 tenantId，确保只返回当前租户的数据
+        if (tenantId) {
+          const roTenantId = ro.tenantId || ro.tenant_id
+          return !roTenantId || String(roTenantId) === String(tenantId)
+        }
+        return true
       })
-      const returnOrdersList = merged
 
       // 计算回货进度
       const yarnUsagePerPiece = style?.yarnUsagePerPiece || style?.yarn_usage_per_piece || 0
@@ -156,9 +226,10 @@ Page({
         }
       }
 
-      // 处理回货列表格式
-      const totalReturnCount = returnOrdersList.length
-      const sortedReturnOrders = returnOrdersList
+      // 处理回货列表格式（再次确保排除已作废的回货单）
+      const validReturnOrdersForList = returnOrdersList.filter(ro => !ro.voided)
+      const totalReturnCount = validReturnOrdersForList.length
+      const sortedReturnOrders = validReturnOrdersForList
         .sort((a, b) => {
           const dateA = new Date(a.returnDate || a.return_date || a.createTime || a.create_time || 0)
           const dateB = new Date(b.returnDate || b.return_date || b.createTime || b.create_time || 0)

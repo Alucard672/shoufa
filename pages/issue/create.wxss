@@ -15,7 +15,7 @@ page {
 /* 顶部橙色背景区域（参考发料明细页） */
 .header-bg {
   background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-  padding: 60rpx 32rpx 120rpx;
+  padding: 0 32rpx 120rpx; /* 去掉顶部边距，只保留左右和底部 */
   border-radius: 0 0 16rpx 16rpx;
   position: relative;
   z-index: 1; /* 确保头部在白色卡片下方 */
@@ -30,6 +30,7 @@ page {
   align-items: center;
   gap: 24rpx;
   margin-bottom: 32rpx;
+  padding-top: 40rpx; /* 头部内容区域顶部间距 */
 }
 
 .header-icon-box {
@@ -86,7 +87,7 @@ page {
 /* 区块/卡片 */
 .section {
   margin-top: 32rpx;
-  padding: 0 32rpx;
+  padding: 0; /* 去掉左右边距 */
 }
 
 /* 让"款式详情卡"压住抬头背景（修复层级反了的问题） */
@@ -101,6 +102,7 @@ page {
   border-radius: 24rpx;
   padding: 32rpx;
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+  margin: 0; /* 去掉左右边距，贴边显示 */
 }
 
 /* 款式信息卡片 */
@@ -181,7 +183,7 @@ page {
 
 /* 汇总统计网格（复用明细页元素，压住抬头背景） */
 .summary-grid-section {
-  padding: 0 32rpx;
+  padding: 0; /* 去掉左右边距 */
   position: relative;
   z-index: 2;
   margin-top: 24rpx;
@@ -195,6 +197,7 @@ page {
   border-radius: 24rpx;
   padding: 32rpx;
   box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
+  margin: 0; /* 去掉左右边距，贴边显示 */
 }
 
 .grid-item {

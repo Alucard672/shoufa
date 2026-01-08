@@ -21,6 +21,11 @@ page {
   width: 100%;
 }
 
+/* 统一容器顶部间距：减少顶部留白 */
+.container:first-child {
+  padding-top: 8px;
+}
+
 /* 通用卡片 */
 .card {
   background: #FFFFFF;

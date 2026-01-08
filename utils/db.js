@@ -200,11 +200,14 @@ export async function getReturnOrdersByIssueId(issueId) {
       query('return_orders', { issue_id: _.in(idList) })
     ])
 
-    // 合并并去重
+    // 合并并去重，排除已作废的回货单
     const merged = [...res1.data, ...res2.data]
     const seen = new Set()
     return {
       data: merged.filter(item => {
+        // 排除已作废的回货单
+        if (item.voided) return false
+        
         const key = item._id || item.id
         if (seen.has(key)) return false
         seen.add(key)
@@ -217,6 +220,9 @@ export async function getReturnOrdersByIssueId(issueId) {
     const ids = idList.map(id => String(id))
     return {
       data: allRes.data.filter(ro => {
+        // 排除已作废的回货单
+        if (ro.voided) return false
+        
         const roIssueId = ro.issueId || ro.issue_id
         return roIssueId !== undefined && roIssueId !== null && ids.includes(String(roIssueId))
       })

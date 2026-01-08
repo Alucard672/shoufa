@@ -10,13 +10,13 @@ page {
   margin: 0;
   display: block;
   padding-bottom: 160rpx; /* 底部空间以容纳分享按钮 */
-  padding-top: 80rpx; /* 为作废横幅预留空间 */
+  padding-top: 0; /* 去掉顶部边距 */
 }
 
 /* 顶部青色背景区域 */
 .header-bg {
   background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-  padding: 60rpx 32rpx 120rpx; 
+  padding: 0 32rpx 120rpx; /* 去掉顶部边距，只保留左右和底部 */
   border-radius: 0 0 16rpx 16rpx;
   position: relative;
   color: #fff;
@@ -30,6 +30,7 @@ page {
   align-items: center;
   gap: 24rpx;
   margin-bottom: 32rpx;
+  padding-top: 40rpx; /* 头部内容区域顶部间距 */
 }
 
 .header-icon-box {
@@ -81,7 +82,7 @@ page {
 
 /* 汇总统计网格 */
 .summary-grid-section {
-  padding: 0 32rpx;
+  padding: 0; /* 去掉左右边距 */
   position: relative;
   z-index: 1;
 }
@@ -94,6 +95,7 @@ page {
   border-radius: 24rpx;
   padding: 32rpx;
   box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
+  margin: 0; /* 去掉左右边距，贴边显示 */
 }
 
 .grid-item {
@@ -137,7 +139,7 @@ page {
 /* 通用卡片和部分 */
 .section {
   margin-top: 32rpx;
-  padding: 0 32rpx;
+  padding: 0; /* 去掉左右边距 */
 }
 
 .card {
@@ -145,6 +147,7 @@ page {
   border-radius: 24rpx;
   padding: 32rpx;
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+  margin: 0; /* 去掉左右边距，贴边显示 */
 }
 
 /* 款式信息卡片 */

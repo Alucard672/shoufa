@@ -1,6 +1,6 @@
 /* pages/mine/invite.wxss */
 .container {
-  padding: 32rpx;
+  padding: 16rpx 32rpx 32rpx 32rpx; /* 顶部间距减小：从32rpx改为16rpx */
   min-height: 100vh;
   background: #f9fafb;
   display: flex;
