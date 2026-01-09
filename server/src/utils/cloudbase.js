@@ -1,11 +1,25 @@
-import cloudbase from '@cloudbase/js-sdk';
+import cloudbase from '@cloudbase/js-sdk'
+import { getCurrentEnvId } from './env'
 
-// 初始化云开发环境
-const app = cloudbase.init({
-  env: 'cloud1-1gzk1uq14c3065cb' // 自动同步自 cloudbaserc.json
-});
+// 按 envId 缓存 CloudBase app 实例，支持运行时切换环境
+const APP_CACHE = new Map()
 
-export const auth = app.auth({ persistence: 'local' });
-export const db = app.database();
+export function getCloudbaseApp(envId = getCurrentEnvId()) {
+  if (APP_CACHE.has(envId)) return APP_CACHE.get(envId)
+  const app = cloudbase.init({ env: envId })
+  APP_CACHE.set(envId, app)
+  return app
+}
 
-export default app;
+export function getAuth(envId = getCurrentEnvId()) {
+  return getCloudbaseApp(envId).auth({ persistence: 'local' })
+}
+
+export function getDb(envId = getCurrentEnvId()) {
+  return getCloudbaseApp(envId).database()
+}
+
+export function callFunction(params, envId = getCurrentEnvId()) {
+  return getCloudbaseApp(envId).callFunction(params)
+}
+

@@ -66,13 +66,16 @@ Page({
       orderBy: { field: 'issueDate', direction: 'DESC' }
     })
 
-    // 加载回货单
+    // 加载回货单（排除已作废）
     const returnOrdersRes = await query('return_orders', {
       factoryId: this.data.factoryId
     }, {
       excludeDeleted: true,
       orderBy: { field: 'returnDate', direction: 'DESC' }
     })
+
+    // 排除已作废回货单：作废后不应继续产生/占用账款
+    returnOrdersRes.data = (returnOrdersRes.data || []).filter(o => !o.voided)
 
     // 加载结算单
     const settlementsRes = await query('settlements', {

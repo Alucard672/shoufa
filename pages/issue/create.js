@@ -111,7 +111,8 @@ Page({
   async loadFactories() {
     try {
       console.log('开始加载加工厂, tenantId:', app.globalData.tenantId)
-      const result = await getFactories()
+      // 新建发料：默认排除停用加工厂；编辑发料：允许回显历史停用项
+      const result = await getFactories({ includeDisabled: !!this.data.isEdit })
       console.log('加载加工厂结果:', result)
       this.setData({
         factories: result.data || []
@@ -124,7 +125,8 @@ Page({
   async loadStyles() {
     try {
       console.log('开始加载款号, tenantId:', app.globalData.tenantId)
-      const result = await getStyles()
+      // 新建发料：默认排除停用款号；编辑发料：允许回显历史停用项
+      const result = await getStyles({ includeDisabled: !!this.data.isEdit })
       console.log('加载款号结果:', result)
       this.setData({
         styles: result.data || []

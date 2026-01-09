@@ -877,9 +877,65 @@ Page({
   },
 
   // 停用/启用款号
-  onToggleDisabled() {
+  async onToggleDisabled() {
     const newStatus = !this.data.disabled
     const action = newStatus ? '停用' : '启用'
+    
+    // 如果要停用，先检查是否有未完成的发料单
+    if (newStatus) {
+      try {
+        wx.showLoading({ title: '检查中...' })
+        
+        const { query } = await import('../../utils/db.js')
+        const db = wx.cloud.database()
+        const _ = db.command
+        
+        // 查询该款号下所有未完成的发料单（未删除、未作废、状态不是"已完成"）
+        const issueOrdersRes = await db.collection('issue_orders')
+          .where({
+            styleId: this.data.styleId,
+            deleted: _.neq(true),
+            voided: _.neq(true),
+            status: _.neq('已完成')
+          })
+          .get()
+        
+        const incompleteOrders = (issueOrdersRes.data || []).filter(order => {
+          // 双重检查：确保不是已完成、未删除、未作废
+          return order.status !== '已完成' && 
+                 order.deleted !== true && 
+                 order.voided !== true
+        })
+        
+        wx.hideLoading()
+        
+        if (incompleteOrders.length > 0) {
+          wx.showModal({
+            title: '无法停用',
+            content: `该款号还有 ${incompleteOrders.length} 个未完成的发料单，请先完成相关单据后再停用。\n\n发料单编号：${incompleteOrders.slice(0, 3).map(o => o.issueNo || o.issue_no || '未知').join('、')}${incompleteOrders.length > 3 ? '...' : ''}`,
+            showCancel: false,
+            confirmText: '我知道了',
+            success: () => {
+              // 可选：跳转到发料单列表，并筛选该款号
+              wx.navigateTo({
+                url: '/pages/issue/index'
+              })
+            }
+          })
+          return
+        }
+      } catch (error) {
+        wx.hideLoading()
+        console.error('检查未完成发料单失败:', error)
+        // 如果检查失败，为了安全起见，不允许停用
+        wx.showModal({
+          title: '检查失败',
+          content: '无法检查该款号的发料单状态，为安全起见，暂不允许停用。请稍后重试。',
+          showCancel: false
+        })
+        return
+      }
+    }
     
     wx.showModal({
       title: '确认' + action,

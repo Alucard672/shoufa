@@ -2,7 +2,7 @@
 import { queryByIds } from '../../utils/db.js'
 import { checkLogin, getTenantId } from '../../utils/auth.js'
 import { formatAmount, formatDate, formatQuantity, formatWeight, formatDateTime } from '../../utils/calc.js'
-import { normalizeImageUrl } from '../../utils/image.js'
+import { normalizeImageUrl, batchGetImageUrls } from '../../utils/image.js'
 import { pickNumber, pickId } from '../../utils/summary.js'
 const app = getApp()
 const db = wx.cloud.database()
@@ -178,6 +178,42 @@ Page({
         stylesMap = Object.fromEntries(
           (stylesRes.data || []).map(style => [String(style._id || style.id), style])
         )
+        
+        // 批量转换图片URL（cloud:// -> 临时链接）
+        try {
+          const imageUrls = Object.values(stylesMap)
+            .map(style => normalizeImageUrl(style))
+            .filter(url => url && url.startsWith('cloud://'))
+          
+          if (imageUrls.length > 0) {
+            const imageUrlMap = await batchGetImageUrls(imageUrls)
+            // 更新 stylesMap 中的图片URL
+            Object.values(stylesMap).forEach(style => {
+              const originalUrl = normalizeImageUrl(style)
+              if (originalUrl && originalUrl.startsWith('cloud://')) {
+                // 保存原始URL
+                style.originalImageUrl = originalUrl
+                
+                // 只有成功转换的URL才使用（不是cloud://格式）
+                if (imageUrlMap.has(originalUrl)) {
+                  const tempUrl = imageUrlMap.get(originalUrl)
+                  if (tempUrl && !tempUrl.startsWith('cloud://')) {
+                    style.styleImageUrl = tempUrl
+                  } else {
+                    // 转换失败，使用空字符串避免500错误
+                    style.styleImageUrl = ''
+                  }
+                } else {
+                  // 转换失败，使用空字符串避免500错误
+                  style.styleImageUrl = ''
+                }
+              }
+            })
+          }
+        } catch (error) {
+          console.error('批量转换图片URL失败:', error)
+          // 失败不影响主流程，继续使用原 cloud:// URL
+        }
       }
 
       // 批量查询发料单信息
@@ -208,10 +244,17 @@ Page({
         // 回货重量（实际用纱量）
         const returnWeight = pickNumber(order, ['actualYarnUsage', 'actual_yarn_usage'], 0)
 
-        // 优先使用已转换的临时URL，如果是cloud://格式则使用空字符串避免500错误
-        let styleImageUrl = style?.styleImageUrl || normalizeImageUrl(style) || ''
-        if (styleImageUrl && styleImageUrl.startsWith('cloud://')) {
-          styleImageUrl = ''
+        // 优先使用已转换的临时URL（batchGetImageUrls 已处理）
+        // 如果 style.styleImageUrl 存在且不是 cloud:// 格式，说明已转换成功
+        // 否则尝试 normalizeImageUrl，如果还是 cloud:// 格式则使用空字符串
+        let styleImageUrl = style?.styleImageUrl || ''
+        if (!styleImageUrl) {
+          const originalUrl = normalizeImageUrl(style)
+          if (originalUrl && !originalUrl.startsWith('cloud://')) {
+            styleImageUrl = originalUrl
+          } else {
+            styleImageUrl = '' // cloud:// 格式或没有图片
+          }
         }
 
         return {
@@ -468,13 +511,15 @@ Page({
         const titleHeight = 100
         const cardHeight = 340 // 每张卡片高度
         const cardGap = 24 // 卡片间距
-        const footerHeight = 120
+        const footerSpacing = 100 // 页脚与最后一张卡片的间距
+        const footerHeight = 80 // 页脚文字高度
         const canvasWidth = 750
         // 动态计算总高度：如果有数据，计算所有卡片的高度；如果没有数据，使用最小高度
         const itemsHeight = listItems.length > 0 
           ? (cardHeight + cardGap) * listItems.length - cardGap // 最后一个卡片不需要间距
           : 0
-        const canvasHeight = headerHeight + summaryHeight + titleHeight + itemsHeight + footerHeight
+        // 确保页脚有足够空间：footerSpacing + footerHeight
+        const canvasHeight = headerHeight + summaryHeight + titleHeight + itemsHeight + footerSpacing + footerHeight
         
         console.log(`生成长截图: ${listItems.length} 条数据, 画布高度: ${canvasHeight}px`)
 
@@ -648,11 +693,17 @@ Page({
           })
         }
 
-        // 8. 底部信息
+        // 8. 底部信息（确保与正文有足够间距）
+        // 页脚位置 = 最后一张卡片底部 + footerSpacing
+        // 如果没有数据，使用默认位置
+        const footerY = listItems.length > 0 
+          ? (currentY - cardGap) + footerSpacing // 最后一张卡片底部 + 间距
+          : canvasHeight - 80 // 没有数据时，距离底部80px
+        
         ctx.setFillStyle('#94A3B8')
         ctx.setFontSize(22)
         ctx.setTextAlign('center')
-        ctx.fillText('—— 由 首发 纱线管理系统 生成 ——', canvasWidth / 2, canvasHeight - 60)
+        ctx.fillText('—— 由 首发 纱线管理系统 生成 ——', canvasWidth / 2, footerY)
 
         ctx.draw(false, () => {
           setTimeout(() => {

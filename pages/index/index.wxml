@@ -49,7 +49,10 @@
   <!-- 最近动态 -->
   <view class="home-card recent-activities">
     <view class="section-header">
-      <text class="section-title">最近动态</text>
+      <view class="section-title-wrapper">
+        <text class="section-title">最近动态</text>
+        <text class="section-subtitle">只显示10条信息</text>
+      </view>
       <view class="more-link" bindtap="onShowMoreActivities">
         <text>更多</text>
         <text>→</text>

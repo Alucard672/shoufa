@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { getAdminToken } from '../utils/env'
 
 const routes = [
   {
@@ -38,7 +39,7 @@ const router = createRouter({
 
 // 简单的登录校验钩子
 router.beforeEach((to, from, next) => {
-  const isLogin = localStorage.getItem('admin_token')
+  const isLogin = getAdminToken()
   if (!to.meta.public && !isLogin) {
     next('/login')
   } else {

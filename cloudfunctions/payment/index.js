@@ -10,6 +10,37 @@ cloud.init({
 const db = cloud.database()
 const _ = db.command
 
+// 生产环境默认关闭在线支付（避免商户号未配置导致线上触发支付流程）
+// 如需启用，可在数据库 app_config 集合写入 { key: 'enablePayment', value: true }
+const PROD_ENV_ID = 'shoufa-prod-3g0umt9fbba2f52b'
+
+async function getPaymentEnabledSwitch() {
+  // 1) 优先读取云端开关（无需重新发版/部署即可调整）
+  try {
+    const res = await db.collection('app_config')
+      .where({ key: 'enablePayment' })
+      .limit(1)
+      .get()
+    if (res.data && res.data.length > 0) {
+      const v = res.data[0].value
+      if (typeof v === 'boolean') return v
+      if (typeof v === 'number') return v !== 0
+      if (typeof v === 'string') {
+        const s = v.trim().toLowerCase()
+        if (s === 'true' || s === '1' || s === 'yes' || s === 'on') return true
+        if (s === 'false' || s === '0' || s === 'no' || s === 'off') return false
+      }
+    }
+  } catch (e) {
+    // ignore (集合不存在/权限/网络等都走默认策略)
+  }
+
+  // 2) 默认策略：生产环境关闭，其他环境开启
+  const currentEnv = process.env && (process.env.TCB_ENV || process.env.SCF_NAMESPACE) ? (process.env.TCB_ENV || process.env.SCF_NAMESPACE) : ''
+  if (currentEnv === PROD_ENV_ID) return false
+  return true
+}
+
 /**
  * 创建支付订单
  */
@@ -26,9 +57,9 @@ async function createPaymentOrder(tenantId, amount, description, packageInfo) {
       outTradeNo: outTradeNo,
       amount: amount, // 金额（分）
       description: description || '订阅服务',
-      packageId: packageInfo?.id || null,
-      packageName: packageInfo?.name || null,
-      packageDays: packageInfo?.days || null,
+      packageId: (packageInfo && packageInfo.id) || null,
+      packageName: (packageInfo && packageInfo.name) || null,
+      packageDays: (packageInfo && packageInfo.days) || null,
       status: 'pending', // pending | paid | failed | refunded | cancelled
       createTime: db.serverDate(),
       updateTime: db.serverDate(),
@@ -330,9 +361,10 @@ async function grantReward(tenantId, days, source) {
       .doc(tenantId)
       .update({
         data: {
-          expireDate: db.serverDate(newExpireDate),
+          // 这里必须写入计算后的 Date；db.serverDate() 只能生成“服务器当前时间”
+          expireDate: newExpireDate,
           subscriptionDays: newSubscriptionDays,
-          lastExpireDate: currentExpireDate ? db.serverDate(currentExpireDate) : null,
+          lastExpireDate: currentExpireDate ? currentExpireDate : null,
           subscriptionStatus: 'active',
           updateTime: db.serverDate()
         }
@@ -344,8 +376,8 @@ async function grantReward(tenantId, days, source) {
         tenantId: tenantId,
         type: 'purchase',
         days: days,
-        expireDateBefore: currentExpireDate ? db.serverDate(currentExpireDate) : null,
-        expireDateAfter: db.serverDate(newExpireDate),
+        expireDateBefore: currentExpireDate ? currentExpireDate : null,
+        expireDateAfter: newExpireDate,
         source: source || '购买订阅',
         referralId: null,
         createTime: db.serverDate(),
@@ -381,11 +413,25 @@ exports.main = async (event, context) => {
     }
     
     if (action === 'createOrder') {
+      const enabled = await getPaymentEnabledSwitch()
+      if (!enabled) {
+        return {
+          success: false,
+          error: '在线支付未开通'
+        }
+      }
       const { tenantId, amount, description, packageInfo } = event
       return await createPaymentOrder(tenantId, amount, description, packageInfo)
     }
     
     if (action === 'handlePaymentSuccess') {
+      const enabled = await getPaymentEnabledSwitch()
+      if (!enabled) {
+        return {
+          success: false,
+          error: '在线支付未开通'
+        }
+      }
       const { outTradeNo } = event
       if (!outTradeNo) {
         return {

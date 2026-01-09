@@ -15,8 +15,14 @@ function getTenantId() {
 /**
  * 获取款号列表
  */
-export function getStyles() {
-  return query('styles')
+export async function getStyles(options = {}) {
+  const res = await query('styles', {}, { excludeDeleted: true }).catch(() => ({ data: [] }))
+  const includeDisabled = !!options.includeDisabled
+  const list = (res.data || []).filter((s) => {
+    if (includeDisabled) return true
+    return s && s.disabled !== true
+  })
+  return { data: list }
 }
 
 /**
@@ -57,8 +63,14 @@ export async function getStyleById(styleId) {
 /**
  * 获取加工厂列表
  */
-export function getFactories() {
-  return query('factories')
+export async function getFactories(options = {}) {
+  const res = await query('factories', {}, { excludeDeleted: true }).catch(() => ({ data: [] }))
+  const includeDisabled = !!options.includeDisabled
+  const list = (res.data || []).filter((f) => {
+    if (includeDisabled) return true
+    return f && f.disabled !== true
+  })
+  return { data: list }
 }
 
 /**

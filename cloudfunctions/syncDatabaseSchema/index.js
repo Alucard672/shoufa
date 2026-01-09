@@ -40,18 +40,9 @@ exports.main = async (event, context) => {
     } catch (error) {
       // 集合不存在，尝试创建
       try {
-        // 通过插入一条临时记录来创建集合
-        const tempData = {
-          _temp: true,
-          createTime: db.serverDate()
-        }
-        
-        const addResult = await db.collection(collectionName).add({
-          data: tempData
-        })
-        
-        // 立即删除临时记录
-        await db.collection(collectionName).doc(addResult._id).remove()
+        // ✅ 官方支持：通过 createCollection 创建集合
+        // wx-server-sdk >= 2.6.x 支持 db.createCollection()
+        await db.createCollection(collectionName)
         
         results.collections.push({
           name: collectionName,

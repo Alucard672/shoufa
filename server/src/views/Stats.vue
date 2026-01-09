@@ -34,7 +34,8 @@
         </div>
       </template>
       <el-descriptions :column="2" border>
-        <el-descriptions-item label="环境ID">cloud1-1gzk1uq14c3065cb</el-descriptions-item>
+        <el-descriptions-item label="环境">{{ envMeta.name }}</el-descriptions-item>
+        <el-descriptions-item label="环境ID">{{ envMeta.id }}</el-descriptions-item>
         <el-descriptions-item label="核心云函数状态">
           <el-tag type="success">正常运行中</el-tag>
         </el-descriptions-item>
@@ -46,15 +47,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import app from '../utils/cloudbase'
+import { ref, onMounted, computed } from 'vue'
+import { callFunction } from '../utils/cloudbase'
+import { getEnvMeta } from '../utils/env'
 
 const stats = ref({})
 const lastRefresh = ref('')
+const envMeta = computed(() => getEnvMeta())
 
 const fetchStats = async () => {
   try {
-    const res = await app.callFunction({
+    const res = await callFunction({
       name: 'admin',
       data: { action: 'getStats' }
     })

@@ -44,6 +44,7 @@ Page({
     phoneNumber: '',
     hasPhoneNumber: false,
     phoneCode: '',
+    enablePayment: app.globalData.enablePayment !== false,
     menuItems: [
       {
         id: 'factory',
@@ -120,6 +121,7 @@ Page({
     const accountInfo = wx.getAccountInfoSync()
     this.setData({
       isDev: accountInfo.miniProgram.envVersion === 'develop' || accountInfo.miniProgram.envVersion === 'trial',
+      enablePayment: app.globalData.enablePayment !== false,
       globalData: {
         version: app.globalData.version || getDefaultVersion()
       }
@@ -154,15 +156,17 @@ Page({
       const res = await wx.cloud.callFunction({
         name: 'tenants',
         data: {
-          action: 'getTenant',
+          action: 'get',
           payload: {
             tenantId: tenantId
           }
         }
       })
       
-      if (res.result && res.result.data) {
-        const tenantInfo = res.result.data
+      // tenants 云函数统一返回 { code, msg, data }
+      // 其中 data.get 返回结构为 { tenantId, data: tenantInfo }
+      if (res.result && res.result.code === 0 && res.result.data && res.result.data.data) {
+        const tenantInfo = res.result.data.data
         
         // 调试：打印原始数据
         console.log('从云函数获取的租户信息:', tenantInfo)
@@ -191,6 +195,9 @@ Page({
         })
         
         // 重新加载订阅状态
+        this.checkSubscriptionStatus()
+      } else {
+        console.warn('从云函数获取租户信息失败:', res?.result)
         this.checkSubscriptionStatus()
       }
     } catch (err) {
@@ -370,6 +377,14 @@ Page({
   
   // 处理付费
   handlePayment() {
+    if (app.globalData.enablePayment === false) {
+      wx.showModal({
+        title: '暂未开通在线支付',
+        content: '当前版本暂未开通在线支付，请联系管理员处理续费。',
+        showCancel: false
+      })
+      return
+    }
     // 跳转到付费页面
     wx.navigateTo({
       url: '/pages/mine/payment'
@@ -586,7 +601,16 @@ Page({
         }
       })
 
-      const { success, user, tenant, msg } = res.result
+      if (!res || !res.result) {
+        wx.showModal({
+          title: '登录失败',
+          content: '系统繁忙，请稍后重试（未获取到云函数返回）',
+          showCancel: false
+        })
+        return
+      }
+
+      const { success, user, tenant, msg, code: errCode } = res.result
 
       if (success) {
         wx.setStorageSync('userInfo', user || { phone: phoneNumber, nickName, avatarUrl: this.data.avatarUrl })
@@ -607,6 +631,22 @@ Page({
         })
         this.checkLoginStatus()
       } else {
+        if (errCode === 'NOT_REGISTERED' || errCode === 'TENANT_MISSING') {
+          wx.showModal({
+            title: '未加入企业',
+            content: '该手机号尚未加入任何企业。\n\n如果你是企业老板：请联系系统管理员为你创建企业租户并绑定手机号。\n如果你是员工：请让企业管理员在【员工管理】中邀请你扫码加入。',
+            showCancel: false
+          })
+          return
+        }
+        if (errCode === 'TENANT_DISABLED') {
+          wx.showModal({
+            title: '企业已停用',
+            content: msg || '该企业已停用，请联系管理员。',
+            showCancel: false
+          })
+          return
+        }
         wx.showModal({
           title: '登录失败',
           content: msg || '手机号未在系统中登记，请联系管理员',
@@ -615,9 +655,10 @@ Page({
       }
     } catch (err) {
       console.error('登录失败:', err)
-      wx.showToast({
-        title: '系统错误，请稍后重试',
-        icon: 'none'
+      wx.showModal({
+        title: '登录失败',
+        content: (err && (err.message || err.errMsg)) ? (err.message || err.errMsg) : '系统错误，请稍后重试',
+        showCancel: false
       })
     } finally {
       this.setData({ loading: false })

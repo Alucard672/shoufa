@@ -3,7 +3,7 @@
 const envConfig = require('./env-config.js')
 // 版本号默认值（硬编码，可通过云端数据库动态更新）
 // 更新版本号时，修改这里的值，或通过云端 app_config 集合更新
-const VERSION = '1.1.8'
+const VERSION = '1.2.2'
 
 App({
   async onLaunch(options) {
@@ -166,7 +166,8 @@ App({
     tenantId: null,
     tenantInfo: null,
     version: VERSION, // 版本号（通过 getAccountInfoSync 获取，失败则使用 package.json）
-    appInfo: null // 小程序账号信息（appId, envVersion 等）
+    appInfo: null, // 小程序账号信息（appId, envVersion 等）
+    enablePayment: envConfig.enablePayment !== false // 默认开启；生产环境可在 env-config.prod.js 里关闭
   }
 })
 

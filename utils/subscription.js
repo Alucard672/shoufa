@@ -4,46 +4,89 @@
 const app = getApp()
 
 /**
+ * 将各种可能的过期日期格式统一解析为 Date（失败返回 null）
+ * 兼容场景：
+ * - Date 实例
+ * - ISO 字符串（含 T/Z）
+ * - 'YYYY-MM-DD'（按“当天 23:59:59”作为到期）
+ * - 云函数返回可能出现的对象形式：{ $date: '...' }、{ seconds: 123 }、{ _seconds: 123 }
+ * - 毫秒/秒时间戳（number / string）
+ */
+function parseExpireDateToDate(expireDate) {
+  if (!expireDate) return null
+
+  // Date
+  if (expireDate instanceof Date) {
+    return isNaN(expireDate.getTime()) ? null : expireDate
+  }
+
+  // number timestamp
+  if (typeof expireDate === 'number') {
+    // 10位通常是秒，13位通常是毫秒
+    const ms = expireDate < 1e12 ? expireDate * 1000 : expireDate
+    const d = new Date(ms)
+    return isNaN(d.getTime()) ? null : d
+  }
+
+  // string timestamp / date string
+  if (typeof expireDate === 'string') {
+    const s = expireDate.trim()
+    // 纯数字：时间戳
+    if (/^\d+$/.test(s)) {
+      const n = Number(s)
+      if (!Number.isFinite(n)) return null
+      const ms = n < 1e12 ? n * 1000 : n
+      const d = new Date(ms)
+      return isNaN(d.getTime()) ? null : d
+    }
+
+    // ISO 字符串
+    if (s.includes('T') || s.includes('Z')) {
+      const d = new Date(s)
+      return isNaN(d.getTime()) ? null : d
+    }
+
+    // 'YYYY-MM-DD'：按当天结束
+    const d = new Date(`${s}T23:59:59`)
+    return isNaN(d.getTime()) ? null : d
+  }
+
+  // object forms
+  if (typeof expireDate === 'object') {
+    // { $date: '...' }
+    if (expireDate.$date) {
+      const d = new Date(expireDate.$date)
+      return isNaN(d.getTime()) ? null : d
+    }
+    // { seconds: 123 } / { _seconds: 123 }
+    const sec = expireDate.seconds ?? expireDate._seconds
+    if (typeof sec === 'number') {
+      const d = new Date(sec * 1000)
+      return isNaN(d.getTime()) ? null : d
+    }
+  }
+
+  // fallback
+  const d = new Date(expireDate)
+  return isNaN(d.getTime()) ? null : d
+}
+
+/**
  * 计算剩余使用天数
- * @param {Date|string} expireDate - 过期日期
+ * @param {Date|string|number|Object} expireDate - 过期日期
  * @returns {number} 剩余天数（负数表示已过期）
  */
 export function calculateRemainingDays(expireDate) {
-  if (!expireDate) {
-    return -1 // 未设置过期日期，视为已过期
+  const now = new Date()
+  const expire = parseExpireDateToDate(expireDate)
+
+  if (!expire) {
+    console.error('calculateRemainingDays: 无效的日期:', expireDate)
+    return -1 // 无法解析，视为已过期
   }
 
-  const now = new Date()
-  let expire
-  
-  // 处理不同的日期格式
-  if (expireDate instanceof Date) {
-    expire = expireDate
-  } else if (typeof expireDate === 'string') {
-    // 处理云数据库的日期格式
-    if (expireDate.includes('T') || expireDate.includes('Z')) {
-      expire = new Date(expireDate)
-    } else {
-      // 可能是 "2026-12-30" 格式，需要加上时间部分
-      expire = new Date(expireDate + 'T23:59:59')
-    }
-  } else {
-    expire = new Date(expireDate)
-  }
-  
-  // 检查日期是否有效
-  if (isNaN(expire.getTime())) {
-    console.error('calculateRemainingDays: 无效的日期:', expireDate)
-    return -1
-  }
-  
-  // 计算时间差（毫秒）
   const diff = expire.getTime() - now.getTime()
-  
-  // 转换为天数（向上取整，确保至少显示1天）
-  const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
-  
-  return days
+  return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
 /**
@@ -77,7 +120,7 @@ export function getSubscriptionStatus(expireDate) {
     statusText,
     statusColor,
     remainingDays,
-    expireDate: expireDate ? new Date(expireDate) : null
+    expireDate: parseExpireDateToDate(expireDate)
   }
 }
 
@@ -104,30 +147,8 @@ export function formatRemainingDays(expireDate) {
  * @returns {string} 格式化后的日期文本
  */
 export function formatExpireDate(expireDate) {
-  if (!expireDate) {
-    return '未设置'
-  }
-  
-  let date
-  if (expireDate instanceof Date) {
-    date = expireDate
-  } else if (typeof expireDate === 'string') {
-    // 处理云数据库的日期格式
-    if (expireDate.includes('T') || expireDate.includes('Z')) {
-      date = new Date(expireDate)
-    } else {
-      // 可能是 "2026-12-30" 格式
-      date = new Date(expireDate + 'T00:00:00')
-    }
-  } else {
-    date = new Date(expireDate)
-  }
-  
-  // 检查日期是否有效
-  if (isNaN(date.getTime())) {
-    console.error('无效的日期:', expireDate)
-    return '日期格式错误'
-  }
+  const date = parseExpireDateToDate(expireDate)
+  if (!date) return '未设置'
   
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')

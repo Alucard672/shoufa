@@ -308,10 +308,19 @@ Page({
       })
     }
 
+    // 更新统计数量（与明细列表保持一致）
+    let totalWeight = 0
+    finalOrders.forEach(order => {
+      totalWeight += pickNumber(order, ['issueWeight', 'issue_weight'], 0)
+    })
+
     this.setData({
       issueOrders: ordersWithDetails,
       filteredOrders: finalOrders,
-      loading: false
+      loading: false,
+      totalIssueCount: finalOrders.length,
+      totalIssueWeight: totalWeight,
+      totalIssueWeightFormatted: totalWeight.toFixed(2)
     })
   },
 

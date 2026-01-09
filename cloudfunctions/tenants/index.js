@@ -19,9 +19,10 @@ exports.main = async (event, context) => {
     code = 0;
     msg = "操作成功";
   } catch (e) {
+    console.error('执行出错:', e);
     data = {};
     code = -1;
-    msg = "操作失败, " + (e.msg || e.message || '未知错误')
+    msg = "操作失败, " + (typeof e === 'object' ? (e.msg || e.message || '未知错误') : String(e));
   }
 
   return {

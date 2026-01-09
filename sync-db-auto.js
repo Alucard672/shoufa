@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * 自动同步数据库集合和索引结构到生产环境
- * 使用方法: node sync-db-auto.js [dev|prod]
+ * 自动同步数据库集合/索引/权限结构到指定环境
+ *
+ * 优先使用 CloudBase Framework 的 database 部署能力（可同步 aclTag 权限标签 + indexes 索引）。
+ * 如果本机 tcb-cli 不支持或执行失败，则降级为云函数方式：仅创建集合（索引/权限需手动）。
+ *
+ * 使用方法:
+ *   node sync-db-auto.js [dev|prod]
  */
 
 const fs = require('fs');
@@ -85,8 +90,26 @@ fs.copyFileSync(configPath, cloudbasercPath);
 console.log(`已切换到 ${envName} 配置`);
 console.log('');
 
-// 部署 syncDatabaseSchema 云函数
-console.log('正在部署 syncDatabaseSchema 云函数...');
+// 方案A：优先尝试通过 CloudBase Framework 部署 database（支持索引/权限/集合）
+console.log('正在尝试同步数据库结构（集合/索引/权限）...');
+try {
+  // 需要 tcb-cli 支持 framework deploy
+  execSync('tcb framework deploy --mode local --only database', { stdio: 'inherit' });
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('✅ 数据库结构同步完成（集合/索引/权限）');
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('');
+  // 成功则直接结束（finally 会恢复 cloudbaserc.json）
+  process.exit(0);
+} catch (frameworkError) {
+  console.log('⚠️  Framework database 部署失败，降级为“仅创建集合”的云函数方式。');
+  console.log(`原因: ${frameworkError.message}`);
+  console.log('');
+}
+
+// 方案B：降级模式，仅创建集合（索引/权限需手动）
+console.log('正在部署 syncDatabaseSchema 云函数（降级模式：仅创建集合）...');
 try {
   execSync('tcb fn deploy --force syncDatabaseSchema', { stdio: 'inherit' });
   console.log('云函数部署成功');
@@ -113,9 +136,9 @@ try {
   console.log('正在调用云函数...');
   console.log('');
   
-  // 使用参数文件调用云函数
-  const invokeCommand = `tcb fn invoke syncDatabaseSchema -f ${paramFile}`;
-  execSync(invokeCommand, { stdio: 'inherit' });
+  // 调用云函数：优先使用 --params 传 JSON（兼容性更好）；部分旧文档里的 -f 在某些版本不可用
+  const payload = fs.readFileSync(paramFile, 'utf8').replace(/\n/g, '');
+  execSync(`tcb fn invoke syncDatabaseSchema --params '${payload}'`, { stdio: 'inherit' });
   
   // 删除临时文件
   if (fs.existsSync(paramFile)) {
@@ -124,12 +147,12 @@ try {
   
   console.log('');
   console.log('═══════════════════════════════════════════════════════════');
-  console.log('✅ 集合创建完成');
+  console.log('✅ 集合创建完成（索引/权限仍需手动）');
   console.log('═══════════════════════════════════════════════════════════');
   console.log('');
   console.log('⚠️  重要提示：');
   console.log('');
-  console.log('索引需要在控制台手动创建，因为微信云开发不支持通过代码创建索引。');
+  console.log('索引/权限需要在控制台手动配置（或升级/启用 framework deploy 的 database 同步）。');
   console.log('');
   console.log('请运行以下命令查看需要创建的索引配置：');
   console.log('  node sync-db-schema.js');

@@ -86,7 +86,7 @@ module.exports = async function listTenants(db, payload, context) {
   // 计算跳过的数量
   const skip = (pageNum - 1) * pageSize;
 
-  // 查询数据（按创建时间倒序）
+  // 查询数据
   const dataResult = await query
     .orderBy('createTime', 'desc')
     .skip(skip)

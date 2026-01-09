@@ -10,14 +10,19 @@ fi
 echo "Logging in to Tencent Cloud..."
 tcb login --apiKeyId ${TCB_API_KEY_ID} --apiKey ${TCB_API_KEY}
 
-# 检查是否传入了参数
+# 优先使用 framework deploy 同步 database（支持 cloudbaserc.json 中的 database 配置：集合/索引/权限标签）
+echo "Deploying database schema via CloudBase Framework..."
+if tcb framework deploy --mode local --only database; then
+    echo "✅ Database schema deployed."
+    exit 0
+fi
+
+echo "⚠️  framework deploy 失败，尝试旧方式 tcb db push（需要 database-schemas 目录）。"
+echo "如果你没有 database-schemas，请改用: node sync-db-auto.js [dev|prod]"
+
 if [ $# -eq 0 ] || [ "$1" == "--all" ]; then
-    # 没有参数或参数是 --all，部署所有数据库配置（集合、权限、索引）
-    echo "Deploying all database collections and indexes..."
     tcb db push
 else
-    # 有参数，部署指定的集合配置
-    echo "Deploying database collections: $@"
     tcb db push "$@"
 fi
 

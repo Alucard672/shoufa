@@ -187,19 +187,19 @@ Page({
         if (res.confirm) {
           try {
             wx.showLoading({ title: `${action}中...` })
-            
-            const db = wx.cloud.database()
-            const result = await db.collection('return_orders')
-              .doc(returnOrder._id)
-              .update({
-                data: {
-                  voided: !isVoided,
-                  updateTime: db.serverDate()
-                }
-              })
-            
-            if (result.stats.updated === 0) {
-              throw new Error('权限不足或记录不存在，请检查数据库权限设置')
+
+            const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
+            const res2 = await wx.cloud.callFunction({
+              name: 'createReturnOrder',
+              data: {
+                action: 'toggleVoid',
+                tenantId: tenantId,
+                returnOrderId: returnOrder._id || returnOrder.id,
+                voided: !isVoided
+              }
+            })
+            if (!res2.result || !res2.result.success) {
+              throw new Error((res2.result && (res2.result.error || res2.result.msg)) || '操作失败')
             }
             
             wx.hideLoading()

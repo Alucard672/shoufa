@@ -111,6 +111,9 @@ Page({
     // 在客户端过滤：只显示未结算和部分结算的回货单
     // 兼容 settlementStatus 和 settlement_status 字段
     const filtered = merged.filter(order => {
+      // 作废回货单不允许继续参与结算，也不应产生未结算账款
+      if (order.voided) return false
+
       const status = order.settlementStatus || order.settlement_status || '未结算'
       return status === '未结算' || status === '部分结算'
     })
@@ -137,12 +140,34 @@ Page({
     const settledAmountMap = new Map()
     settlementsRes.data.forEach(settlement => {
       const returnOrderIds = settlement.returnOrderIds || settlement.return_order_ids || []
+      const settlementItems = settlement.settlementItems || settlement.settlement_items || null
+      const voidedReturnOrderIds = settlement.voidedReturnOrderIds || settlement.voided_return_order_ids || []
+
+      // 优先使用 settlementItems（按回货单记录实际结算金额）
+      if (Array.isArray(settlementItems) && settlementItems.length > 0) {
+        settlementItems.forEach((it) => {
+          const orderId = it.returnOrderId || it.return_order_id
+          if (!orderId) return
+          if (it.voided === true) return
+          const id = String(orderId)
+          const amount = Number(it.amount || it.settlementAmount || 0) || 0
+          const currentAmount = settledAmountMap.get(id) || 0
+          settledAmountMap.set(id, currentAmount + amount)
+        })
+        return
+      }
+
+      // 兼容老数据：没有 settlementItems 时，退回平均分摊
       if (Array.isArray(returnOrderIds) && returnOrderIds.length > 0) {
-        // 计算每个回货单在该结算单中的金额（平均分配）
-        const totalAmount = settlement.totalAmount || settlement.total_amount || 0
-        const amountPerOrder = totalAmount / returnOrderIds.length
-        returnOrderIds.forEach(orderId => {
-          const id = orderId.toString()
+        const activeIds = returnOrderIds
+          .map(x => String(x))
+          .filter(id => voidedReturnOrderIds.indexOf(id) === -1)
+
+        if (activeIds.length === 0) return
+
+        const totalAmount = Number(settlement.totalAmount || settlement.total_amount || 0) || 0
+        const amountPerOrder = totalAmount / activeIds.length
+        activeIds.forEach((id) => {
           const currentAmount = settledAmountMap.get(id) || 0
           settledAmountMap.set(id, currentAmount + amountPerOrder)
         })
@@ -352,6 +377,11 @@ Page({
       const settlementNo = `JS${Date.now()}`
 
       // 创建结算单
+      const settlementItems = selectedOrders.map(order => ({
+        returnOrderId: order._id || order.id,
+        amount: order.settlementAmount,
+        voided: false
+      }))
       const settlementResult = await insert('settlements', {
         settlementNo: settlementNo,
         factoryId: this.data.factoryId,
@@ -361,7 +391,8 @@ Page({
         settlementDate: new Date(this.data.settlementDate || this.data.endDate),
         totalAmount: this.data.settlementAmount,
         remark: this.data.remark,
-        returnOrderIds: selectedOrders.map(order => order._id || order.id)
+        returnOrderIds: selectedOrders.map(order => order._id || order.id),
+        settlementItems: settlementItems
       })
 
       // 更新回货单的结算状态

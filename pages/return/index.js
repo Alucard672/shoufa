@@ -314,13 +314,25 @@ Page({
       finalOrders = ordersWithDetails.filter(order => !order.voided)
     }
 
+    // 更新统计数量（与明细列表保持一致）
+    let totalPieces = 0
+    let totalFee = 0
+    finalOrders.forEach(order => {
+      totalPieces += Math.floor(pickNumber(order, ['returnPieces', 'return_pieces'], 0))
+      totalFee += pickNumber(order, ['processingFee', 'processing_fee'], 0)
+    })
+
     this.setData({
       returnOrders: ordersWithDetails,
       filteredOrders: finalOrders,
       displayOrders: finalOrders.slice(0, this.data.pageSize).map(order => ({
         ...order,
         swipeOffset: 0 // 初始化左滑偏移量
-      }))
+      })),
+      totalReturnPieces: totalPieces,
+      totalReturnQuantityDisp: formatQuantity(totalPieces),
+      totalProcessingFee: totalFee,
+      totalProcessingFeeFormatted: totalFee.toFixed(0)
     })
   },
 
@@ -512,72 +524,20 @@ Page({
         if (res.confirm) {
           try {
             wx.showLoading({ title: `${action}中...` })
-            
-            const db = wx.cloud.database()
+
+            const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
             const docId = String(id || item._id || item.id || '')
-            let updated = 0
-
-            // 1) 优先按 doc(_id) 更新
-            try {
-              const r1 = await db.collection('return_orders').doc(docId).update({
-                data: {
-                  voided: !isVoided,
-                  updateTime: db.serverDate()
-                }
-              })
-              // 某些 SDK 版本可能没有 stats.updated，这里只要不抛错就认为成功
-              updated = (r1 && r1.stats && typeof r1.stats.updated === 'number') ? r1.stats.updated : 1
-            } catch (e1) {
-              console.log('使用 doc 更新失败，尝试使用 where 查询:', e1)
-            }
-
-            // 2) 回退：按自定义 id 更新（数字 id）或使用 tenantId + _id 查询
-            if (updated === 0) {
-              const tenantId = app?.globalData?.tenantId || wx.getStorageSync('tenantId')
-              if (tenantId) {
-                try {
-                  // 先尝试用 tenantId + _id 查询
-                  const queryRes = await db.collection('return_orders')
-                    .where({
-                      tenantId: tenantId,
-                      _id: docId
-                    })
-                    .get()
-                  
-                  if (queryRes.data && queryRes.data.length === 1) {
-                    const r2 = await db.collection('return_orders')
-                      .doc(queryRes.data[0]._id)
-                      .update({
-                        data: {
-                          voided: !isVoided,
-                          updateTime: db.serverDate()
-                        }
-                      })
-                    updated = (r2 && r2.stats && typeof r2.stats.updated === 'number') ? r2.stats.updated : 1
-                  } else {
-                    // 尝试用数字 id
-                    const idStr = docId
-                    const idNum = /^\d+$/.test(idStr) ? parseInt(idStr, 10) : null
-                    if (idNum !== null) {
-                      const r3 = await db.collection('return_orders')
-                        .where({ tenantId: tenantId, deleted: false, id: idNum })
-                        .update({
-                          data: {
-                            voided: !isVoided,
-                            updateTime: db.serverDate()
-                          }
-                        })
-                      updated = (r3 && r3.stats && typeof r3.stats.updated === 'number') ? r3.stats.updated : 0
-                    }
-                  }
-                } catch (e2) {
-                  console.error('回退更新失败:', e2)
-                }
+            const res2 = await wx.cloud.callFunction({
+              name: 'createReturnOrder',
+              data: {
+                action: 'toggleVoid',
+                tenantId: tenantId,
+                returnOrderId: docId,
+                voided: !isVoided
               }
-            }
-            
-            if (updated === 0) {
-              throw new Error('未找到要更新的单据，请检查数据库权限')
+            })
+            if (!res2.result || !res2.result.success) {
+              throw new Error((res2.result && (res2.result.error || res2.result.msg)) || '操作失败')
             }
             
             wx.hideLoading()

@@ -97,6 +97,9 @@ Page({
       pickDateHybrid(o, ['issueDate', 'issue_date'], ['createTime', 'create_time'])
     )
 
+    // 统计页汇总口径：排除已作废的发料单
+    issueOrders = issueOrders.filter(order => !order.voided)
+
     const issueIds = issueOrders.map(order => order.id || order._id)
     console.log('统计页面loadStatistics - 发料单IDs:', issueIds)
     let totalReturnPieces = 0
@@ -110,7 +113,8 @@ Page({
       const allReturnOrdersRes = await query('return_orders', {}, {
         excludeDeleted: true
       })
-      const allReturnOrders = allReturnOrdersRes.data || []
+      // 统计页汇总口径：排除已作废的回货单
+      const allReturnOrders = (allReturnOrdersRes.data || []).filter(order => !order.voided)
 
       // 先尝试使用 issueId，如果失败再尝试 issue_id
       let returnOrdersRes
@@ -148,6 +152,8 @@ Page({
       let filteredReturnOrders = filterByTimeFilter(returnOrdersRes.data || [], this.data.timeFilter, (o) =>
         pickDateHybrid(o, ['returnDate', 'return_date'], ['createTime', 'create_time'])
       )
+      // 排除已作废的回货单（避免作废后仍进入统计）
+      filteredReturnOrders = (filteredReturnOrders || []).filter(order => !order.voided)
 
       // 将issueIds转换为字符串集合，以便匹配
       const issueIdsSet = new Set(issueIds.map(id => String(id)))
@@ -228,6 +234,9 @@ Page({
           })
         }
       }
+
+      // 统计页汇总口径：排除已作废的发料单
+      filteredOrders = (filteredOrders || []).filter(order => !order.voided)
 
       // 统计唯一的款号和工厂数量
       const styleIds = new Set()
@@ -359,9 +368,20 @@ Page({
       issueOrders.data.map(async (issueOrder) => {
         const styleId = issueOrder.styleId || issueOrder.style_id
         const style = stylesMap.get(styleId) || {}
-        const issueOrderId = String(issueOrder.id || issueOrder._id)
-        // 直接使用 String(issueOrderId) 作为key
+        // 统一使用 String(_id) 作为key，确保与 returnOrdersMap 的key匹配
+        const issueOrderId = String(issueOrder._id || issueOrder.id)
         const returnOrders = returnOrdersMap.get(issueOrderId) || []
+        
+        // 调试日志：检查匹配情况
+        if (issueOrders.data.length <= 5) {
+          console.log('统计页面 - 发料单匹配:', {
+            issueOrderId,
+            issueNo: issueOrder.issueNo || issueOrder.issue_no,
+            returnOrdersCount: returnOrders.length,
+            returnOrdersMapKeys: Array.from(returnOrdersMap.keys()),
+            matched: returnOrdersMap.has(issueOrderId)
+          })
+        }
 
         let totalReturnQuantity = 0
         let totalReturnPieces = 0
@@ -515,12 +535,9 @@ Page({
       filteredStatistics = filteredStatistics.filter(item => {
         return item.status === this.data.statusFilter
       })
-    } else {
-      // 全部选项下，排除已完成的单据
-      filteredStatistics = filteredStatistics.filter(item => {
-        return item.status !== '已完成'
-      })
     }
+    // 注意：statusFilter === 'all' 时，显示所有状态的单据（包括已完成）
+    // 不再排除已完成的单据，因为用户可能想查看所有单据
 
     // 3. 搜索筛选
     if (this.data.searchKeyword) {

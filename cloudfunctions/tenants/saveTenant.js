@@ -3,10 +3,32 @@
  * 根据sn判断是否存在，不存在则创建，存在则更新
  */
 module.exports = async function saveTenant(db, payload, context) {
-  const { code, crmTenantId, sn, name, phone, expireDate, loginLimitNum, demoFlag, stopFlag, shareCode } = payload;
+  const { code, crmTenantId, sn, name, phone, expireDate, loginLimitNum, demoFlag, stopFlag, shareCode, salesperson } = payload;
 
   if (!sn) {
     return Promise.reject({ msg: '企业编号(sn)不能为空' });
+  }
+
+  // 规范化 expireDate：支持 Date / 时间戳 / YYYY-MM-DD / ISO string / {$date: ...}
+  let normalizedExpireDate = null
+  try {
+    if (expireDate) {
+      let raw = expireDate
+      if (raw && typeof raw === 'object') {
+        if (raw.$date) raw = raw.$date
+        else if (raw._seconds) raw = raw._seconds * 1000
+      }
+      if (typeof raw === 'string') {
+        // 兼容 YYYY-MM-DD / YYYY/MM/DD
+        raw = raw.replace(/\//g, '-')
+      }
+      const d = new Date(raw)
+      if (!isNaN(d.getTime())) {
+        normalizedExpireDate = d
+      }
+    }
+  } catch (e) {
+    normalizedExpireDate = null
   }
 
   // 查询是否存在相同sn的记录
@@ -23,12 +45,19 @@ module.exports = async function saveTenant(db, payload, context) {
     sn: sn,
     name: name || '',
     phone: phone || '',
-    expireDate: expireDate || null,
+    expireDate: normalizedExpireDate,
     loginLimitNum: loginLimitNum || 0,
     demoFlag: demoFlag !== undefined ? demoFlag : false,
     stopFlag: stopFlag !== undefined ? stopFlag : false,
     updateTime: now
   };
+
+  // 业务员字段：只要手动记录即可
+  // - 创建时：写入 salesperson（允许为空字符串）
+  // - 更新时：如果前端没传则不覆盖（保留历史记录）
+  if (salesperson !== undefined) {
+    tenantData.salesperson = String(salesperson || '').trim()
+  }
 
   if (queryResult.data && queryResult.data.length > 0) {
     // 存在，则更新

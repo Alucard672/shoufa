@@ -185,8 +185,8 @@
         </view>
       </view>
       
-      <!-- 已过期时显示付费按钮 -->
-      <view class="payment-section" wx:if="{{subscriptionStatus && subscriptionStatus.status === 'expired' && isLoggedIn}}">
+      <!-- 已过期时显示付费按钮（生产环境可通过 enablePayment 关闭） -->
+      <view class="payment-section" wx:if="{{subscriptionStatus && subscriptionStatus.status === 'expired' && isLoggedIn && enablePayment}}">
         <button class="payment-btn" bindtap="handlePayment">立即续费</button>
       </view>
     </view>

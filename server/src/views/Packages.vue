@@ -62,7 +62,7 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import app from '../utils/cloudbase'
+import { callFunction } from '../utils/cloudbase'
 
 const loading = ref(false)
 const list = ref([])
@@ -83,7 +83,7 @@ const form = reactive({
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await app.callFunction({
+    const res = await callFunction({
       name: 'admin',
       data: { action: 'managePackages', payload: { subAction: 'list' } }
     })
@@ -111,9 +111,17 @@ const handleSubmit = async () => {
   try {
     const subAction = form._id ? 'update' : 'add'
     const payload = { ...form }
-    if (subAction === 'update') payload.id = form._id // 云函数期望 id 参数
+    
+    if (subAction === 'update') {
+      // 更新时，传递 id 和 _id（云函数会优先使用 id）
+      payload.id = form._id
+      payload._id = form._id
+    } else {
+      // 新增时，移除 _id
+      delete payload._id
+    }
 
-    const res = await app.callFunction({
+    const res = await callFunction({
       name: 'admin',
       data: { action: 'managePackages', payload: { subAction, data: payload } }
     })
@@ -121,9 +129,12 @@ const handleSubmit = async () => {
       ElMessage.success('保存成功')
       dialogVisible.value = false
       fetchList()
+    } else {
+      ElMessage.error(res.result.msg || '保存失败')
     }
   } catch (err) {
-    ElMessage.error('保存失败')
+    console.error('保存套餐失败:', err)
+    ElMessage.error('保存失败：' + (err.message || '未知错误'))
   } finally {
     submitLoading.value = false
   }
@@ -132,7 +143,7 @@ const handleSubmit = async () => {
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除套餐 "${row.name}" 吗？`, '警告', { type: 'error' }).then(async () => {
     try {
-      await app.callFunction({
+      await callFunction({
         name: 'admin',
         data: { action: 'managePackages', payload: { subAction: 'delete', data: { id: row._id } } }
       })

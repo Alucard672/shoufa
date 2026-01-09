@@ -80,9 +80,10 @@ async function grantReward(referralId) {
       .doc(referral.referrerTenantId)
       .update({
         data: {
-          expireDate: db.serverDate(newExpireDate),
+          // 必须写入计算后的 Date；db.serverDate() 只能生成“服务器当前时间”
+          expireDate: newExpireDate,
           subscriptionDays: newSubscriptionDays,
-          lastExpireDate: currentExpireDate ? db.serverDate(currentExpireDate) : null,
+          lastExpireDate: currentExpireDate ? currentExpireDate : null,
           subscriptionStatus: 'active',
           updateTime: db.serverDate()
         }
@@ -93,8 +94,8 @@ async function grantReward(referralId) {
       tenantId: referral.referrerTenantId,
       type: 'referral_reward',
       days: referral.rewardDays,
-      expireDateBefore: currentExpireDate ? db.serverDate(currentExpireDate) : null,
-      expireDateAfter: db.serverDate(newExpireDate),
+      expireDateBefore: currentExpireDate ? currentExpireDate : null,
+      expireDateAfter: newExpireDate,
       source: `推荐奖励-${referral.refereePhone || '未知企业'}`,
       referralId: referralId,
       createTime: db.serverDate(),

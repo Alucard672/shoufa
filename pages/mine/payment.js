@@ -48,10 +48,23 @@ Page({
       }
     ],
     selectedPackage: null,
-    loading: false
+    loading: false,
+    enablePayment: app.globalData.enablePayment !== false
   },
 
   onLoad() {
+    // 生产环境关闭支付时直接提示并返回
+    if (app.globalData.enablePayment === false) {
+      wx.showModal({
+        title: '暂未开通在线支付',
+        content: '当前版本暂未开通在线支付，请联系管理员处理续费。',
+        showCancel: false,
+        success: () => {
+          wx.navigateBack()
+        }
+      })
+      return
+    }
     this.loadSubscriptionStatus()
   },
   
@@ -104,6 +117,14 @@ Page({
 
   // 确认支付
   async handleConfirmPayment() {
+    if (app.globalData.enablePayment === false) {
+      wx.showModal({
+        title: '暂未开通在线支付',
+        content: '当前版本暂未开通在线支付，请联系管理员处理续费。',
+        showCancel: false
+      })
+      return
+    }
     if (!this.data.selectedPackage) {
       wx.showToast({
         title: '请选择套餐',

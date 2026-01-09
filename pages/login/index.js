@@ -248,7 +248,16 @@ Page({
                 }
             })
 
-            const { success, user, tenant, msg } = res.result
+            if (!res || !res.result) {
+                wx.showModal({
+                    title: '登录失败',
+                    content: '系统繁忙，请稍后重试（未获取到云函数返回）',
+                    showCancel: false
+                })
+                return
+            }
+
+            const { success, user, tenant, msg, code: errCode } = res.result
 
             if (success) {
                 // 如果是加入企业，清除邀请缓存
@@ -277,6 +286,23 @@ Page({
                     })
                 }, 1500)
             } else {
+                // 业务错误：未加入任何企业 / 企业停用等，给出更友好的提示
+                if (errCode === 'NOT_REGISTERED' || errCode === 'TENANT_MISSING') {
+                    wx.showModal({
+                        title: '未加入企业',
+                        content: '该手机号尚未加入任何企业。\n\n如果你是企业老板：请联系系统管理员为你创建企业租户并绑定手机号。\n如果你是员工：请让企业管理员在【员工管理】中邀请你扫码加入。',
+                        showCancel: false
+                    })
+                    return
+                }
+                if (errCode === 'TENANT_DISABLED') {
+                    wx.showModal({
+                        title: '企业已停用',
+                        content: msg || '该企业已停用，请联系管理员。',
+                        showCancel: false
+                    })
+                    return
+                }
                 wx.showModal({
                     title: inviteTenantId ? '加入失败' : '登录失败',
                     content: msg || (inviteTenantId ? '加入企业失败，请稍后重试' : '手机号未在系统中登记，请联系管理员'),
@@ -285,9 +311,10 @@ Page({
             }
         } catch (err) {
             console.error('登录失败:', err)
-            wx.showToast({
-                title: '系统错误，请稍后重试',
-                icon: 'none'
+            wx.showModal({
+                title: '登录失败',
+                content: (err && (err.message || err.errMsg)) ? (err.message || err.errMsg) : '系统错误，请稍后重试',
+                showCancel: false
             })
         } finally {
             this.setData({ loading: false })

@@ -92,10 +92,22 @@
   box-sizing: border-box;
 }
 
+.section-title-wrapper {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
 .section-title {
   font-size: 18px;
   font-weight: 700;
   color: #101828;
+}
+
+.section-subtitle {
+  font-size: 12px;
+  color: #94A3B8;
+  font-weight: 400;
 }
 
 .section-header {

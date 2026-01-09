@@ -133,13 +133,13 @@ exports.main = async (event, context) => {
             }
 
             if (!phoneNumber) {
-                return { success: false, msg: '手机号不能为空' }
+                return { success: false, code: 'PHONE_REQUIRED', msg: '手机号不能为空' }
             }
 
             // 预处理：只保留数字，并严格要求 11 位手机号
             const purePhone = String(phoneNumber || '').replace(/\D/g, '')
             if (!/^1\d{10}$/.test(purePhone)) {
-                return { success: false, msg: '手机号格式不正确' }
+                return { success: false, code: 'PHONE_INVALID', msg: '手机号格式不正确' }
             }
 
             console.log('登录识别 - 手机号:', purePhone)
@@ -152,7 +152,7 @@ exports.main = async (event, context) => {
                 })
                 .get()
             
-            let userRecord = userRecordsRes.data[0]
+            let userRecord = (userRecordsRes.data && userRecordsRes.data[0]) ? userRecordsRes.data[0] : null
 
             // 3. 如果未找到绑定，尝试从 tenants 表自动匹配（老板账号自动关联）
             if (!userRecord) {
@@ -169,7 +169,7 @@ exports.main = async (event, context) => {
                     console.log('成功匹配到企业租户:', matchedTenant.name)
                     
                     if (matchedTenant.stopFlag === 1 || matchedTenant.stopFlag === true) {
-                        return { success: false, msg: '该企业已停用' }
+                        return { success: false, code: 'TENANT_DISABLED', msg: '该企业已停用' }
                     }
 
                     // 自动创建绑定记录
@@ -194,15 +194,63 @@ exports.main = async (event, context) => {
             if (!userRecord) {
                 return {
                     success: false,
-                    msg: `手机号 ${phoneNumber} 尚未在系统中登记，请联系管理员。`
+                    code: 'NOT_REGISTERED',
+                    msg: `该手机号尚未加入任何企业，请联系企业管理员邀请加入。`
                 }
             }
 
+            // 3.5 如果找到了 userRecord，校验其 tenantId 是否真实存在（避免历史脏数据导致 document.get 直接抛错）
+            let tenantRes = null
+            let tenantData = null
             const tenantId = userRecord.tenantId
-            const tenantRes = await db.collection('tenants').doc(tenantId).get()
-            
-            if (!tenantRes.data) {
-                return { success: false, msg: '所属企业信息已丢失' }
+            if (tenantId) {
+                try {
+                    tenantRes = await db.collection('tenants').doc(tenantId).get()
+                    tenantData = tenantRes && tenantRes.data ? tenantRes.data : null
+                } catch (e) {
+                    tenantData = null
+                }
+            }
+
+            // tenant 不存在：尝试用手机号重新匹配（老板账号自动关联 / 修复旧绑定）
+            if (!tenantData) {
+                console.log('用户绑定的 tenantId 不存在，尝试用手机号重新匹配 tenants 表...')
+                const tenantMatchRes2 = await db.collection('tenants')
+                    .where({ phone: purePhone })
+                    .limit(1)
+                    .get()
+
+                if (tenantMatchRes2.data && tenantMatchRes2.data.length > 0) {
+                    const matchedTenant = tenantMatchRes2.data[0]
+                    if (matchedTenant.stopFlag === 1 || matchedTenant.stopFlag === true) {
+                        return { success: false, code: 'TENANT_DISABLED', msg: '该企业已停用' }
+                    }
+                    // 修复 user 绑定关系
+                    try {
+                        await db.collection('users').doc(userRecord._id).update({
+                            data: {
+                                tenantId: matchedTenant._id,
+                                updateTime: db.serverDate()
+                            }
+                        })
+                        userRecord.tenantId = matchedTenant._id
+                    } catch (e) {
+                        console.error('修复 user.tenantId 失败:', e)
+                    }
+                    tenantData = matchedTenant
+                } else {
+                    // 没有任何租户可匹配：按“未加入企业”提示（常见原因：租户建在另一个环境）
+                    return {
+                        success: false,
+                        code: 'NOT_REGISTERED',
+                        msg: '该手机号尚未加入任何企业，请联系企业管理员邀请加入（或确认租户是否创建在当前环境）。'
+                    }
+                }
+            }
+
+            // 再次校验企业停用状态（兼容历史数据）
+            if (tenantData && (tenantData.stopFlag === 1 || tenantData.stopFlag === true)) {
+                return { success: false, code: 'TENANT_DISABLED', msg: '该企业已停用' }
             }
 
             // 4. 更新登录状态
@@ -220,16 +268,16 @@ exports.main = async (event, context) => {
                 success: true,
                 user: {
                     ...userRecord,
-                    tenantId: tenantRes.data._id,
+                    tenantId: tenantData._id,
                     openid: wxContext.OPENID,
                     avatarUrl: avatarUrl || userRecord.avatarUrl,
                     nickName: nickName || userRecord.nickName
                 },
-                tenant: tenantRes.data
+                tenant: tenantData
             }
         } catch (err) {
             console.error('登录异常:', err)
-            return { success: false, msg: '登录失败：' + (err.message || '系统错误') }
+            return { success: false, code: 'LOGIN_ERROR', msg: '登录失败：' + (err.message || '系统错误') }
         }
     }
 

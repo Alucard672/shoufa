@@ -19,14 +19,6 @@ Page({
         icon: '📏',
         bgColor: '#F0F9FF',
         path: '/pages/settings/size'
-      },
-      {
-        id: 'system',
-        title: '系统参数',
-        desc: '管理系统配置参数',
-        icon: '⚙️',
-        bgColor: '#F5F5F5',
-        path: '/pages/settings/system'
       }
     ]
   },

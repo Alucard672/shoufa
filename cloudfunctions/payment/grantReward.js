@@ -54,9 +54,10 @@ async function grantReward(tenantId, days, source) {
       .doc(tenantId)
       .update({
         data: {
-          expireDate: db.serverDate(newExpireDate),
+          // 必须写入计算后的 Date；db.serverDate() 只能生成“服务器当前时间”
+          expireDate: newExpireDate,
           subscriptionDays: newSubscriptionDays,
-          lastExpireDate: currentExpireDate ? db.serverDate(currentExpireDate) : null,
+          lastExpireDate: currentExpireDate ? currentExpireDate : null,
           subscriptionStatus: 'active',
           updateTime: db.serverDate()
         }
@@ -68,8 +69,8 @@ async function grantReward(tenantId, days, source) {
         tenantId: tenantId,
         type: 'purchase',
         days: days,
-        expireDateBefore: currentExpireDate ? db.serverDate(currentExpireDate) : null,
-        expireDateAfter: db.serverDate(newExpireDate),
+        expireDateBefore: currentExpireDate ? currentExpireDate : null,
+        expireDateAfter: newExpireDate,
         source: source || '购买订阅',
         referralId: null,
         createTime: db.serverDate(),

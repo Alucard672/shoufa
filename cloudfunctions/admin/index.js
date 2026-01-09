@@ -13,29 +13,45 @@ const _ = db.command
  */
 async function login(username, password) {
   try {
-    const res = await db.collection('admins')
-      .where({
-        username: username,
-        password: password, // 注意：实际应使用加密存储和校验
-        status: 'active'
-      })
-      .limit(1)
+    const u = String(username || '').trim()
+    const p = String(password || '').trim()
+    if (!u || !p) return { success: false, msg: '账号或密码不能为空' }
+
+    // 先按 username 查，便于给出明确提示（账号不存在 vs 密码错误）
+    const byNameRes = await db.collection('admins')
+      .where({ username: u })
+      .limit(10)
       .get()
 
-    if (res.data && res.data.length > 0) {
-      const admin = res.data[0]
-      // 不返回密码
-      delete admin.password
-      return {
-        success: true,
-        admin: admin,
-        token: 'mock-token-' + Date.now() // 实际可结合 JWT
-      }
-    } else {
+    if (!byNameRes.data || byNameRes.data.length === 0) {
       return {
         success: false,
-        msg: '账号或密码错误'
+        msg: '账号不存在（请先在生产环境初始化管理员或在控制台创建 admins 记录）'
       }
+    }
+
+    // 兼容历史数据：旧记录可能没有 status 字段
+    // 规则：status 缺失或为 active 视为可用；其他状态视为不可用
+    const enabledAdmins = byNameRes.data.filter(a => !a.status || a.status === 'active')
+    if (enabledAdmins.length === 0) {
+      return { success: false, msg: '账号已停用' }
+    }
+
+    // 兼容：密码字段可能有空格；只做 trim 对比（仍是明文，后续可升级加密）
+    const matched = enabledAdmins.find(a => String(a.password || '').trim() === p)
+    if (!matched) {
+      return {
+        success: false,
+        msg: '密码错误（如忘记密码，请在生产环境控制台修改 admins.password 或删除 admins 后再初始化）'
+      }
+    }
+
+    const admin = { ...matched }
+    delete admin.password
+    return {
+      success: true,
+      admin: admin,
+      token: 'mock-token-' + Date.now() // 实际可结合 JWT
     }
   } catch (err) {
     console.error('管理员登录失败:', err)
@@ -89,8 +105,23 @@ async function managePackages(action, payload) {
         await collection.add({ data: { ...payload, createTime: db.serverDate(), updateTime: db.serverDate() } })
         return { success: true }
       case 'update':
-        const { id, ...updateData } = payload
-        await collection.doc(id).update({ data: { ...updateData, updateTime: db.serverDate() } })
+        const { id, _id, ...updateData } = payload
+        // 确保 id 存在
+        if (!id && !_id) {
+          return { success: false, msg: '缺少套餐ID' }
+        }
+        const packageId = id || _id
+        // 移除不应该更新的字段
+        delete updateData._id
+        delete updateData.id
+        delete updateData.createTime
+        // 执行更新
+        const updateResult = await collection.doc(packageId).update({ 
+          data: { ...updateData, updateTime: db.serverDate() } 
+        })
+        if (updateResult.stats.updated === 0) {
+          return { success: false, msg: '套餐不存在或更新失败' }
+        }
         return { success: true }
       case 'delete':
         await collection.doc(payload.id).remove()

@@ -223,12 +223,60 @@ Page({
       pickDateHybrid(o, ['issueDate', 'issue_date'], ['createTime', 'create_time'])
     )
 
-    // 排除已完成的订单和已作废的单据（与"全部"列表的过滤逻辑一致）
-    orders = orders.filter(order => {
-      // 排除已作废的单据
-      if (order.voided) return false
-      return order.status !== '已完成'
-    })
+    // 排除已作废的单据
+    orders = orders.filter(order => !order.voided)
+
+    // 如果需要搜索筛选，先关联工厂信息
+    if (this.data.searchKeyword) {
+      const factoryIds = [...new Set(orders.map(order => order.factoryId || order.factory_id).filter(Boolean))]
+      const factoriesMap = new Map()
+      if (factoryIds.length > 0) {
+        const factoriesRes = await queryByIds('factories', factoryIds, { excludeDeleted: true })
+        factoriesRes.data.forEach(factory => {
+          const id = factory._id || factory.id
+          factoriesMap.set(String(id), factory)
+        })
+      }
+
+      // 应用搜索筛选
+      const keyword = this.data.searchKeyword.toLowerCase()
+      orders = orders.filter(order => {
+        const issueNo = (order.issueNo || order.issue_no || '').toLowerCase()
+        const factoryId = order.factoryId || order.factory_id
+        const factory = factoriesMap.get(String(factoryId))
+        const factoryName = (factory?.name || '').toLowerCase()
+        return issueNo.includes(keyword) || factoryName.includes(keyword)
+      })
+    }
+
+    // 应用状态筛选（与明细列表逻辑一致）
+    if (this.data.statusFilter === '已作废') {
+      // 只统计已作废的单据（但上面已经排除了，所以这里应该为空）
+      orders = []
+    } else if (this.data.statusFilter !== 'all') {
+      // 按状态筛选（需要计算回货进度状态）
+      // 为了性能，这里简化处理：只检查数据库中的 status 字段
+      // 如果需要精确匹配计算出的状态，需要查询回货单，但会影响性能
+      orders = orders.filter(order => {
+        // 排除已作废（上面已排除，这里双重保险）
+        if (order.voided) return false
+        // 简单匹配：如果数据库状态匹配，或者状态不是"已完成"且筛选条件不是"已完成"
+        if (this.data.statusFilter === '已完成') {
+          return order.status === '已完成'
+        } else {
+          // 对于"未回货"、"部分回货"、"已回货"，需要计算回货进度
+          // 为了性能，这里只做简单判断：如果状态不是"已完成"，则可能匹配
+          // 精确匹配需要在 loadIssueOrders 中计算
+          return order.status !== '已完成'
+        }
+      })
+    } else {
+      // 如果选择"全部"，排除"已完成"和"已作废"（已作废上面已排除）
+      orders = orders.filter(order => {
+        const isCompleted = order.status === '已完成'
+        return !isCompleted
+      })
+    }
 
     let totalWeight = 0
     orders.forEach(order => {
@@ -564,10 +612,19 @@ Page({
       swipeOffset: 0 // 初始化左滑偏移量
     }))
 
+    // 更新统计数量（与明细列表保持一致）
+    let totalWeight = 0
+    finalOrders.forEach(order => {
+      totalWeight += pickNumber(order, ['issueWeight', 'issue_weight'], 0)
+    })
+
     this.setData({
       issueOrders: ordersWithDetails,
       filteredOrders: finalOrders,
-      displayOrders: displayOrders
+      displayOrders: displayOrders,
+      totalIssueCount: finalOrders.length,
+      totalIssueWeight: totalWeight,
+      totalIssueWeightFormatted: totalWeight.toFixed(2)
     })
   },
 
@@ -781,72 +838,20 @@ Page({
         if (res.confirm) {
           try {
             wx.showLoading({ title: `${action}中...` })
-            
-            const db = wx.cloud.database()
+
+            const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
             const docId = String(id || item._id || item.id || '')
-            let updated = 0
-
-            // 1) 优先按 doc(_id) 更新
-            try {
-              const r1 = await db.collection('issue_orders').doc(docId).update({
-                data: {
-                  voided: !isVoided,
-                  updateTime: db.serverDate()
-                }
-              })
-              // 某些 SDK 版本可能没有 stats.updated，这里只要不抛错就认为成功
-              updated = (r1 && r1.stats && typeof r1.stats.updated === 'number') ? r1.stats.updated : 1
-            } catch (e1) {
-              console.log('使用 doc 更新失败，尝试使用 where 查询:', e1)
-            }
-
-            // 2) 回退：按自定义 id 更新（数字 id）或使用 tenantId + _id 查询
-            if (updated === 0) {
-              const tenantId = app?.globalData?.tenantId || wx.getStorageSync('tenantId')
-              if (tenantId) {
-                try {
-                  // 先尝试用 tenantId + _id 查询
-                  const queryRes = await db.collection('issue_orders')
-                    .where({
-                      tenantId: tenantId,
-                      _id: docId
-                    })
-                    .get()
-                  
-                  if (queryRes.data && queryRes.data.length === 1) {
-                    const r2 = await db.collection('issue_orders')
-                      .doc(queryRes.data[0]._id)
-                      .update({
-                        data: {
-                          voided: !isVoided,
-                          updateTime: db.serverDate()
-                        }
-                      })
-                    updated = (r2 && r2.stats && typeof r2.stats.updated === 'number') ? r2.stats.updated : 1
-                  } else {
-                    // 尝试用数字 id
-                    const idStr = docId
-                    const idNum = /^\d+$/.test(idStr) ? parseInt(idStr, 10) : null
-                    if (idNum !== null) {
-                      const r3 = await db.collection('issue_orders')
-                        .where({ tenantId: tenantId, deleted: false, id: idNum })
-                        .update({
-                          data: {
-                            voided: !isVoided,
-                            updateTime: db.serverDate()
-                          }
-                        })
-                      updated = (r3 && r3.stats && typeof r3.stats.updated === 'number') ? r3.stats.updated : 0
-                    }
-                  }
-                } catch (e2) {
-                  console.error('回退更新失败:', e2)
-                }
+            const res2 = await wx.cloud.callFunction({
+              name: 'createIssueOrder',
+              data: {
+                action: 'toggleVoid',
+                tenantId: tenantId,
+                issueOrderId: docId,
+                voided: !isVoided
               }
-            }
-            
-            if (updated === 0) {
-              throw new Error('未找到要更新的单据，请检查数据库权限')
+            })
+            if (!res2.result || !res2.result.success) {
+              throw new Error((res2.result && (res2.result.error || res2.result.msg)) || '操作失败')
             }
             
             wx.hideLoading()
