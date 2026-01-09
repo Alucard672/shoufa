@@ -42,6 +42,13 @@ const handleLogin = async () => {
   
   loading.value = true
   try {
+    // 1. 确保有登录态（即使是匿名登录）
+    const auth = app.auth();
+    if (!auth.hasLoginState()) {
+      await auth.anonymousAuthProvider().signIn();
+    }
+
+    // 2. 调用登录云函数
     const res = await app.callFunction({
       name: 'admin',
       data: {
