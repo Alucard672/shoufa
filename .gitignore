@@ -4,7 +4,7 @@ project.private.config.json
 # 云函数
 cloudfunctions/**/node_modules/
 cloudfunctions/**/.logs/
-
+node_modules
 # 日志
 *.log
 npm-debug.log*
