@@ -81,6 +81,65 @@ export function getUserInfo() {
 }
 
 /**
+ * 检查订阅是否已过期（需要阻止操作）
+ * @returns {boolean} 是否已过期
+ */
+export function isSubscriptionExpired() {
+  const tenantInfo = app.globalData.tenantInfo || wx.getStorageSync('tenantInfo')
+  if (!tenantInfo) {
+    return true // 没有租户信息，视为已过期
+  }
+  
+  const { isExpired } = require('./subscription.js')
+  const expireDate = tenantInfo.expireDate || tenantInfo.expire_date
+  return isExpired(expireDate)
+}
+
+/**
+ * 检查并阻止已过期用户的操作
+ * @param {Object} options 配置选项
+ * @param {string} options.title 提示标题，默认'订阅已过期'
+ * @param {string} options.content 提示内容
+ * @param {Function} options.onConfirm 确认回调（跳转到付费页面）
+ * @returns {boolean} 是否已过期（true表示已过期，已阻止操作）
+ */
+export function checkSubscriptionAndBlock(options = {}) {
+  const {
+    title = '订阅已过期',
+    content = '您的订阅已过期，请续费后继续使用',
+    onConfirm,
+    showModal = true
+  } = options
+  
+  if (isSubscriptionExpired()) {
+    if (showModal) {
+      wx.showModal({
+        title: title,
+        content: content,
+        showCancel: true,
+        confirmText: '立即续费',
+        cancelText: '取消',
+        success: (res) => {
+          if (res.confirm) {
+            if (onConfirm) {
+              onConfirm()
+            } else {
+              // 默认跳转到付费页面
+              wx.navigateTo({
+                url: '/pages/mine/payment'
+              })
+            }
+          }
+        }
+      })
+    }
+    return true // 已过期，已阻止操作
+  }
+  
+  return false // 未过期，可以继续操作
+}
+
+/**
  * 退出登录
  */
 export function logout() {

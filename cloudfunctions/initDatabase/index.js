@@ -19,7 +19,9 @@ exports.main = async (event, context) => {
     'return_orders',
     'settlements',
     'app_config', // 应用全局配置（如版本号）
-    'system_params' // 系统参数（租户级别）
+    'system_params', // 系统参数（租户级别）
+    'referrals', // 推荐记录
+    'subscription_history' // 订阅历史
   ]
   
   const collections = event.collections || defaultCollections

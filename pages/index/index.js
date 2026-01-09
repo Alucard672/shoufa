@@ -17,12 +17,30 @@ Page({
     displayActivities: [] // 用于显示的数据（默认10条）
   },
 
-  // 图片加载失败：降级为占位图
-  onStyleImageError(e) {
+  // 图片加载失败：降级为占位图或重试
+  async onStyleImageError(e) {
     const index = e.currentTarget.dataset.index
     if (typeof index === 'number' || (typeof index === 'string' && index !== '')) {
       const i = typeof index === 'number' ? index : parseInt(index, 10)
       if (!Number.isNaN(i) && this.data.displayActivities && this.data.displayActivities[i]) {
+        const activity = this.data.displayActivities[i]
+        
+        // 如果有原始URL且当前URL是临时URL，尝试重新获取临时URL
+        if (activity.originalImageUrl && activity.originalImageUrl.startsWith('cloud://')) {
+          // 清除缓存，重新获取
+          const { getImageUrl } = require('../../utils/image.js')
+          try {
+            const newTempUrl = await getImageUrl(activity.originalImageUrl)
+            if (newTempUrl && newTempUrl !== activity.styleImageUrl) {
+              this.setData({ [`displayActivities[${i}].styleImageUrl`]: newTempUrl })
+              return
+            }
+          } catch (err) {
+            console.error('重试获取图片URL失败:', err)
+          }
+        }
+        
+        // 重试失败或没有原始URL，清除图片显示
         this.setData({ [`displayActivities[${i}].styleImageUrl`]: '' })
       }
     }
@@ -44,10 +62,31 @@ Page({
       }
       return
     }
+    
+    // 检查订阅状态，如果已过期则阻止操作
+    const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
+    if (checkSubscriptionAndBlock({ showModal: false })) {
+      // 已过期，跳转到"我的"页面
+      wx.switchTab({
+        url: '/pages/mine/index'
+      })
+      return
+    }
+    
     this.loadData()
   },
 
   onShow() {
+    // 检查订阅状态，如果已过期则阻止操作
+    const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
+    if (checkSubscriptionAndBlock({ showModal: false })) {
+      // 已过期，跳转到"我的"页面
+      wx.switchTab({
+        url: '/pages/mine/index'
+      })
+      return
+    }
+    
     this.loadData()
   },
 
@@ -204,14 +243,29 @@ Page({
           stylesRes.data.forEach(style => {
             const id = style._id || style.id
             const originalUrl = normalizeImageUrl(style)
-            if (originalUrl && imageUrlMap.has(originalUrl)) {
-              stylesMap[id].styleImageUrl = imageUrlMap.get(originalUrl)
+            if (stylesMap[id] && originalUrl && originalUrl.startsWith('cloud://')) {
+              // 保存原始URL
+              stylesMap[id].originalImageUrl = originalUrl
+              
+              // 只有成功转换的URL才使用（不是cloud://格式）
+              if (imageUrlMap.has(originalUrl)) {
+                const tempUrl = imageUrlMap.get(originalUrl)
+                if (tempUrl && !tempUrl.startsWith('cloud://')) {
+                  stylesMap[id].styleImageUrl = tempUrl
+                } else {
+                  // 转换失败，使用空字符串避免500错误
+                  stylesMap[id].styleImageUrl = ''
+                }
+              } else {
+                // 转换失败，使用空字符串避免500错误
+                stylesMap[id].styleImageUrl = ''
+              }
             }
           })
         }
       } catch (error) {
         console.error('批量转换图片URL失败:', error)
-        // 失败不影响主流程，继续使用原 cloud:// URL
+        // 失败不影响主流程，但不使用原 cloud:// URL（避免500错误），显示占位图
       }
 
       // 5. 组装显示数据
@@ -226,11 +280,27 @@ Page({
 
         const styleName = style?.styleName || style?.style_name || '未知款号'
         const styleCode = (style?.styleCode || style?.style_code) ? `[${style?.styleCode || style?.style_code}] ` : ''
+        
+        // 优先使用已转换的临时URL（如果批量转换成功）
+        let styleImageUrl = style?.styleImageUrl || ''
+        const originalImageUrl = style?.originalImageUrl || normalizeImageUrl(style) || ''
+        
+        // 如果转换后的URL仍然是cloud://格式，说明转换失败，使用空字符串避免500错误
+        if (styleImageUrl && styleImageUrl.startsWith('cloud://')) {
+          styleImageUrl = ''
+        }
+        // 如果没有转换后的URL，但原始URL是cloud://，也使用空字符串
+        if (!styleImageUrl && originalImageUrl && originalImageUrl.startsWith('cloud://')) {
+          styleImageUrl = ''
+        }
+        
         return {
           ...item,
           factoryName: factory?.name || '未知工厂',
           styleName: styleName,
-          styleImageUrl: normalizeImageUrl(style),
+          styleCode: styleCode,
+          styleImageUrl: styleImageUrl,
+          originalImageUrl: originalImageUrl, // 保存原始URL用于错误重试
           dateFormatted: formatDateTime(item.createTime || item.create_time || item.date),
           styleDisplay: `${styleCode}${styleName}`,
           actionInfo: `${issueInfo} · ${item.color || ''}`

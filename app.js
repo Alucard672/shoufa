@@ -12,8 +12,12 @@ App({
       // 扫码进入，scene 就是 tenantId
       wx.setStorageSync('inviteTenantId', options.query.scene)
     } else if (options.query && options.query.inviteTenantId) {
-      // 转发链接进入
+      // 转发链接进入（员工邀请）
       wx.setStorageSync('inviteTenantId', options.query.inviteTenantId)
+    } else if (options.query && options.query.shareCode) {
+      // 分享链接进入（客户分享）
+      wx.setStorageSync('shareCode', options.query.shareCode)
+      wx.setStorageSync('shareType', options.query.shareType || 'tenant')
     }
 
     // 初始化云开发

@@ -297,8 +297,23 @@ Page({
           // 更新 stylesMap 中的图片URL
           stylesMap.forEach((style, id) => {
             const originalUrl = normalizeImageUrl(style)
-            if (originalUrl && imageUrlMap.has(originalUrl)) {
-              style.styleImageUrl = imageUrlMap.get(originalUrl)
+            if (originalUrl && originalUrl.startsWith('cloud://')) {
+              // 保存原始URL
+              style.originalImageUrl = originalUrl
+              
+              // 只有成功转换的URL才使用（不是cloud://格式）
+              if (imageUrlMap.has(originalUrl)) {
+                const tempUrl = imageUrlMap.get(originalUrl)
+                if (tempUrl && !tempUrl.startsWith('cloud://')) {
+                  style.styleImageUrl = tempUrl
+                } else {
+                  // 转换失败，使用空字符串避免500错误
+                  style.styleImageUrl = ''
+                }
+              } else {
+                // 转换失败，使用空字符串避免500错误
+                style.styleImageUrl = ''
+              }
             }
           })
         }
@@ -451,8 +466,11 @@ Page({
           // 判断回货件数是否大于发料件数
           const canComplete = progress.totalReturnPieces > issuePieces && order.status !== '已完成'
 
-          // 获取图片URL（字段兼容 + trim）
-          const imageUrl = normalizeImageUrl(style)
+          // 获取图片URL（优先使用已转换的临时URL，如果是cloud://格式则使用空字符串避免500错误）
+          let imageUrl = style?.styleImageUrl || normalizeImageUrl(style) || ''
+          if (imageUrl && imageUrl.startsWith('cloud://')) {
+            imageUrl = ''
+          }
           
           // 获取损耗率
           const lossRate = style?.lossRate || style?.loss_rate || 0
@@ -858,6 +876,13 @@ Page({
     if (!checkLogin()) {
       return
     }
+    
+    // 检查订阅状态，如果已过期则阻止操作
+    const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
+    if (checkSubscriptionAndBlock()) {
+      return // 已过期，已阻止操作
+    }
+    
     wx.navigateTo({
       url: '/pages/issue/create'
     })

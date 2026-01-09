@@ -11,14 +11,27 @@
           <text class="avatar-text" wx:else>{{avatarText}}</text>
         </view>
         <view class="profile-info">
-          <text class="user-name">{{userInfo.name || userInfo.nickName || '微信用户'}}</text>
+          <view class="profile-name-row">
+            <text class="user-name">{{userInfo.name || userInfo.nickName || '微信用户'}}</text>
+          </view>
           <view class="profile-details">
             <view class="detail-item" wx:if="{{tenantInfo.name}}">
               <image class="detail-icon" src="/images/icons/user.svg" mode="aspectFit"></image>
               <text class="detail-text">{{tenantInfo.name}}</text>
             </view>
           </view>
-          <text class="user-phone" wx:if="{{userInfo.phone}}">{{userInfo.phone}}</text>
+          <view class="profile-phone-row">
+            <text class="user-phone" wx:if="{{userInfo.phone}}">{{userInfo.phone}}</text>
+            <!-- 订阅状态和过期日期（垂直排列，靠右，间距小） -->
+            <view class="subscription-info-group" wx:if="{{subscriptionStatus && isLoggedIn}}">
+              <text class="subscription-status-inline" style="color: {{subscriptionStatus.statusColor}}">
+                {{remainingDaysText}}
+              </text>
+              <text class="expire-date-inline" wx:if="{{expireDateText && expireDateText !== '未设置'}}">
+                {{expireDateText}}
+              </text>
+            </view>
+          </view>
         </view>
       </view>
     </view>
@@ -148,15 +161,33 @@
           <text class="avatar-text" wx:else>{{avatarText}}</text>
         </view>
         <view class="profile-info">
-          <text class="user-name">{{userInfo.name || userInfo.nickName || '微信用户'}}</text>
+          <view class="profile-name-row">
+            <text class="user-name">{{userInfo.name || userInfo.nickName || '微信用户'}}</text>
+          </view>
           <view class="profile-details">
             <view class="detail-item" wx:if="{{tenantInfo.name}}">
               <image class="detail-icon" src="/images/icons/user.svg" mode="aspectFit"></image>
               <text class="detail-text">{{tenantInfo.name}}</text>
             </view>
           </view>
-          <text class="user-phone" wx:if="{{userInfo.phone}}">{{userInfo.phone}}</text>
+          <view class="profile-phone-row">
+            <text class="user-phone" wx:if="{{userInfo.phone}}">{{userInfo.phone}}</text>
+            <!-- 订阅状态和过期日期（垂直排列，靠右，间距小） -->
+            <view class="subscription-info-group" wx:if="{{subscriptionStatus && isLoggedIn}}">
+              <text class="subscription-status-inline" style="color: {{subscriptionStatus.statusColor}}">
+                {{remainingDaysText}}
+              </text>
+              <text class="expire-date-inline" wx:if="{{expireDateText && expireDateText !== '未设置'}}">
+                {{expireDateText}}
+              </text>
+            </view>
+          </view>
         </view>
+      </view>
+      
+      <!-- 已过期时显示付费按钮 -->
+      <view class="payment-section" wx:if="{{subscriptionStatus && subscriptionStatus.status === 'expired' && isLoggedIn}}">
+        <button class="payment-btn" bindtap="handlePayment">立即续费</button>
       </view>
     </view>
 
@@ -184,9 +215,10 @@
       </view>
     </view>
 
-    <!-- 版本信息 -->
+    <!-- 版本信息和登出按钮 -->
     <view class="version-info">
       <text>版本 v{{globalData.version}}</text>
+      <button class="logout-btn" wx:if="{{isLoggedIn}}" bindtap="handleLogout">退出登录</button>
     </view>
   </view>
 </view>

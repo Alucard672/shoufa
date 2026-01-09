@@ -1,5 +1,12 @@
 // pages/mine/index.js
 import { isLoggedIn } from '../../utils/auth.js'
+import { 
+  formatRemainingDays, 
+  formatExpireDate, 
+  getTenantSubscriptionStatus,
+  getReminderMessage,
+  shouldShowReminder
+} from '../../utils/subscription.js'
 const app = getApp()
 
 // 获取默认版本号（尝试从小程序环境信息获取，失败则使用硬编码值）
@@ -26,6 +33,9 @@ Page({
     userInfo: null, // 用户信息
     tenantInfo: null, // 租户信息
     avatarText: '用', // 头像文字
+    subscriptionStatus: null, // 订阅状态
+    remainingDaysText: '', // 剩余天数文本
+    expireDateText: '', // 过期日期文本
     // 登录相关
     loading: false,
     isDev: false,
@@ -116,12 +126,72 @@ Page({
     })
   },
   
-  onShow() {
-    this.checkLoginStatus()
+  async onShow() {
     // 更新版本号
     this.setData({
       'globalData.version': app.globalData.version || getDefaultVersion()
     })
+    
+    // 先检查登录状态
+    this.checkLoginStatus()
+    
+    // 如果已登录，从数据库重新获取最新的租户信息（确保订阅状态是最新的）
+    const loggedIn = isLoggedIn()
+    if (loggedIn) {
+      await this.refreshTenantInfo()
+    }
+  },
+  
+  // 从数据库刷新租户信息
+  async refreshTenantInfo() {
+    const tenantId = wx.getStorageSync('tenantId') || app.globalData.tenantId
+    if (!tenantId) {
+      return
+    }
+    
+    try {
+      const db = wx.cloud.database()
+      const tenantRes = await db.collection('tenants').doc(tenantId).get()
+      
+      if (tenantRes.data) {
+        const tenantInfo = tenantRes.data
+        
+        // 调试：打印原始数据
+        console.log('从数据库获取的租户信息:', tenantInfo)
+        console.log('到期日期字段 expireDate:', tenantInfo.expireDate)
+        console.log('到期日期字段 expire_date:', tenantInfo.expire_date)
+        
+        // 更新缓存
+        wx.setStorageSync('tenantInfo', tenantInfo)
+        // 更新全局数据
+        app.globalData.tenantInfo = tenantInfo
+        
+        // 更新页面数据（包括用户信息）
+        const userInfo = app.globalData.userInfo || wx.getStorageSync('userInfo') || {}
+        
+        // 生成头像文字
+        let avatarText = '用'
+        if (userInfo.nickName && userInfo.nickName.length > 0) {
+          avatarText = userInfo.nickName.charAt(0)
+        } else if (userInfo.phone && userInfo.phone.length > 0) {
+          avatarText = userInfo.phone.charAt(userInfo.phone.length - 1)
+        }
+        
+        this.setData({
+          tenantInfo: tenantInfo,
+          userInfo: userInfo,
+          avatarText: avatarText,
+          hasAvatar: !!userInfo.avatarUrl
+        })
+        
+        // 重新加载订阅状态（会重新计算并显示最新的到期日期）
+        this.checkSubscriptionStatus()
+      }
+    } catch (err) {
+      console.error('刷新租户信息失败:', err)
+      // 失败时继续使用缓存数据，但也要检查订阅状态
+      this.checkSubscriptionStatus()
+    }
   },
 
   checkLoginStatus() {
@@ -173,12 +243,130 @@ Page({
       avatarText: avatarText,
       hasAvatar: !!userInfo.avatarUrl
     })
+    
+    // 注意：不在 loadUserInfo 中调用 checkSubscriptionStatus
+    // 让 refreshTenantInfo 来处理订阅状态的更新，确保使用最新的数据
+  },
+  
+  // 检查订阅状态
+  checkSubscriptionStatus() {
+    const tenantInfo = wx.getStorageSync('tenantInfo') || app.globalData.tenantInfo
+    if (!tenantInfo) {
+      return
+    }
+    
+    const expireDate = tenantInfo.expireDate || tenantInfo.expire_date
+    const subscriptionStatus = getTenantSubscriptionStatus(tenantInfo)
+    const remainingDaysText = formatRemainingDays(expireDate)
+    const expireDateText = formatExpireDate(expireDate)
+    
+    // 强制更新数据，确保UI刷新
+    this.setData({
+      subscriptionStatus: subscriptionStatus,
+      remainingDaysText: remainingDaysText,
+      expireDateText: expireDateText
+    }, () => {
+      // 数据更新完成后的回调
+      console.log('订阅状态已更新:', {
+        status: subscriptionStatus.status,
+        remainingDays: subscriptionStatus.remainingDays,
+        expireDate: expireDateText
+      })
+    })
+    
+    // 检查是否需要提醒
+    const reminder = getReminderMessage(tenantInfo.expireDate || tenantInfo.expire_date)
+    if (reminder) {
+      // 使用防抖，避免频繁提醒
+      const lastReminderTime = wx.getStorageSync('lastReminderTime') || 0
+      const now = Date.now()
+      
+      // 已过期时，每次进入都提醒；未过期时，每5分钟最多提醒一次
+      const shouldShow = reminder.isExpired 
+        ? true 
+        : (now - lastReminderTime > 5 * 60 * 1000)
+      
+      if (shouldShow) {
+        // 已过期时使用 Modal 提示，更醒目
+        if (reminder.isExpired) {
+          wx.showModal({
+            title: reminder.title,
+            content: reminder.message,
+            showCancel: false,
+            confirmText: '我知道了'
+          })
+        } else {
+          wx.showToast({
+            title: reminder.message,
+            icon: 'none',
+            duration: 3000
+          })
+        }
+        
+        if (!reminder.isExpired) {
+          wx.setStorageSync('lastReminderTime', now)
+        }
+      }
+    }
+  },
+  
+  // 登出功能
+  handleLogout() {
+    wx.showModal({
+      title: '确认退出',
+      content: '确定要退出登录吗？',
+      confirmText: '退出',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) {
+          // 清除本地存储
+          wx.removeStorageSync('tenantId')
+          wx.removeStorageSync('userInfo')
+          wx.removeStorageSync('tenantInfo')
+          wx.removeStorageSync('lastReminderTime')
+          
+          // 清除全局数据
+          app.globalData.tenantId = null
+          app.globalData.userInfo = null
+          app.globalData.tenantInfo = null
+          
+          // 更新页面状态
+          this.setData({
+            isLoggedIn: false,
+            userInfo: null,
+            tenantInfo: null,
+            subscriptionStatus: null,
+            remainingDaysText: '',
+            expireDateText: ''
+          })
+          
+          wx.showToast({
+            title: '已退出登录',
+            icon: 'success'
+          })
+        }
+      }
+    })
   },
 
   onMenuItemTap(e) {
+    // 检查订阅状态，如果已过期则阻止操作
+    const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
+    if (checkSubscriptionAndBlock()) {
+      return // 已过期，已阻止操作
+    }
+    
     const path = e.currentTarget.dataset.path
     wx.navigateTo({
       url: path
+    })
+  },
+  
+  // 处理付费
+  handlePayment() {
+    // 跳转到付费页面
+    wx.navigateTo({
+      url: '/pages/mine/payment'
     })
   },
 

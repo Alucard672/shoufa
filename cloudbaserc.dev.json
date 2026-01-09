@@ -42,6 +42,14 @@
     {
       "name": "syncDatabaseSchema",
       "installDependency": true
+    },
+    {
+      "name": "share",
+      "installDependency": true
+    },
+    {
+      "name": "payment",
+      "installDependency": true
     }
   ],
   "database": {

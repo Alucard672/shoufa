@@ -208,7 +208,11 @@ Page({
         // 回货重量（实际用纱量）
         const returnWeight = pickNumber(order, ['actualYarnUsage', 'actual_yarn_usage'], 0)
 
-        const styleImageUrl = normalizeImageUrl(style)
+        // 优先使用已转换的临时URL，如果是cloud://格式则使用空字符串避免500错误
+        let styleImageUrl = style?.styleImageUrl || normalizeImageUrl(style) || ''
+        if (styleImageUrl && styleImageUrl.startsWith('cloud://')) {
+          styleImageUrl = ''
+        }
 
         return {
           ...order,
@@ -441,8 +445,8 @@ Page({
       }
 
       try {
-        // 1. 预加载图片 (最多前8条)
-        const listItems = returnOrders.slice(0, 8)
+        // 1. 使用所有回货单数据（支持长截图）
+        const listItems = returnOrders || []
         const imageTasks = listItems.map(item => {
           const url = item.styleImageUrl
           if (url && (url.startsWith('cloud://') || url.startsWith('http'))) {
@@ -458,15 +462,21 @@ Page({
         })
         const localImages = await Promise.all(imageTasks)
 
-        // 2. 动态计算画布高度
+        // 2. 动态计算画布高度（根据实际数据量）
         const headerHeight = 320
         const summaryHeight = 400
         const titleHeight = 100
-        const cardHeight = 340 // 增加一点高度给图片
-        const cardGap = 24
+        const cardHeight = 340 // 每张卡片高度
+        const cardGap = 24 // 卡片间距
         const footerHeight = 120
         const canvasWidth = 750
-        const canvasHeight = headerHeight + summaryHeight + titleHeight + (cardHeight + cardGap) * listItems.length + footerHeight
+        // 动态计算总高度：如果有数据，计算所有卡片的高度；如果没有数据，使用最小高度
+        const itemsHeight = listItems.length > 0 
+          ? (cardHeight + cardGap) * listItems.length - cardGap // 最后一个卡片不需要间距
+          : 0
+        const canvasHeight = headerHeight + summaryHeight + titleHeight + itemsHeight + footerHeight
+        
+        console.log(`生成长截图: ${listItems.length} 条数据, 画布高度: ${canvasHeight}px`)
 
         // 3. 绘制背景
         ctx.setFillStyle('#F8FAFC')
@@ -556,8 +566,16 @@ Page({
         ctx.fillText('回货单明细', padding + 28, currentY)
         currentY += 60
 
-        // 7. 循环绘制明细卡片
-        listItems.forEach((order, index) => {
+        // 7. 循环绘制明细卡片（支持所有数据的长截图）
+        if (listItems.length === 0) {
+          // 如果没有数据，显示空状态提示
+          ctx.setFillStyle('#94A3B8')
+          ctx.setFontSize(32)
+          ctx.setTextAlign('center')
+          ctx.fillText('暂无回货单数据', canvasWidth / 2, currentY + 100)
+          ctx.setTextAlign('left')
+        } else {
+          listItems.forEach((order, index) => {
           const x = padding
           const y = currentY
 
@@ -591,7 +609,7 @@ Page({
           
           ctx.setFillStyle('#1E293B')
           ctx.setFontSize(32)
-          ctx.fillText(order.returnDateFormatted, x + cardPadding + 120, y + 68)
+          ctx.fillText(order.returnDateFormatted || '未设置', x + cardPadding + 120, y + 68)
 
           const isSettled = (order.settlementStatus || order.settlement_status || '未结算') === '已结算'
           ctx.setFillStyle(isSettled ? '#DCFCE7' : '#FFEDD5')
@@ -606,7 +624,10 @@ Page({
           // 操作人 · 款号
           ctx.setFillStyle('#64748B')
           ctx.setFontSize(26)
-          ctx.fillText(`${order.employeeName || '系统管理员'}  ·  ${order.styleCode || order.styleName}`, x + cardPadding, y + 160)
+          const metaText = `${order.employeeName || '系统管理员'}  ·  ${order.styleCode || order.styleName || '未知款号'}`
+          // 文本过长时截断（避免超出画布）
+          const maxTextWidth = canvasWidth - padding * 2 - cardPadding * 2 - 20
+          ctx.fillText(metaText.length > 35 ? metaText.substring(0, 35) + '...' : metaText, x + cardPadding, y + 160)
 
           // 数据网格 (2x2)
           const gridBoxY = y + 190
@@ -620,11 +641,12 @@ Page({
           ctx.fillText('发毛', x + cardPadding + 24, gridBoxY + 45)
           ctx.fillText('回货重量', x + cardPadding + 24 + colWidth, gridBoxY + 45)
           ctx.setFillStyle('#1E293B'); ctx.setFontSize(28)
-          ctx.fillText(order.issueWeightFormatted, x + cardPadding + 24, gridBoxY + 95)
-          ctx.fillText(order.returnWeightFormatted, x + cardPadding + 24 + colWidth, gridBoxY + 95)
+          ctx.fillText(order.issueWeightFormatted || '0.00', x + cardPadding + 24, gridBoxY + 95)
+          ctx.fillText(order.returnWeightFormatted || '0.00', x + cardPadding + 24 + colWidth, gridBoxY + 95)
 
           currentY += cardHeight + cardGap
-        })
+          })
+        }
 
         // 8. 底部信息
         ctx.setFillStyle('#94A3B8')
@@ -636,10 +658,20 @@ Page({
           setTimeout(() => {
             wx.canvasToTempFilePath({
               canvasId: 'shareCanvas',
-              success: (res) => resolve(res.tempFilePath),
-              fail: (err) => reject(err)
+              width: canvasWidth,
+              height: canvasHeight, // 使用实际计算的画布高度
+              destWidth: canvasWidth * 2, // 提高图片清晰度（2倍像素）
+              destHeight: canvasHeight * 2,
+              success: (res) => {
+                console.log('截图生成成功，文件路径:', res.tempFilePath)
+                resolve(res.tempFilePath)
+              },
+              fail: (err) => {
+                console.error('截图生成失败:', err)
+                reject(err)
+              }
             }, this)
-          }, 1000)
+          }, 1500) // 增加等待时间，确保绘制完成
         })
       } catch (err) {
         console.error('generateShareImage error:', err)

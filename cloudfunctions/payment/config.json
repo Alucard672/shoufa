@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "openapi": [
+      "wxpay.unifiedOrder",
+      "wxpay.orderQuery"
+    ]
+  }
+}
+

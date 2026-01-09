@@ -148,9 +148,10 @@
   </view>
 
   <!-- 隐藏的画布用于生成分享图片 -->
+  <!-- 注意：canvas高度会根据内容动态调整，这里设置一个较大的初始值 -->
   <canvas 
     canvas-id="shareCanvas" 
-    style="position: fixed; top: -9999px; left: -9999px; width: 750px; height: 1600px;"
+    style="position: fixed; top: -9999px; left: -9999px; width: 750px; height: 10000px;"
     disable-scroll="true"
   ></canvas>
 </view>

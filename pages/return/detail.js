@@ -2,7 +2,7 @@
 import { queryByIds, getReturnOrderById } from '../../utils/db.js'
 import { checkLogin } from '../../utils/auth.js'
 import { formatAmount, formatDate, formatQuantity, formatWeight, formatDateTime } from '../../utils/calc.js'
-import { normalizeImageUrl } from '../../utils/image.js'
+import { normalizeImageUrl, getImageUrl } from '../../utils/image.js'
 const app = getApp()
 const db = wx.cloud.database()
 
@@ -86,7 +86,19 @@ Page({
       const processingFee = order.processingFee || order.processing_fee || 0
       const returnQuantity = order.returnQuantity || order.return_quantity || 0
       const pricePerDozen = returnQuantity > 0 ? (processingFee / returnQuantity) : 0
-      const styleImageUrl = normalizeImageUrl(style)
+      // 异步获取图片URL（如果是cloud://格式则转换为临时链接）
+      let styleImageUrl = normalizeImageUrl(style)
+      if (styleImageUrl && styleImageUrl.startsWith('cloud://')) {
+        // 异步转换，先使用空字符串避免500错误
+        styleImageUrl = ''
+        getImageUrl(style).then(tempUrl => {
+          if (tempUrl && !tempUrl.startsWith('cloud://')) {
+            this.setData({ returnOrder: { ...this.data.returnOrder, styleImageUrl: tempUrl } })
+          }
+        }).catch(() => {
+          // 转换失败，保持为空字符串
+        })
+      }
       const settlementStatus = order.settlementStatus || order.settlement_status || '未结算'
       const settledAmount = order.settledAmount || order.settled_amount || 0
       const returnPieces = Math.floor(order.returnPieces || order.return_pieces || 0)

@@ -113,17 +113,34 @@ Page({
                 app.globalData.userInfo = user
                 app.globalData.tenantId = tenant._id
 
-                wx.showToast({
-                    title: '登录成功',
-                    icon: 'success'
-                })
-
-                // 跳转到首页
+            wx.showToast({
+                title: '登录成功',
+                icon: 'success'
+            })
+            
+            // 检查订阅状态并显示提醒
+            // 检查订阅状态
+            const { isExpired } = require('../../utils/subscription.js')
+            const expireDate = tenant.expireDate || tenant.expire_date
+            const expired = isExpired(expireDate)
+            
+            if (expired) {
+                // 已过期，跳转到"我的"页面，让用户去付费
+                this.checkSubscriptionReminder(tenant)
+                setTimeout(() => {
+                    wx.switchTab({
+                        url: '/pages/mine/index'
+                    })
+                }, 1500)
+            } else {
+                // 未过期，显示提醒（如果有）并跳转到首页
+                this.checkSubscriptionReminder(tenant)
                 setTimeout(() => {
                     wx.switchTab({
                         url: '/pages/index/index'
                     })
                 }, 1500)
+            }
             } else {
                 wx.showModal({
                     title: '登录失败',
@@ -274,6 +291,54 @@ Page({
             })
         } finally {
             this.setData({ loading: false })
+        }
+    },
+    
+    // 检查订阅状态并显示提醒
+    checkSubscriptionReminder(tenant) {
+        if (!tenant) {
+            return
+        }
+        
+        const expireDate = tenant.expireDate || tenant.expire_date
+        if (!expireDate) {
+            return
+        }
+        
+        // 动态导入工具函数（避免循环依赖）
+        const { getReminderMessage, isExpired } = require('../../utils/subscription.js')
+        const reminder = getReminderMessage(expireDate)
+        const expired = isExpired(expireDate)
+        
+        if (reminder) {
+            // 延迟显示，避免与登录成功提示冲突
+            setTimeout(() => {
+                // 已过期时使用 Modal 提示，更醒目，并提供付费入口
+                if (reminder.isExpired) {
+                    wx.showModal({
+                        title: reminder.title,
+                        content: reminder.message,
+                        showCancel: true,
+                        confirmText: '立即续费',
+                        cancelText: '我知道了',
+                        success: (res) => {
+                            if (res.confirm) {
+                                // 跳转到付费页面
+                                wx.navigateTo({
+                                    url: '/pages/mine/payment'
+                                })
+                            }
+                        }
+                    })
+                } else {
+                    // 快到期时只显示 Toast 提醒，不阻止操作
+                    wx.showToast({
+                        title: reminder.message,
+                        icon: 'none',
+                        duration: 3000
+                    })
+                }
+            }, 2000)
         }
     },
     

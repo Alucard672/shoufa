@@ -1,0 +1,59 @@
+<!--pages/mine/payment.wxml-->
+<view class="container">
+  <!-- 订阅状态卡片 -->
+  <view class="status-card">
+    <view class="status-header">
+      <text class="status-title">当前订阅状态</text>
+    </view>
+    <view class="status-content">
+      <view class="status-item">
+        <text class="status-label">订阅状态：</text>
+        <text class="status-value" style="color: {{subscriptionStatus.statusColor}}">
+          {{remainingDaysText}}
+        </text>
+      </view>
+      <view class="status-item" wx:if="{{expireDateText && expireDateText !== '未设置'}}">
+        <text class="status-label">过期日期：</text>
+        <text class="status-value">{{expireDateText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 套餐选择 -->
+  <view class="packages-section">
+    <view class="section-title">选择套餐</view>
+    <view class="packages-list">
+      <view 
+        class="package-item {{selectedPackage && selectedPackage.id === item.id ? 'selected' : ''}} {{item.popular ? 'popular' : ''}}"
+        wx:for="{{packages}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onSelectPackage"
+      >
+        <view class="package-badge" wx:if="{{item.popular}}">推荐</view>
+        <view class="package-header">
+          <text class="package-name">{{item.name}}</text>
+          <text class="package-days">{{item.days}}天</text>
+        </view>
+        <view class="package-price">
+          <text class="price-current">¥{{item.price}}</text>
+          <text class="price-original" wx:if="{{item.originalPrice > item.price}}">¥{{item.originalPrice}}</text>
+        </view>
+        <view class="package-desc">平均每天仅需 ¥{{item.pricePerDay}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 支付按钮 -->
+  <view class="payment-footer">
+    <button 
+      class="confirm-btn {{selectedPackage ? '' : 'disabled'}}"
+      bindtap="handleConfirmPayment"
+      loading="{{loading}}"
+      disabled="{{!selectedPackage || loading}}"
+    >
+      <text wx:if="{{selectedPackage}}">立即支付 ¥{{selectedPackage.price}}</text>
+      <text wx:else>请选择套餐</text>
+    </button>
+  </view>
+</view>

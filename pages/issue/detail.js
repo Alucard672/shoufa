@@ -2,7 +2,7 @@
 import { queryByIds, query, getReturnOrdersByIssueId } from '../../utils/db.js'
 import { checkLogin, getTenantId } from '../../utils/auth.js'
 import { formatWeight, formatDate, formatQuantity, formatDateTime } from '../../utils/calc.js'
-import { normalizeImageUrl } from '../../utils/image.js'
+import { normalizeImageUrl, getImageUrl } from '../../utils/image.js'
 const app = getApp()
 const db = wx.cloud.database()
 
@@ -249,7 +249,19 @@ Page({
           }
         })
 
-      const styleImageUrl = normalizeImageUrl(style)
+      // 异步获取图片URL（如果是cloud://格式则转换为临时链接）
+      let styleImageUrl = normalizeImageUrl(style)
+      if (styleImageUrl && styleImageUrl.startsWith('cloud://')) {
+        // 异步转换，先使用空字符串避免500错误
+        styleImageUrl = ''
+        getImageUrl(style).then(tempUrl => {
+          if (tempUrl && !tempUrl.startsWith('cloud://')) {
+            this.setData({ 'issueOrder.styleImageUrl': tempUrl })
+          }
+        }).catch(() => {
+          // 转换失败，保持为空字符串
+        })
+      }
 
       this.setData({
         issueOrder: {

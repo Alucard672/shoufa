@@ -234,7 +234,11 @@ Page({
         const returnQuantity = order.returnQuantity || order.return_quantity || 0
         const pricePerDozen = returnQuantity > 0 ? (processingFee / returnQuantity) : 0
 
-        const styleImageUrl = normalizeImageUrl(style)
+        // 优先使用已转换的临时URL，如果是cloud://格式则使用空字符串避免500错误
+        let styleImageUrl = style?.styleImageUrl || ''
+        if (!styleImageUrl || styleImageUrl.startsWith('cloud://')) {
+          styleImageUrl = ''
+        }
 
         return {
           ...order,
@@ -625,6 +629,13 @@ Page({
     if (!checkLogin()) {
       return
     }
+    
+    // 检查订阅状态，如果已过期则阻止操作
+    const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
+    if (checkSubscriptionAndBlock()) {
+      return // 已过期，已阻止操作
+    }
+    
     wx.navigateTo({
       url: '/pages/return/create'
     })

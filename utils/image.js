@@ -73,24 +73,32 @@ export async function getImageUrl(input) {
         const fileInfo = res.fileList[0]
         const tempFileURL = fileInfo.tempFileURL || fileInfo.download_url || ''
         console.log('getImageUrl: 提取的 tempFileURL:', tempFileURL, 'status:', fileInfo.status)
-        if (tempFileURL) {
+        if (tempFileURL && fileInfo.status === 0) {
           // 缓存临时链接（2小时有效期，但缓存1.5小时避免过期）
           tempUrlCache.set(rawUrl, tempFileURL)
           setTimeout(() => {
             tempUrlCache.delete(rawUrl)
           }, 1.5 * 60 * 60 * 1000) // 1.5小时
           return tempFileURL
+        } else {
+          console.warn('getImageUrl: 获取临时URL失败', {
+            fileID: rawUrl,
+            status: fileInfo.status,
+            errMsg: fileInfo.errMsg
+          })
         }
       }
-      console.warn('getImageUrl: 未能提取到临时URL，返回原始URL')
     } catch (error) {
       console.error('获取临时链接失败:', error, 'fileID:', rawUrl)
-      // 获取失败时，尝试直接使用原 cloud:// URL（某些情况下可能也能显示）
     }
-    return rawUrl
+    // 获取失败时返回空字符串，避免在WXML中直接使用cloud://导致500错误
+    return ''
   }
 
-  // 其他格式直接返回
+  // 其他格式直接返回（但如果是 cloud:// 格式，返回空字符串避免错误）
+  if (rawUrl && rawUrl.startsWith('cloud://')) {
+    return ''
+  }
   return rawUrl
 }
 
@@ -123,31 +131,46 @@ export async function batchGetImageUrls(fileIds) {
   }
 
   try {
-    // 批量获取临时链接
-    const res = await wx.cloud.getTempFileURL({
-      fileList: uncachedUrls
-    })
+    // 批量获取临时链接（分批处理，避免一次性请求过多）
+    const batchSize = 20 // 每批最多20个
+    const batches = []
+    for (let i = 0; i < uncachedUrls.length; i += batchSize) {
+      batches.push(uncachedUrls.slice(i, i + batchSize))
+    }
 
     const urlMap = new Map()
     
-    if (res.fileList && res.fileList.length > 0) {
-      res.fileList.forEach((file, index) => {
-        const fileID = uncachedUrls[index]
-        const tempFileURL = file.tempFileURL || file.download_url || ''
-        
-        if (tempFileURL) {
-          // 缓存
-          tempUrlCache.set(fileID, tempFileURL)
-          setTimeout(() => {
-            tempUrlCache.delete(fileID)
-          }, 1.5 * 60 * 60 * 1000)
-          
-          urlMap.set(fileID, tempFileURL)
-        } else {
-          // 获取失败，使用原 cloud:// URL
-          urlMap.set(fileID, fileID)
+    // 逐批处理
+    for (const batch of batches) {
+      try {
+        const res = await wx.cloud.getTempFileURL({
+          fileList: batch
+        })
+
+        if (res.fileList && res.fileList.length > 0) {
+          res.fileList.forEach((file, index) => {
+            const fileID = batch[index]
+            const tempFileURL = file.tempFileURL || file.download_url || ''
+            
+            if (tempFileURL && file.status === 0) {
+              // 缓存成功的临时URL
+              tempUrlCache.set(fileID, tempFileURL)
+              setTimeout(() => {
+                tempUrlCache.delete(fileID)
+              }, 1.5 * 60 * 60 * 1000)
+              
+              urlMap.set(fileID, tempFileURL)
+            } else {
+              // 获取失败（可能是文件不存在或权限问题），记录错误但不缓存
+              console.warn(`获取临时URL失败: ${fileID}, status: ${file.status}, errMsg: ${file.errMsg || ''}`)
+              // 不设置到urlMap，让调用方知道获取失败
+            }
+          })
         }
-      })
+      } catch (batchError) {
+        console.error('批量获取临时链接批次失败:', batchError)
+        // 继续处理下一批
+      }
     }
 
     // 添加已缓存的URL
@@ -160,10 +183,12 @@ export async function batchGetImageUrls(fileIds) {
     return urlMap
   } catch (error) {
     console.error('批量获取临时链接失败:', error)
-    // 失败时返回原URL映射
+    // 失败时返回已缓存的URL映射，未缓存的留空
     const fallbackMap = new Map()
     cloudUrls.forEach(url => {
-      fallbackMap.set(url, url)
+      if (tempUrlCache.has(url)) {
+        fallbackMap.set(url, tempUrlCache.get(url))
+      }
     })
     return fallbackMap
   }

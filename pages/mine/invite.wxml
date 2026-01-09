@@ -1,34 +1,90 @@
 <!--pages/mine/invite.wxml-->
 <view class="container">
+  <!-- 标签切换 -->
+  <view class="tabs">
+    <view class="tab-item {{currentTab === 'employee' ? 'active' : ''}}" 
+          data-tab="employee" 
+          bindtap="onTabChange">
+      <text>员工邀请</text>
+    </view>
+    <view class="tab-item {{currentTab === 'customer' ? 'active' : ''}}" 
+          data-tab="customer" 
+          bindtap="onTabChange">
+      <text>客户分享</text>
+    </view>
+  </view>
+  
   <view class="invite-card">
-    <view class="header">
-      <text class="title">员工入职邀请</text>
-      <text class="subtitle">{{tenantInfo.name}}</text>
+    <!-- 员工邀请 -->
+    <view wx:if="{{currentTab === 'employee'}}">
+      <view class="header">
+        <text class="title">员工入职邀请</text>
+        <text class="subtitle">{{tenantInfo.name}}</text>
+      </view>
+      
+      <view class="qr-container">
+        <image class="qr-code" src="{{qrCodeUrl}}" mode="aspectFit" wx:if="{{qrCodeUrl}}"></image>
+        <view class="qr-placeholder" wx:else>
+          <text>正在生成二维码...</text>
+        </view>
+      </view>
+      
+      <view class="info-section">
+        <view class="info-item">
+          <text class="dot">●</text>
+          <text class="text">让员工使用微信扫一扫上方二维码</text>
+        </view>
+        <view class="info-item">
+          <text class="dot">●</text>
+          <text class="text">扫码后员工将自动加入您的企业</text>
+        </view>
+        <view class="info-item">
+          <text class="dot">●</text>
+          <text class="text">加入后，员工可进行发料、回货等操作</text>
+        </view>
+      </view>
+      
+      <button class="share-btn" open-type="share">转发给员工</button>
     </view>
     
-    <view class="qr-container">
-      <image class="qr-code" src="{{qrCodeUrl}}" mode="aspectFit" wx:if="{{qrCodeUrl}}"></image>
-      <view class="qr-placeholder" wx:else>
-        <text>正在生成二维码...</text>
+    <!-- 客户分享 -->
+    <view wx:if="{{currentTab === 'customer'}}">
+      <view class="header">
+        <text class="title">分享给客户</text>
+        <text class="subtitle">推荐成功付费，您将获得半年使用时长</text>
+      </view>
+      
+      <view class="qr-container">
+        <image class="qr-code" src="{{customerQRCodeUrl}}" mode="aspectFit" wx:if="{{customerQRCodeUrl}}"></image>
+        <view class="qr-placeholder" wx:else>
+          <text>正在生成二维码...</text>
+        </view>
+      </view>
+      
+      <view class="info-section">
+        <view class="info-item">
+          <text class="dot">●</text>
+          <text class="text">分享给潜在客户，邀请他们使用本系统</text>
+        </view>
+        <view class="info-item">
+          <text class="dot">●</text>
+          <text class="text">客户通过您的分享链接注册并成功付费</text>
+        </view>
+        <view class="info-item">
+          <text class="dot">●</text>
+          <text class="text">您将自动获得 180 天（半年）使用时长奖励</text>
+        </view>
+        <view class="info-item">
+          <text class="dot">●</text>
+          <text class="text">奖励可累加，多推荐多奖励</text>
+        </view>
+      </view>
+      
+      <view class="share-actions">
+        <button class="share-btn" open-type="share">转发给客户</button>
+        <button class="copy-btn" bindtap="onCopyShareLink">复制分享链接</button>
       </view>
     </view>
-    
-    <view class="info-section">
-      <view class="info-item">
-        <text class="dot">●</text>
-        <text class="text">让员工使用微信扫一扫上方二维码</text>
-      </view>
-      <view class="info-item">
-        <text class="dot">●</text>
-        <text class="text">扫码后员工将自动加入您的企业</text>
-      </view>
-      <view class="info-item">
-        <text class="dot">●</text>
-        <text class="text">加入后，员工可进行发料、回货等操作</text>
-      </view>
-    </view>
-    
-    <button class="share-btn" open-type="share">转发给员工</button>
   </view>
 </view>
 
