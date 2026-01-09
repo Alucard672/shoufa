@@ -50,6 +50,10 @@
     {
       "name": "payment",
       "installDependency": true
+    },
+    {
+      "name": "admin",
+      "installDependency": true
     }
   ],
   "database": {
@@ -773,6 +777,152 @@
               }
             ],
             "unique": true
+          }
+        ]
+      },
+      {
+        "name": "app_config",
+        "aclTag": "READONLY",
+        "indexes": [
+          {
+            "indexName": "idx_key",
+            "fields": [
+              {
+                "field": "key",
+                "direction": "asc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "payment_orders",
+        "aclTag": "ADMINONLY",
+        "indexes": [
+          {
+            "indexName": "idx_outTradeNo",
+            "fields": [
+              {
+                "field": "outTradeNo",
+                "direction": "asc"
+              }
+            ],
+            "unique": true
+          },
+          {
+            "indexName": "idx_tenantId",
+            "fields": [
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_status",
+            "fields": [
+              {
+                "field": "status",
+                "direction": "asc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "subscription_history",
+        "aclTag": "ADMINONLY",
+        "indexes": [
+          {
+            "indexName": "idx_tenantId",
+            "fields": [
+              {
+                "field": "tenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_createTime",
+            "fields": [
+              {
+                "field": "createTime",
+                "direction": "desc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "referrals",
+        "aclTag": "ADMINONLY",
+        "indexes": [
+          {
+            "indexName": "idx_refereeTenantId",
+            "fields": [
+              {
+                "field": "refereeTenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_referrerTenantId",
+            "fields": [
+              {
+                "field": "referrerTenantId",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_status",
+            "fields": [
+              {
+                "field": "status",
+                "direction": "asc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "admins",
+        "aclTag": "ADMINONLY",
+        "indexes": [
+          {
+            "indexName": "idx_username",
+            "fields": [
+              {
+                "field": "username",
+                "direction": "asc"
+              }
+            ],
+            "unique": true
+          }
+        ]
+      },
+      {
+        "name": "packages",
+        "aclTag": "READONLY",
+        "indexes": [
+          {
+            "indexName": "idx_status",
+            "fields": [
+              {
+                "field": "status",
+                "direction": "asc"
+              }
+            ]
+          },
+          {
+            "indexName": "idx_order",
+            "fields": [
+              {
+                "field": "order",
+                "direction": "asc"
+              }
+            ]
           }
         ]
       }

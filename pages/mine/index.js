@@ -150,16 +150,22 @@ Page({
     }
     
     try {
-      const db = wx.cloud.database()
-      const tenantRes = await db.collection('tenants').doc(tenantId).get()
+      // 改为调用云函数获取租户信息，避免前端直接访问 ADMINONLY 集合导致的权限问题
+      const res = await wx.cloud.callFunction({
+        name: 'tenants',
+        data: {
+          action: 'getTenant',
+          payload: {
+            tenantId: tenantId
+          }
+        }
+      })
       
-      if (tenantRes.data) {
-        const tenantInfo = tenantRes.data
+      if (res.result && res.result.data) {
+        const tenantInfo = res.result.data
         
         // 调试：打印原始数据
-        console.log('从数据库获取的租户信息:', tenantInfo)
-        console.log('到期日期字段 expireDate:', tenantInfo.expireDate)
-        console.log('到期日期字段 expire_date:', tenantInfo.expire_date)
+        console.log('从云函数获取的租户信息:', tenantInfo)
         
         // 更新缓存
         wx.setStorageSync('tenantInfo', tenantInfo)
@@ -184,7 +190,7 @@ Page({
           hasAvatar: !!userInfo.avatarUrl
         })
         
-        // 重新加载订阅状态（会重新计算并显示最新的到期日期）
+        // 重新加载订阅状态
         this.checkSubscriptionStatus()
       }
     } catch (err) {

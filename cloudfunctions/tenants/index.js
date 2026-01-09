@@ -41,6 +41,7 @@ async function dispatchAction(event, context) {
     case "getBySn":
       return await getTenantBySn(db, payload, context);
     case "list":
+    case "listTenantsAdmin":
       return await listTenants(db, payload, context);
     default:
       return Promise.reject({ msg: `Unknown action ${action}` })

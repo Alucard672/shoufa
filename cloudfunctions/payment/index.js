@@ -13,21 +13,23 @@ const _ = db.command
 /**
  * 创建支付订单
  */
-async function createPaymentOrder(tenantId, amount, description) {
+async function createPaymentOrder(tenantId, amount, description, packageInfo) {
   try {
-    // 这里需要集成微信支付
-    // 1. 调用微信支付统一下单接口
-    // 2. 创建订单记录
-    // 3. 返回支付参数
+    // 生成订单号（使用云函数环境ID + 时间戳 + 随机数）
+    const timestamp = Date.now()
+    const random = Math.floor(Math.random() * 10000)
+    const outTradeNo = `ORDER_${timestamp}_${random}`
     
-    // 注意：实际实现需要配置微信支付商户号和密钥
-    // 这里提供框架代码，需要根据实际情况完善
-    
+    // 创建订单记录
     const orderData = {
       tenantId: tenantId,
+      outTradeNo: outTradeNo,
       amount: amount, // 金额（分）
       description: description || '订阅服务',
-      status: 'pending', // pending | paid | failed | refunded
+      packageId: packageInfo?.id || null,
+      packageName: packageInfo?.name || null,
+      packageDays: packageInfo?.days || null,
+      status: 'pending', // pending | paid | failed | refunded | cancelled
       createTime: db.serverDate(),
       updateTime: db.serverDate(),
       deleted: false
@@ -37,19 +39,49 @@ async function createPaymentOrder(tenantId, amount, description) {
       data: orderData
     })
     
-    // TODO: 调用微信支付统一下单接口
-    // const paymentParams = await callWeChatPayUnifiedOrder({
-    //   out_trade_no: addResult._id,
-    //   total_fee: amount,
-    //   body: description,
-    //   // ... 其他参数
-    // })
+    // 获取用户 openid
+    const wxContext = cloud.getWXContext()
+    const openid = wxContext.OPENID
     
+    if (!openid) {
+      throw new Error('无法获取用户 openid')
+    }
+    
+    // 调用微信支付统一下单接口
+    const unifiedOrderResult = await cloud.openapi.wxpay.unifiedOrder({
+      body: description || '订阅服务',
+      outTradeNo: outTradeNo,
+      spbillCreateIp: '127.0.0.1', // 小程序支付固定为 127.0.0.1
+      subMchId: '', // 子商户号，如果没有可以不填
+      totalFee: amount, // 金额（分）
+      envId: cloud.DYNAMIC_CURRENT_ENV,
+      functionName: 'payment',
+      // 支付成功后的回调通知路径，微信会自动调用云函数的 handlePaymentNotify action
+      // 注意：需要在微信支付商户平台配置回调 URL，格式：https://api.weixin.qq.com/_/wxpay/unifiedorder
+    })
+    
+    // 更新订单记录，保存 prepay_id
+    await db.collection('payment_orders')
+      .doc(addResult._id)
+      .update({
+        data: {
+          prepayId: unifiedOrderResult.prepayId,
+          updateTime: db.serverDate()
+        }
+      })
+    
+    // 返回支付参数给客户端调起支付
     return {
       success: true,
       orderId: addResult._id,
-      // paymentParams: paymentParams // 返回给客户端调起支付
-      message: '支付功能待集成微信支付API'
+      outTradeNo: outTradeNo,
+      paymentParams: {
+        timeStamp: Math.floor(Date.now() / 1000).toString(),
+        package: `prepay_id=${unifiedOrderResult.prepayId}`,
+        paySign: unifiedOrderResult.paySign,
+        signType: unifiedOrderResult.signType || 'RSA',
+        nonceStr: unifiedOrderResult.nonceStr
+      }
     }
   } catch (error) {
     console.error('创建支付订单失败:', error)
@@ -61,35 +93,52 @@ async function createPaymentOrder(tenantId, amount, description) {
 }
 
 /**
- * 处理支付成功回调
+ * 处理支付成功回调（由微信支付系统调用）
+ * 注意：这个函数会被微信支付回调触发，需要处理 POST 请求
  */
-async function handlePaymentSuccess(orderId, transactionId) {
+async function handlePaymentNotify(event) {
   try {
-    // 1. 验证支付结果（验证签名等）
-    // 2. 查询订单
+    // 微信支付回调会传递支付结果信息
+    const { transactionId, outTradeNo, resultCode, returnCode, totalFee } = event
+    
+    if (resultCode !== 'SUCCESS' || returnCode !== 'SUCCESS') {
+      console.error('支付回调失败:', event)
+      return {
+        errcode: -1,
+        errmsg: '支付失败'
+      }
+    }
+    
+    // 根据商户订单号查询订单
     const orderRes = await db.collection('payment_orders')
-      .doc(orderId)
+      .where({
+        outTradeNo: outTradeNo,
+        deleted: _.neq(true)
+      })
+      .limit(1)
       .get()
     
-    if (!orderRes.data) {
+    if (!orderRes.data || orderRes.data.length === 0) {
+      console.error('订单不存在:', outTradeNo)
       return {
-        success: false,
-        error: '订单不存在'
+        errcode: -1,
+        errmsg: '订单不存在'
       }
     }
     
-    const order = orderRes.data
+    const order = orderRes.data[0]
+    const orderId = order._id
     
-    // 检查订单状态
+    // 检查订单状态，避免重复处理
     if (order.status === 'paid') {
+      console.log('订单已处理，跳过:', orderId)
       return {
-        success: true,
-        message: '订单已处理',
-        alreadyProcessed: true
+        errcode: 0,
+        errmsg: 'OK'
       }
     }
     
-    // 2. 更新订单状态
+    // 更新订单状态
     await db.collection('payment_orders')
       .doc(orderId)
       .update({
@@ -101,10 +150,16 @@ async function handlePaymentSuccess(orderId, transactionId) {
         }
       })
     
-    // 3. 更新租户订阅信息（累加180天）
-    const rewardResult = await grantReward(order.tenantId, 180, '购买订阅')
+    // 根据套餐天数发放订阅时长
+    const days = order.packageDays || 30 // 默认30天
+    const rewardResult = await grantReward(order.tenantId, days, `购买订阅 - ${order.packageName || ''}`)
     
-    // 4. 检查是否有推荐关系，给推荐者发放奖励
+    if (!rewardResult.success) {
+      console.error('发放订阅时长失败:', rewardResult.error)
+      // 记录错误但不返回失败，避免微信重复回调
+    }
+    
+    // 检查是否有推荐关系，给推荐者发放奖励
     const referralsRes = await db.collection('referrals')
       .where({
         refereeTenantId: order.tenantId,
@@ -130,24 +185,99 @@ async function handlePaymentSuccess(orderId, transactionId) {
       
       // 给推荐者发放奖励
       const shareGrantReward = require('../share/grantReward')
-      const rewardResult = await shareGrantReward(referral._id)
+      const shareRewardResult = await shareGrantReward(referral._id)
       
-      if (!rewardResult.success) {
-        console.error('发放推荐奖励失败:', rewardResult.error)
+      if (!shareRewardResult.success) {
+        console.error('发放推荐奖励失败:', shareRewardResult.error)
         // 不中断流程，只记录错误
+      }
+    }
+    
+    // 返回成功，告知微信已处理
+    return {
+      errcode: 0,
+      errmsg: 'OK'
+    }
+  } catch (error) {
+    console.error('处理支付回调失败:', error)
+    return {
+      errcode: -1,
+      errmsg: error.message || '处理失败'
+    }
+  }
+}
+
+/**
+ * 手动处理支付成功（用于支付成功后客户端确认）
+ */
+async function handlePaymentSuccess(outTradeNo) {
+  try {
+    // 查询订单
+    const orderRes = await db.collection('payment_orders')
+      .where({
+        outTradeNo: outTradeNo,
+        deleted: _.neq(true)
+      })
+      .limit(1)
+      .get()
+    
+    if (!orderRes.data || orderRes.data.length === 0) {
+      return {
+        success: false,
+        error: '订单不存在'
+      }
+    }
+    
+    const order = orderRes.data[0]
+    
+    // 检查订单状态
+    if (order.status === 'paid') {
+      return {
+        success: true,
+        message: '订单已处理',
+        alreadyProcessed: true,
+        data: {
+          orderId: order._id,
+          tenantId: order.tenantId
+        }
+      }
+    }
+    
+    // 如果订单还是 pending 状态，等待回调处理
+    // 或者主动查询支付状态
+    if (order.status === 'pending') {
+      // 可以调用查询订单接口确认支付状态
+      try {
+        const queryResult = await cloud.openapi.wxpay.orderQuery({
+          outTradeNo: outTradeNo
+        })
+        
+        if (queryResult.tradeState === 'SUCCESS') {
+          // 支付成功，调用处理函数
+          return await handlePaymentNotify({
+            transactionId: queryResult.transactionId,
+            outTradeNo: outTradeNo,
+            resultCode: 'SUCCESS',
+            returnCode: 'SUCCESS',
+            totalFee: queryResult.totalFee
+          })
+        }
+      } catch (queryError) {
+        console.error('查询订单状态失败:', queryError)
       }
     }
     
     return {
       success: true,
-      message: '支付处理成功',
+      message: '订单处理中，请稍后',
       data: {
-        orderId: orderId,
-        tenantId: order.tenantId
+        orderId: order._id,
+        tenantId: order.tenantId,
+        status: order.status
       }
     }
   } catch (error) {
-    console.error('处理支付成功回调失败:', error)
+    console.error('处理支付成功失败:', error)
     return {
       success: false,
       error: error.message || '处理支付失败'
@@ -244,14 +374,26 @@ exports.main = async (event, context) => {
   const { action } = event
   
   try {
+    // 处理微信支付回调（POST 请求）
+    // 微信支付回调时会直接传递支付结果，不包含 action 字段
+    if (event.outTradeNo && event.resultCode) {
+      return await handlePaymentNotify(event)
+    }
+    
     if (action === 'createOrder') {
-      const { tenantId, amount, description } = event
-      return await createPaymentOrder(tenantId, amount, description)
+      const { tenantId, amount, description, packageInfo } = event
+      return await createPaymentOrder(tenantId, amount, description, packageInfo)
     }
     
     if (action === 'handlePaymentSuccess') {
-      const { orderId, transactionId } = event
-      return await handlePaymentSuccess(orderId, transactionId)
+      const { outTradeNo } = event
+      if (!outTradeNo) {
+        return {
+          success: false,
+          error: '缺少订单号'
+        }
+      }
+      return await handlePaymentSuccess(outTradeNo)
     }
     
     if (action === 'grantReward') {

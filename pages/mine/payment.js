@@ -131,48 +131,78 @@ Page({
           action: 'createOrder',
           tenantId: tenantId,
           amount: this.data.selectedPackage.price * 100, // 转换为分
-          description: `订阅服务 - ${this.data.selectedPackage.name}`
+          description: `订阅服务 - ${this.data.selectedPackage.name}`,
+          packageInfo: {
+            id: this.data.selectedPackage.id,
+            name: this.data.selectedPackage.name,
+            days: this.data.selectedPackage.days
+          }
         }
       })
 
       if (res.result && res.result.success) {
-        // TODO: 这里需要集成微信支付
-        // 目前支付功能待完善，可以先显示提示
-        wx.showModal({
-          title: '支付功能开发中',
-          content: `您选择了 ${this.data.selectedPackage.name} 套餐，价格：¥${this.data.selectedPackage.price}\n支付功能正在开发中，请联系客服完成支付。`,
-          showCancel: false,
-          confirmText: '我知道了'
-        })
+        const { paymentParams, outTradeNo } = res.result
         
-        // 如果支付功能已集成，这里应该调用 wx.requestPayment
-        // wx.requestPayment({
-        //   ...res.result.paymentParams,
-        //   success: (payRes) => {
-        //     // 支付成功，等待回调处理
-        //     wx.showToast({
-        //       title: '支付成功',
-        //       icon: 'success'
-        //     })
-        //     // 刷新订阅状态
-        //     setTimeout(() => {
-        //       this.loadSubscriptionStatus()
-        //       // 通知"我的"页面更新
-        //       const pages = getCurrentPages()
-        //       const prevPage = pages[pages.length - 2]
-        //       if (prevPage && prevPage.checkSubscriptionStatus) {
-        //         prevPage.checkSubscriptionStatus()
-        //       }
-        //     }, 1000)
-        //   },
-        //   fail: (err) => {
-        //     console.error('支付失败:', err)
-        //     wx.showToast({
-        //       title: '支付失败',
-        //       icon: 'none'
-        //     })
-        //   }
-        // })
+        // 调用微信支付
+        wx.requestPayment({
+          ...paymentParams,
+          success: async (payRes) => {
+            wx.showLoading({
+              title: '确认支付结果...',
+              mask: true
+            })
+            
+            try {
+              // 支付成功，调用云函数确认并更新状态
+              const confirmRes = await wx.cloud.callFunction({
+                name: 'payment',
+                data: {
+                  action: 'handlePaymentSuccess',
+                  outTradeNo: outTradeNo
+                }
+              })
+              
+              wx.hideLoading()
+              
+              if (confirmRes.result && confirmRes.result.success) {
+                wx.showToast({
+                  title: '支付成功',
+                  icon: 'success'
+                })
+                
+                // 刷新订阅状态
+                setTimeout(() => {
+                  this.loadSubscriptionStatus()
+                  // 通知"我的"页面更新
+                  const pages = getCurrentPages()
+                  const prevPage = pages[pages.length - 2]
+                  if (prevPage && prevPage.loadSubscriptionStatus) {
+                    prevPage.loadSubscriptionStatus()
+                  }
+                }, 1500)
+              } else {
+                throw new Error(confirmRes.result.error || '确认支付失败')
+              }
+            } catch (confirmErr) {
+              wx.hideLoading()
+              console.error('确认支付失败:', confirmErr)
+              wx.showModal({
+                title: '支付确认中',
+                content: '支付已完成，但系统更新状态稍有延迟，请稍后刷新查看。',
+                showCancel: false
+              })
+            }
+          },
+          fail: (err) => {
+            console.error('用户取消或支付失败:', err)
+            if (err.errMsg.indexOf('cancel') === -1) {
+              wx.showToast({
+                title: '支付失败',
+                icon: 'none'
+              })
+            }
+          }
+        })
       } else {
         throw new Error(res.result.error || '创建订单失败')
       }

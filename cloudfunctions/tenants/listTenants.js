@@ -8,6 +8,7 @@ module.exports = async function listTenants(db, payload, context) {
     codeLike,       // code模糊查询
     nameLike,       // name模糊查询
     snLike,         // sn模糊查询
+    phoneLike,      // 手机号模糊查询
     demoFlag,       // 是否演示企业精确查询
     stopFlag,       // 是否停用精确查询
     pageNum = 1,    // 页码，默认第1页
@@ -49,6 +50,16 @@ module.exports = async function listTenants(db, payload, context) {
     query = query.where({
       sn: db.RegExp({
         regexp: snLike,
+        options: 'i'
+      })
+    });
+  }
+
+  // phone模糊查询
+  if (phoneLike !== undefined && phoneLike !== null && phoneLike !== '') {
+    query = query.where({
+      phone: db.RegExp({
+        regexp: phoneLike,
         options: 'i'
       })
     });
