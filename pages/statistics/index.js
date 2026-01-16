@@ -1,10 +1,15 @@
 // pages/statistics/index.js
 import { query, queryByIds, getStyleById, getFactories, getStyles } from '../../utils/db.js'
-import { getTimeRange, formatDate, formatWeight, formatQuantity } from '../../utils/calc.js'
+import { getTimeRange, formatDate, formatWeight, formatQuantity, calculateReturnPieces } from '../../utils/calc.js'
 import { checkLogin } from '../../utils/auth.js'
 import { normalizeImageUrl } from '../../utils/image.js'
 import { pickDateHybrid, filterByTimeFilter, pickNumber, pickId } from '../../utils/summary.js'
 const app = getApp()
+
+function formatKgNumber(weight) {
+  const w = parseFloat(weight) || 0
+  return w.toFixed(2)
+}
 
 Page({
   data: {
@@ -108,7 +113,7 @@ Page({
 
     if (issueIds.length > 0) {
       const _ = wx.cloud.database().command
-      
+
       // 先获取该租户下的所有回货单，用于内存匹配（作为查询失败的兜底）
       const allReturnOrdersRes = await query('return_orders', {}, {
         excludeDeleted: true
@@ -157,7 +162,7 @@ Page({
 
       // 将issueIds转换为字符串集合，以便匹配
       const issueIdsSet = new Set(issueIds.map(id => String(id)))
-      
+
       const returnedIssueIds = new Set()
       filteredReturnOrders.forEach(order => {
         const issueId = String(order.issueId || order.issue_id || '')
@@ -265,14 +270,14 @@ Page({
       orderBy: { field: 'createTime', direction: 'DESC' }
     })
     // 排除已作废的发料单
-    let issueOrders = { 
+    let issueOrders = {
       data: (issueOrdersRes.data || []).filter(order => !order.voided)
     }
 
     // 批量查询回货单
     const issueIds = issueOrders.data.map(order => order.id || order._id)
     console.log('统计页面 - 发料单IDs:', issueIds)
-    
+
     const returnOrdersMap = new Map()
     if (issueIds.length > 0) {
       // 先查询所有回货单，看看实际的 issueId 值
@@ -290,7 +295,7 @@ Page({
           issueIdStr: String(ro.issueId || ro.issue_id)
         })
       })
-      
+
       const _ = wx.cloud.database().command
       // 先尝试使用 issueId，如果失败再尝试 issue_id
       let returnOrdersRes
@@ -314,7 +319,7 @@ Page({
         returnOrdersRes = { data: (rawRes.data || []).filter(order => !order.voided) }
         console.log('统计页面 - 使用issue_id查询回货单:', returnOrdersRes.data.length, '条（已排除作废）', returnOrdersRes.data.map(o => ({ id: o._id, issueId: o.issueId || o.issue_id, returnNo: o.returnNo || o.return_no })))
       }
-      
+
       // 如果查询结果为空，尝试在内存中过滤
       if (returnOrdersRes.data.length === 0 && validReturnOrders.length > 0) {
         console.log('统计页面 - 尝试在内存中匹配回货单')
@@ -330,7 +335,7 @@ Page({
         })
         console.log('统计页面 - 内存匹配结果:', returnOrdersRes.data.length, '条')
       }
-      
+
       // 按 issueId 分组（直接使用 String(issueId) 作为key，确保匹配）
       returnOrdersRes.data.forEach(returnOrder => {
         const issueId = String(returnOrder.issueId || returnOrder.issue_id || '')
@@ -349,7 +354,7 @@ Page({
           returnOrdersMap.set(id, [])
         }
       })
-      
+
       console.log('统计页面 - 回货单Map:', Array.from(returnOrdersMap.entries()).map(([k, v]) => [k, v.length]))
     }
 
@@ -371,7 +376,7 @@ Page({
         // 统一使用 String(_id) 作为key，确保与 returnOrdersMap 的key匹配
         const issueOrderId = String(issueOrder._id || issueOrder.id)
         const returnOrders = returnOrdersMap.get(issueOrderId) || []
-        
+
         // 调试日志：检查匹配情况
         if (issueOrders.data.length <= 5) {
           console.log('统计页面 - 发料单匹配:', {
@@ -389,21 +394,37 @@ Page({
         let latestReturnDate = null
 
         returnOrders.forEach(order => {
-          totalReturnQuantity += order.returnQuantity || order.return_quantity || 0
-          totalReturnPieces += Math.floor(order.returnPieces || order.return_pieces || 0)
-          totalReturnYarn += order.actualYarnUsage || order.actual_yarn_usage || 0
+          const qty = parseFloat(order.returnQuantity || order.return_quantity || 0) || 0
+          totalReturnQuantity += qty
+
+          // 有些历史数据/权限口径只存了 returnQuantity(打)，没有 returnPieces(件)，这里做兜底换算
+          let pieces = parseFloat(order.returnPieces || order.return_pieces)
+          if (!Number.isFinite(pieces) || pieces <= 0) {
+            pieces = calculateReturnPieces(qty)
+          }
+          totalReturnPieces += Math.floor(pieces || 0)
+
+          totalReturnYarn += (parseFloat(order.actualYarnUsage || order.actual_yarn_usage || 0) || 0)
           const returnDate = order.returnDate || order.return_date
           if (!latestReturnDate || new Date(returnDate) > new Date(latestReturnDate)) {
             latestReturnDate = returnDate
           }
         })
 
-        const issueWeight = issueOrder.issueWeight || issueOrder.issue_weight || 0
+        const issueWeight = parseFloat(issueOrder.issueWeight || issueOrder.issue_weight || 0) || 0
         const yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
         const issuePieces = yarnUsagePerPiece > 0 ? Math.floor((issueWeight * 1000) / yarnUsagePerPiece) : 0
         const remainingYarn = issueWeight - totalReturnYarn
-        const remainingPieces = Math.floor(remainingYarn / (yarnUsagePerPiece / 1000))
+        // 如果款号没有设置单件用量，无法计算剩余件数，设为0
+        const remainingPieces = yarnUsagePerPiece > 0 ? Math.floor(remainingYarn / (yarnUsagePerPiece / 1000)) : 0
         const remainingQuantity = remainingPieces / 12
+
+        // 超入判断：优先用“件数”口径（更符合业务），兜底用重量口径
+        const overReturnedByPieces = issuePieces > 0 && totalReturnPieces > issuePieces
+        const overReturnedByWeight = totalReturnYarn > (issueWeight + 0.01)
+        const overReturned = overReturnedByPieces || overReturnedByWeight
+        const overReturnExcessPieces = overReturnedByPieces ? (totalReturnPieces - issuePieces) : 0
+        const overReturnExcessYarn = overReturnedByWeight ? (totalReturnYarn - issueWeight) : 0
 
         // 计算损耗率相关数据
         const lossRate = style.lossRate || style.loss_rate || 0
@@ -441,8 +462,9 @@ Page({
           lossAmount: lossAmount, // 损耗量
           actualLossRate: actualLossRate, // 实际损耗率
           lossRateFormatted: lossRate.toFixed(1) + '%',
-          planYarnUsageFormatted: formatWeight(planYarnUsage),
-          lossAmountFormatted: formatWeight(Math.abs(lossAmount)),
+          // 统计卡片上“单位”移到 label 行，value 只展示数字，避免折行
+          planYarnUsageFormatted: formatKgNumber(planYarnUsage),
+          lossAmountFormatted: formatKgNumber(Math.abs(lossAmount)),
           actualLossRateFormatted: actualLossRate.toFixed(1) + '%',
           totalReturnQuantity: totalReturnQuantity.toFixed(1),
           totalReturnPieces: Math.floor(totalReturnPieces),
@@ -453,12 +475,16 @@ Page({
           remainingPiecesFormatted: formatQuantity(remainingPieces),
           remainingQuantity,
           remainingQuantityFormatted: remainingQuantity.toFixed(1),
+          overReturned,
+          overReturnExcessPieces: Math.floor(overReturnExcessPieces),
+          overReturnExcessYarn: formatKgNumber(overReturnExcessYarn),
           latestReturnDate,
           issueDateFormatted: formatDate(issueOrder.issueDate || issueOrder.issue_date),
+          // “最后回货时间”：仅显示日期（无回货时为空）
           latestReturnDateFormatted: latestReturnDate ? formatDate(latestReturnDate) : null,
-          issueWeightFormatted: formatWeight(issueWeight),
-          totalReturnYarnFormatted: formatWeight(totalReturnYarn),
-          remainingYarnFormatted: formatWeight(remainingYarn),
+          issueWeightFormatted: formatKgNumber(issueWeight),
+          totalReturnYarnFormatted: formatKgNumber(totalReturnYarn),
+          remainingYarnFormatted: formatKgNumber(remainingYarn),
           returnOrders: returnOrders
             .slice()
             .sort((a, b) => {
@@ -468,14 +494,22 @@ Page({
               const dateBObj = dateB instanceof Date ? dateB : new Date(dateB)
               return dateBObj.getTime() - dateAObj.getTime()
             })
-            .map((order, index) => ({
-              ...order,
-              returnPieces: Math.floor(order.returnPieces || order.return_pieces || 0),
-              quantityFormatted: formatQuantity(order.returnPieces || order.return_pieces),
-              returnDateFormatted: formatDate(order.returnDate || order.return_date),
-              actualYarnUsageFormatted: (order.actualYarnUsage || order.actual_yarn_usage || 0).toFixed(2),
-              returnOrderIndex: returnOrders.length - index
-            }))
+            .map((order, index) => {
+              const qty = parseFloat(order.returnQuantity || order.return_quantity || 0) || 0
+              let pieces = parseFloat(order.returnPieces || order.return_pieces)
+              if (!Number.isFinite(pieces) || pieces <= 0) {
+                pieces = calculateReturnPieces(qty)
+              }
+              const finalPieces = Math.floor(pieces || 0)
+              return {
+                ...order,
+                returnPieces: finalPieces,
+                quantityFormatted: formatQuantity(finalPieces),
+                returnDateFormatted: formatDate(order.returnDate || order.return_date),
+                actualYarnUsageFormatted: (order.actualYarnUsage || order.actual_yarn_usage || 0).toFixed(2),
+                returnOrderIndex: returnOrders.length - index
+              }
+            })
         }
       })
     )
@@ -588,13 +622,13 @@ Page({
 
   onStyleStatsClick() {
     wx.navigateTo({
-      url: '/pages/statistics/style?timeFilter=' + encodeURIComponent(this.data.timeFilter)
+      url: '/subpages/statistics/style?timeFilter=' + encodeURIComponent(this.data.timeFilter)
     })
   },
 
   onFactoryStatsClick() {
     wx.navigateTo({
-      url: '/pages/statistics/factory?timeFilter=' + encodeURIComponent(this.data.timeFilter)
+      url: '/subpages/statistics/factory?timeFilter=' + encodeURIComponent(this.data.timeFilter)
     })
   },
 

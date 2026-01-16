@@ -1,6 +1,6 @@
 // pages/issue/index.js
 import { getIssueOrders, calculateIssueProgress, getReturnOrdersByIssueId, update, query, queryByIds } from '../../utils/db.js'
-import { getTimeRange, formatDate, formatDateTime, formatWeight, formatQuantity } from '../../utils/calc.js'
+import { getTimeRange, formatDate, formatDateTime, formatWeight, formatQuantity, calculateReturnPieces } from '../../utils/calc.js'
 import { checkLogin } from '../../utils/auth.js'
 import { normalizeImageUrl, batchGetImageUrls, getImageUrl } from '../../utils/image.js'
 import { pickDateHybrid, filterByTimeFilter, pickNumber } from '../../utils/summary.js'
@@ -142,10 +142,8 @@ Page({
     if (this.data.loading) return
     this.setData({ loading: true })
     try {
-      await Promise.all([
-        this.loadStatistics(),
-        this.loadIssueOrders()
-      ])
+      // 统计口径以 loadIssueOrders 的 finalOrders 为准，避免并发覆盖导致“部分回货统计不到”
+      await this.loadIssueOrders()
     } catch (error) {
       console.error('加载数据失败:', error)
       wx.showToast({
@@ -165,10 +163,16 @@ Page({
     let totalReturnYarn = 0
     let totalReturnQuantity = 0
 
-    returnOrdersList.forEach(order => {
-      totalReturnPieces += parseFloat(order.returnPieces || order.return_pieces || 0) || 0
-      totalReturnYarn += parseFloat(order.actualYarnUsage || order.actual_yarn_usage || 0) || 0
-      totalReturnQuantity += parseFloat(order.returnQuantity || order.return_quantity || 0) || 0
+    // 排除作废/删除回货单（与后端口径一致）
+    ;(returnOrdersList || []).filter((ro) => !ro?.voided && !ro?.deleted).forEach(order => {
+      // 兼容老数据：有的回货单只存 returnQuantity(打数)，没有 returnPieces(件数)
+      const rp = pickNumber(order, ['returnPieces', 'return_pieces'], 0)
+      const rq = pickNumber(order, ['returnQuantity', 'return_quantity'], 0)
+      const pieces = rp > 0 ? rp : (rq > 0 ? calculateReturnPieces(rq) : 0)
+
+      totalReturnPieces += pieces
+      totalReturnYarn += pickNumber(order, ['actualYarnUsage', 'actual_yarn_usage'], 0)
+      totalReturnQuantity += rq
     })
 
     const issueWeight = issueOrder.issueWeight || issueOrder.issue_weight || 0
@@ -313,7 +317,39 @@ Page({
     // 批量查询工厂和款号信息
     const factoryIds = [...new Set(filteredData.map(order => order.factoryId || order.factory_id).filter(Boolean))]
     const styleIds = [...new Set(filteredData.map(order => order.styleId || order.style_id).filter(Boolean))]
-    const issueIds = filteredData.map(order => order._id || order.id)
+    // issue_orders 既可能用 _id，也可能有历史数字 id；回货单关联字段也可能写在 issueId/issue_id 且类型不一致
+    // 这里构建“候选ID列表”，确保能匹配到历史回货单
+    const issueDocIds = filteredData.map(order => String(order._id || order.id || ''))
+    const issueCandidateToDocId = new Map() // candidate(String) -> docId(String)
+    const issueIdQueryValues = [] // 用于 _.in，包含 string/number 两种
+    filteredData.forEach((order) => {
+      const docId = String(order._id || order.id || '')
+      if (!docId) return
+      const legacyId = order.id
+      const candidates = []
+      candidates.push(order._id)
+      candidates.push(docId)
+      if (legacyId !== undefined && legacyId !== null && legacyId !== '') {
+        candidates.push(legacyId)
+        candidates.push(String(legacyId))
+        const n = Number(legacyId)
+        if (!Number.isNaN(n)) candidates.push(n)
+      }
+      candidates.forEach((c) => {
+        if (c === undefined || c === null || c === '') return
+        issueIdQueryValues.push(c)
+        issueCandidateToDocId.set(String(c), docId)
+      })
+    })
+    // 去重 query list（保持原类型尽量多样：这里只做字符串去重后再补回）
+    const seenQuery = new Set()
+    const uniqueIssueIdQueryValues = []
+    issueIdQueryValues.forEach((v) => {
+      const k = `${typeof v}:${String(v)}`
+      if (seenQuery.has(k)) return
+      seenQuery.add(k)
+      uniqueIssueIdQueryValues.push(v)
+    })
 
     // 批量查询工厂信息
     const factoriesMap = new Map()
@@ -373,9 +409,9 @@ Page({
 
     // 批量查询所有回货单
     const returnOrdersMap = new Map()
-    if (issueIds.length > 0) {
+    if (issueDocIds.length > 0) {
       // 初始化 Map
-      issueIds.forEach(id => {
+      issueDocIds.forEach(id => {
         returnOrdersMap.set(String(id), [])
       })
 
@@ -390,12 +426,12 @@ Page({
         let byIssueId = { data: [] }
         let byIssue_id = { data: [] }
         try {
-          byIssueId = await query('return_orders', { issueId: _.in(issueIds) }, { excludeDeleted: true })
+          byIssueId = await query('return_orders', { issueId: _.in(uniqueIssueIdQueryValues) }, { excludeDeleted: true })
         } catch (e) {
           console.log('批量查询回货单 issueId 失败，尝试 issue_id:', e)
         }
         try {
-          byIssue_id = await query('return_orders', { issue_id: _.in(issueIds) }, { excludeDeleted: true })
+          byIssue_id = await query('return_orders', { issue_id: _.in(uniqueIssueIdQueryValues) }, { excludeDeleted: true })
         } catch (e) {
           // ignore
         }
@@ -410,10 +446,10 @@ Page({
           }
         })
 
-        // 如果仍然为空，用内存匹配兜底
+        // 如果仍然为空，用内存匹配兜底（同时兼容数字 id）
         let allReturnOrders = merged
         if (allReturnOrders.length === 0 && allReturnOrdersFallback.length > 0) {
-          const issueIdStrSet = new Set(issueIds.map(id => String(id)))
+          const issueIdStrSet = new Set(uniqueIssueIdQueryValues.map(id => String(id)))
           allReturnOrders = allReturnOrdersFallback.filter(ro => {
             const roIssueId = ro.issueId || ro.issue_id
             if (roIssueId === undefined || roIssueId === null) return false
@@ -421,25 +457,28 @@ Page({
           })
         }
 
-        // 按 issueId 分组
-        allReturnOrders.forEach(order => {
-          const issueId = order.issueId || order.issue_id
-          if (issueId !== undefined && issueId !== null) {
-            const id = String(issueId)
-            if (!returnOrdersMap.has(id)) returnOrdersMap.set(id, [])
-            returnOrdersMap.get(id).push(order)
-          }
-        })
+        // 按 issueId 分组（映射回真实 issue docId）
+        allReturnOrders
+          .filter((ro) => !ro?.deleted && !ro?.voided) // 统计口径排除作废/删除
+          .forEach(order => {
+            const roIssueId = order.issueId || order.issue_id
+            if (roIssueId === undefined || roIssueId === null) return
+            const docId = issueCandidateToDocId.get(String(roIssueId))
+            if (!docId) return
+            if (!returnOrdersMap.has(docId)) returnOrdersMap.set(docId, [])
+            returnOrdersMap.get(docId).push(order)
+          })
       } catch (error) {
         console.error('批量查询回货单失败:', error)
         // 回退到逐个查询
-        const returnOrdersPromises = issueIds.map(issueId =>
+        const returnOrdersPromises = issueDocIds.map(issueId =>
           getReturnOrdersByIssueId(issueId).catch(() => ({ data: [] }))
         )
         const returnOrdersResults = await Promise.all(returnOrdersPromises)
         returnOrdersResults.forEach((result, index) => {
-          const id = String(issueIds[index])
-          returnOrdersMap.set(id, result.data || [])
+          const id = String(issueDocIds[index])
+          const list = (result.data || []).filter((ro) => !ro?.deleted && !ro?.voided)
+          returnOrdersMap.set(id, list)
         })
       }
     }
@@ -455,7 +494,7 @@ Page({
           const factory = factoriesMap.get(String(factoryId))
           const style = stylesMap.get(String(styleId))
           // 兼容 string 和 number 类型的 key
-          const returnOrdersList = returnOrdersMap.get(String(orderId)) || []
+          const returnOrdersList = (returnOrdersMap.get(String(orderId)) || []).filter((ro) => !ro?.deleted && !ro?.voided)
 
           // 计算回货进度（使用已查询的数据）
           const progress = await this.calculateProgressFromData(order, style, returnOrdersList)
@@ -487,7 +526,9 @@ Page({
               // 序号从总数开始递减，例如：如果有3条记录，序号为 3, 2, 1
               // 确保序号是数字类型，且大于0
               const returnOrderIndex = totalReturnCount > 0 ? (totalReturnCount - index) : 0
-              const returnPieces = ro.returnPieces || ro.return_pieces || 0
+              const rp = pickNumber(ro, ['returnPieces', 'return_pieces'], 0)
+              const rq = pickNumber(ro, ['returnQuantity', 'return_quantity'], 0)
+              const returnPieces = rp > 0 ? rp : (rq > 0 ? calculateReturnPieces(rq) : 0)
               const returnDate = ro.returnDate || ro.return_date
               const actualYarnUsage = parseFloat(ro.actualYarnUsage || ro.actual_yarn_usage || 0) || 0
               return {
@@ -511,8 +552,12 @@ Page({
             ? Math.floor((issueWeight * 1000) / yarnUsagePerPiece)
             : 0
 
-          // 判断回货件数是否大于发料件数
-          const canComplete = progress.totalReturnPieces > issuePieces && order.status !== '已完成'
+          // 回货超入：累计回货件数大于预计发料件数（不阻止操作，仅做强提醒/高亮）
+          const overReturned = issuePieces > 0 && (progress.totalReturnPieces > issuePieces)
+          const overReturnExcess = overReturned ? (progress.totalReturnPieces - issuePieces) : 0
+
+          // 判断回货件数是否大于发料件数（用于“完成”按钮提示，不拦截）
+          const canComplete = overReturned && order.status !== '已完成'
 
           // 获取图片URL（优先使用已转换的临时URL，如果是cloud://格式则使用空字符串避免500错误）
           let imageUrl = style?.styleImageUrl || normalizeImageUrl(style) || ''
@@ -542,6 +587,8 @@ Page({
             issueDateFormatted: formatDateTime(order.createTime || order.create_time || issueDate),
             issueWeightFormatted: formatWeight(issueWeight),
             issuePieces,
+            overReturned,
+            overReturnExcess,
             canComplete
           }
         } catch (error) {

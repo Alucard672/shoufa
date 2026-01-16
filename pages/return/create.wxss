@@ -6,21 +6,24 @@ page {
 .page-wrapper {
   width: 100%;
   min-height: 100vh;
-  padding: 0;
+  padding: 0 32rpx;
   margin: 0;
   display: block;
   padding-bottom: 160rpx;
+  box-sizing: border-box;
 }
 
 /* 顶部青色背景区域（参考回货明细页） */
 .header-bg {
   background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-  padding: 0 32rpx 120rpx; /* 去掉顶部边距，只保留左右和底部 */
+  padding: 0 32rpx 120rpx;
   border-radius: 0 0 16rpx 16rpx;
   position: relative;
   color: #fff;
   margin-bottom: -80rpx;
-  width: 100%;
+  margin-left: -32rpx;
+  margin-right: -32rpx;
+  width: calc(100% + 64rpx);
   box-sizing: border-box;
 }
 
@@ -86,7 +89,6 @@ page {
 /* 区块/卡片 */
 .section {
   margin-top: 32rpx;
-  padding: 0; /* 去掉左右边距 */
 }
 
 /* 让“款式详情卡”压住抬头背景（修复层级反了的问题） */
@@ -101,7 +103,6 @@ page {
   border-radius: 24rpx;
   padding: 32rpx;
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
-  margin: 0; /* 去掉左右边距，贴边显示 */
 }
 
 /* 款式信息卡片 */
@@ -182,7 +183,6 @@ page {
 
 /* 概览网格 */
 .summary-grid-section {
-  padding: 0; /* 去掉左右边距 */
   position: relative;
   z-index: 1;
   margin-top: 24rpx;
@@ -196,7 +196,6 @@ page {
   border-radius: 24rpx;
   padding: 32rpx;
   box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
-  margin: 0; /* 去掉左右边距，贴边显示 */
 }
 
 .grid-item {
@@ -233,8 +232,7 @@ page {
 .form-section {
   background: #FFFFFF;
   border-radius: 24rpx;
-  padding: 10px 14px;
-  margin-bottom: 6px;
+  padding: 32rpx;
 }
 
 .info-grid {
@@ -272,14 +270,6 @@ page {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* 表单核心区域 */
-.form-section {
-  background: #FFFFFF;
-  border-radius: 10px;
-  padding: 10px 14px;
-  margin-bottom: 6px;
 }
 
 .form-row {

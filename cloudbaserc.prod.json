@@ -5,7 +5,21 @@
   "functions": [
     {
       "name": "auth",
-      "installDependency": true
+      "installDependency": true,
+      "ignore": [
+        "node_modules/typescript/**",
+        "node_modules/@types/**",
+        "node_modules/protobufjs/cli/**",
+        "node_modules/lodash/**",
+        "node_modules/@babel/**",
+        "node_modules/ts-node/**",
+        "**/*.md",
+        "**/*.map",
+        "**/test/**",
+        "**/tests/**",
+        "**/*.test.js",
+        "**/*.spec.js"
+      ]
     },
     {
       "name": "tenants",
@@ -41,15 +55,57 @@
     },
     {
       "name": "syncDatabaseSchema",
-      "installDependency": true
+      "installDependency": true,
+      "ignore": [
+        "node_modules/typescript/**",
+        "node_modules/@types/**",
+        "node_modules/protobufjs/cli/**",
+        "node_modules/lodash/**",
+        "node_modules/@babel/**",
+        "node_modules/ts-node/**",
+        "**/*.md",
+        "**/*.map",
+        "**/test/**",
+        "**/tests/**",
+        "**/*.test.js",
+        "**/*.spec.js"
+      ]
     },
     {
       "name": "share",
-      "installDependency": true
+      "installDependency": true,
+      "ignore": [
+        "node_modules/typescript/**",
+        "node_modules/@types/**",
+        "node_modules/protobufjs/cli/**",
+        "node_modules/lodash/**",
+        "node_modules/@babel/**",
+        "node_modules/ts-node/**",
+        "**/*.md",
+        "**/*.map",
+        "**/test/**",
+        "**/tests/**",
+        "**/*.test.js",
+        "**/*.spec.js"
+      ]
     },
     {
       "name": "payment",
-      "installDependency": true
+      "installDependency": true,
+      "ignore": [
+        "node_modules/typescript/**",
+        "node_modules/@types/**",
+        "node_modules/protobufjs/cli/**",
+        "node_modules/lodash/**",
+        "node_modules/@babel/**",
+        "node_modules/ts-node/**",
+        "**/*.md",
+        "**/*.map",
+        "**/test/**",
+        "**/tests/**",
+        "**/*.test.js",
+        "**/*.spec.js"
+      ]
     },
     {
       "name": "admin",

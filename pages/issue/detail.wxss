@@ -75,6 +75,28 @@ page {
   opacity: 0.7;
 }
 
+.overreturn-banner {
+  margin: 0 0 16rpx;
+  padding: 20rpx 24rpx;
+  background: #FEF2F2;
+  border: 2rpx solid #EF4444;
+  border-radius: 20rpx;
+  color: #7F1D1D;
+}
+
+.overreturn-banner-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 800;
+  margin-bottom: 8rpx;
+}
+
+.overreturn-banner-desc {
+  display: block;
+  font-size: 26rpx;
+  line-height: 1.4;
+}
+
 .time-icon {
   width: 28rpx;
   height: 28rpx;

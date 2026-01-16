@@ -34,7 +34,7 @@ Page({
   async loadYarnList() {
     try {
       const whereClause = {}
-      
+
       if (this.data.searchKeyword) {
         whereClause.yarn_name = this.data.searchKeyword
       }
@@ -44,8 +44,15 @@ Page({
         orderBy: { field: 'createTime', direction: 'DESC' }
       })
 
+      // 统一字段名格式，兼容 snake_case 和 camelCase
+      const yarnList = (result.data || []).map(item => ({
+        ...item,
+        yarnName: item.yarnName || item.yarn_name || '',
+        currentStock: item.currentStock !== undefined ? item.currentStock : (item.current_stock !== undefined ? item.current_stock : 0)
+      }))
+
       this.setData({
-        yarnList: result.data || []
+        yarnList: yarnList
       })
     } catch (error) {
       console.error('加载纱线库存失败:', error)
@@ -69,7 +76,7 @@ Page({
       return
     }
     wx.navigateTo({
-      url: '/pages/yarn/create'
+      url: '/subpages/business/yarn/create'
     })
   },
 
@@ -80,7 +87,7 @@ Page({
     }
     const yarnId = e.currentTarget.dataset.id
     wx.navigateTo({
-      url: `/pages/yarn/create?id=${yarnId}`
+      url: `/subpages/business/yarn/create?id=${yarnId}`
     })
   }
 })

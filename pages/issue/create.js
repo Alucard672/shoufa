@@ -340,13 +340,7 @@ Page({
       return
     }
 
-    if (!this.data.selectedStyle || !this.data.selectedStyleId) {
-      wx.showToast({
-        title: '请选择款号',
-        icon: 'none'
-      })
-      return
-    }
+    // 款号改为可选，不再强制验证
 
     if (!this.data.issueWeight || parseFloat(this.data.issueWeight) <= 0) {
       wx.showToast({
@@ -356,7 +350,8 @@ Page({
       return
     }
 
-    if (!this.data.processingFeePerDozen || parseFloat(this.data.processingFeePerDozen) <= 0) {
+    // 如果选择了款号，才需要加工单价
+    if (this.data.selectedStyleId && (!this.data.processingFeePerDozen || parseFloat(this.data.processingFeePerDozen) <= 0)) {
       wx.showToast({
         title: '请输入加工单价',
         icon: 'none'
@@ -379,8 +374,8 @@ Page({
         const updateData = {
           factoryId: this.data.selectedFactoryId,
           factory_id: this.data.selectedFactoryId,
-          styleId: this.data.selectedStyleId,
-          style_id: this.data.selectedStyleId,
+          styleId: this.data.selectedStyleId || '',
+          style_id: this.data.selectedStyleId || '',
           color: colorName,
           issueWeight: parseFloat(this.data.issueWeight),
           issue_weight: parseFloat(this.data.issueWeight),
@@ -388,8 +383,8 @@ Page({
           issue_date: issueDate,
           planId: this.data.planId || '',
           plan_id: this.data.planId || '',
-          processingFeePerDozen: parseFloat(this.data.processingFeePerDozen),
-          processing_fee_per_dozen: parseFloat(this.data.processingFeePerDozen),
+          processingFeePerDozen: this.data.selectedStyleId ? parseFloat(this.data.processingFeePerDozen) : 0,
+          processing_fee_per_dozen: this.data.selectedStyleId ? parseFloat(this.data.processingFeePerDozen) : 0,
           updateTime: db.serverDate()
         }
         
@@ -423,12 +418,12 @@ Page({
             issueOrder: {
               issueNo: issueNo,
               factoryId: this.data.selectedFactoryId,
-              styleId: this.data.selectedStyleId,
+              styleId: this.data.selectedStyleId || '',
               color: colorName,
               issueWeight: parseFloat(this.data.issueWeight),
               issueDate: issueDate,
               planId: this.data.planId || '',
-              processingFeePerDozen: parseFloat(this.data.processingFeePerDozen),
+              processingFeePerDozen: this.data.selectedStyleId ? parseFloat(this.data.processingFeePerDozen) : 0,
               tenantId: app.globalData.tenantId
             }
           }

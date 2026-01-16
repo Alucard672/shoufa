@@ -1,5 +1,5 @@
 // pages/return/create.js
-import { query, getFactoryById, getStyleById, insert, calculateIssueProgress, updateIssueOrderStatus, update, getReturnOrderById } from '../../utils/db.js'
+import { query, getFactoryById, getStyleById, insert, calculateIssueProgress, updateIssueOrderStatus, update, getReturnOrderById, getStyles } from '../../utils/db.js'
 import {
   generateReturnNo,
   formatDate,
@@ -14,6 +14,29 @@ import { getPiecesPerDozenSync } from '../../utils/systemParams.js'
 import { checkLogin } from '../../utils/auth.js'
 const app = getApp()
 
+function showModalAsync(options) {
+  return new Promise((resolve) => {
+    wx.showModal({
+      showCancel: false,
+      confirmText: '我知道了',
+      ...options,
+      success: () => resolve()
+    })
+  })
+}
+
+function confirmModalAsync(options) {
+  return new Promise((resolve) => {
+    wx.showModal({
+      showCancel: true,
+      confirmText: '继续保存',
+      cancelText: '返回修改',
+      ...options,
+      success: (res) => resolve(!!res.confirm)
+    })
+  })
+}
+
 Page({
   data: {
     returnId: '', // 编辑模式下的回货单ID
@@ -22,6 +45,9 @@ Page({
     issueOrder: null,
     factory: null,
     style: null,
+    styles: [], // 款号列表
+    selectedStyle: null, // 选中的款号
+    selectedStyleId: '', // 选中的款号ID
     returnDozens: '',
     returnPieces: '',
     returnDate: '',
@@ -82,7 +108,10 @@ Page({
       })
     }
     
-    await this.loadDictionaries()
+    await Promise.all([
+      this.loadDictionaries(),
+      this.loadStyles()
+    ])
 
     if (options.issueId) {
       this.setData({
@@ -125,6 +154,20 @@ Page({
       this.setData({
         colorOptions: [],
         sizeOptions: []
+      })
+    }
+  },
+
+  async loadStyles() {
+    try {
+      const result = await getStyles({ includeDisabled: !!this.data.isEdit })
+      this.setData({
+        styles: result.data || []
+      })
+    } catch (error) {
+      console.error('加载款号失败:', error)
+      this.setData({
+        styles: []
       })
     }
   },
@@ -183,17 +226,30 @@ Page({
 
         console.log('加载关联信息:', { factoryId, styleId })
 
+        // 如果发料单没有款号，styleId可能是undefined或空字符串
+        const stylePromise = styleId ? getStyleById(styleId) : Promise.resolve({ data: null })
+        
         const [factoryRes, styleRes] = await Promise.all([
           getFactoryById(factoryId),
-          getStyleById(styleId)
+          stylePromise
         ])
 
         const styleImageUrl = this.normalizeImageUrl(styleRes.data)
+
+        // 如果发料单有款号，设置为选中状态
+        let selectedStyle = null
+        let selectedStyleId = ''
+        if (styleRes.data && styleRes.data._id) {
+          selectedStyle = styleRes.data
+          selectedStyleId = styleRes.data._id
+        }
 
         this.setData({
           issueOrder: issueOrder,
           factory: factoryRes.data,
           style: styleRes.data,
+          selectedStyle: selectedStyle,
+          selectedStyleId: selectedStyleId,
           styleImageUrl: styleImageUrl,
           styleImageError: false
         })
@@ -235,7 +291,10 @@ Page({
     const extraPcs = parseInt(this.data.returnPieces) || 0
     const totalPieces = doz * piecesPerDozen + extraPcs
 
-    if (!this.data.style || !this.data.factory || totalPieces <= 0) {
+    // 使用选中的款号，如果没有则使用发料单的款号
+    const style = this.data.selectedStyle || this.data.style
+
+    if (!style || !this.data.factory || totalPieces <= 0) {
       this.setData({
         calculatedPieces: 0,
         calculatedYarnUsage: 0,
@@ -247,11 +306,11 @@ Page({
     }
 
     const pieces = totalPieces
-    const yarnUsagePerPiece = this.data.style.yarnUsagePerPiece || this.data.style.yarn_usage_per_piece || 0
+    const yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
     const yarnUsage = calculateActualYarnUsage(pieces, yarnUsagePerPiece)
     
     // 从款号中获取加工单价（元/打），如果款号中没有则使用0
-    const pricePerDozen = this.data.style.processingFeePerDozen || this.data.style.processing_fee_per_dozen || 0
+    const pricePerDozen = style.processingFeePerDozen || style.processing_fee_per_dozen || 0
 
     // 换算为打数进行计算：总件数 / piecesPerDozen
     const totalQuantity = pieces / piecesPerDozen
@@ -291,6 +350,20 @@ Page({
     })
   },
 
+  onStyleChange(e) {
+    const style = e.detail.value
+    const selectedStyle = Array.isArray(style) ? style[0] : style
+    this.setData({
+      selectedStyle: selectedStyle,
+      selectedStyleId: selectedStyle?._id || '',
+      style: selectedStyle,
+      styleImageUrl: selectedStyle ? this.normalizeImageUrl(selectedStyle) : this.data.styleImageUrl,
+      styleImageError: false
+    })
+    // 重新计算
+    this.calculate()
+  },
+
   // 加载回货单数据（编辑模式）
   async loadReturnOrder() {
     try {
@@ -327,6 +400,22 @@ Page({
         (s.name || s) === sizeName
       ) || null
       
+      // 查找款号（优先使用回货单的款号，如果没有则使用发料单的款号）
+      const returnStyleId = returnOrder.styleId || returnOrder.style_id
+      let selectedStyle = null
+      let selectedStyleId = ''
+      if (returnStyleId) {
+        try {
+          const styleRes = await getStyleById(returnStyleId)
+          if (styleRes.data) {
+            selectedStyle = styleRes.data
+            selectedStyleId = styleRes.data._id
+          }
+        } catch (e) {
+          console.error('加载回货单款号失败:', e)
+        }
+      }
+      
       this.setData({
         returnDozens: String(doz),
         returnPieces: String(extraPcs),
@@ -335,6 +424,8 @@ Page({
         selectedColors: selectedColor ? [selectedColor] : [],
         selectedSize: selectedSize,
         selectedSizes: selectedSize ? [selectedSize] : [],
+        selectedStyle: selectedStyle,
+        selectedStyleId: selectedStyleId,
         status: returnOrder.status || '进行中'
       })
       
@@ -409,6 +500,43 @@ Page({
     }
 
     try {
+      // 保存前先做“回货超入”提醒（不强制阻止：用户可选择继续保存）
+      try {
+        const piecesPerDozen = getPiecesPerDozenSync()
+        const pieces = this.data.calculatedPieces || 0
+        const issueOrder = this.data.issueOrder || {}
+        const style = this.data.style || {}
+        const yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
+        const issueWeight = issueOrder.issueWeight || issueOrder.issue_weight || 0
+        const issuePieces = yarnUsagePerPiece > 0 ? Math.floor((issueWeight * 1000) / yarnUsagePerPiece) : 0
+
+        if (issuePieces > 0 && pieces > 0) {
+          // 当前数据库已回总数（排除作废/删除由 query/getReturnOrdersByIssueId 内部处理）
+          const progress = await calculateIssueProgress(this.data.issueId).catch(() => null)
+          let currentTotal = progress ? Math.floor(progress.totalReturnPieces || 0) : 0
+
+          // 编辑模式：需要把“原回货单件数”扣掉，再加上新值
+          if (this.data.isEdit && this.data.returnId) {
+            const oldRes = await getReturnOrderById(this.data.returnId).catch(() => ({ data: null }))
+            const old = oldRes.data || {}
+            const oldPieces = Math.floor(parseFloat(old.returnPieces || old.return_pieces || 0) || 0)
+            currentTotal = Math.max(0, currentTotal - oldPieces)
+          }
+
+          const predictedTotal = currentTotal + Math.floor(pieces)
+          if (predictedTotal > issuePieces) {
+            const excess = predictedTotal - issuePieces
+            const ok = await confirmModalAsync({
+              title: '回货超入提醒',
+              content: `本次保存后，预计累计回货 ${predictedTotal} 件，已超过预计发料 ${issuePieces} 件（超入 ${excess} 件）。\n\n是否继续保存？`
+            })
+            if (!ok) return
+          }
+        }
+      } catch (e) {
+        // 预检查失败不影响保存主流程
+      }
+
       this.setData({ submitting: true })
       wx.showLoading({
         title: this.data.isEdit ? '保存中...' : '创建中...'
@@ -425,6 +553,9 @@ Page({
       if (this.data.isEdit) {
         // 编辑模式：更新回货单
         const db = wx.cloud.database()
+        // 优先使用选中的款号，如果没有则使用发料单的款号
+        const styleId = this.data.selectedStyleId || (this.data.issueOrder.styleId || this.data.issueOrder.style_id) || ''
+        
         const updateData = {
           returnQuantity: quantity,
           return_quantity: quantity,
@@ -438,6 +569,8 @@ Page({
           processing_fee: fee,
           color: color,
           size: size || '',
+          styleId: styleId || '',
+          style_id: styleId || '',
           status: this.data.status || '进行中',
           updateTime: db.serverDate()
         }
@@ -454,11 +587,14 @@ Page({
         
         // 更新发料单状态
         const issueId = this.data.issueOrder._id || this.data.issueOrder.id || this.data.issueId
-        try {
-          const progress = await calculateIssueProgress(issueId)
-          await updateIssueOrderStatus(issueId, progress.status)
-        } catch (error) {
-          console.error('更新发料单状态失败:', error)
+        if (issueId) {
+          try {
+            const latestProgress = await calculateIssueProgress(issueId)
+            await updateIssueOrderStatus(issueId, latestProgress.status)
+          } catch (error) {
+            console.error('更新发料单状态失败:', error)
+            // 不阻止回货单保存，只记录错误
+          }
         }
         
         wx.hideLoading()
@@ -466,7 +602,7 @@ Page({
           title: '保存成功',
           icon: 'success'
         })
-        
+
         setTimeout(() => {
           wx.navigateBack()
         }, 1500)
@@ -474,7 +610,8 @@ Page({
         // 新增模式：创建回货单
         const returnNo = generateReturnNo()
         const factoryId = this.data.issueOrder.factoryId || this.data.issueOrder.factory_id
-        const styleId = this.data.issueOrder.styleId || this.data.issueOrder.style_id
+        // 优先使用选中的款号，如果没有则使用发料单的款号
+        const styleId = this.data.selectedStyleId || (this.data.issueOrder.styleId || this.data.issueOrder.style_id) || ''
         
         // 确保 issueId 使用发料单的实际 _id（可能是对象或字符串）
         const issueId = this.data.issueOrder._id || this.data.issueOrder.id || this.data.issueId
@@ -485,7 +622,7 @@ Page({
           returnNo: returnNo,
           factoryId: factoryId,
           issueId: issueId, // 使用发料单的实际_id
-          styleId: styleId,
+          styleId: styleId || '',
           returnQuantity: quantity,
           returnPieces: pieces,
           actualYarnUsage: yarnUsage,
@@ -502,9 +639,9 @@ Page({
         
         // 创建回货单后，更新发料单状态
         try {
-          const progress = await calculateIssueProgress(issueId)
-          await updateIssueOrderStatus(issueId, progress.status)
-          console.log('更新发料单状态成功:', progress.status)
+          const latestProgress = await calculateIssueProgress(issueId)
+          await updateIssueOrderStatus(issueId, latestProgress.status)
+          console.log('更新发料单状态成功:', latestProgress.status)
         } catch (error) {
           console.error('更新发料单状态失败:', error)
           // 不阻止回货单创建，只记录错误

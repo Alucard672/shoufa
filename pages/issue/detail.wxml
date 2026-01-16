@@ -17,6 +17,12 @@
     </view>
   </view>
 
+  <!-- 回货超入提醒：不阻止操作，仅高亮提示 -->
+  <view class="overreturn-banner" wx:if="{{issueOrder.overReturned}}">
+    <text class="overreturn-banner-title">回货超入提醒</text>
+    <text class="overreturn-banner-desc">累计回货 {{issueOrder.progress.totalReturnPieces}} 件，已超过预计发料 {{issueOrder.issuePieces}} 件（超入 {{issueOrder.overReturnExcess}} 件）</text>
+  </view>
+
   <!-- 汇总统计网格 (3x2) -->
   <view class="summary-grid-section">
     <view class="summary-grid">

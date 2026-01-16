@@ -180,6 +180,11 @@ export function createReturnOrder(data) {
  * 更新发料单状态
  */
 export function updateIssueOrderStatus(issueId, status) {
+  if (!issueId) {
+    console.warn('更新发料单状态失败: issueId为空')
+    return Promise.reject(new Error('发料单ID不能为空'))
+  }
+  
   return db.collection('issue_orders')
     .doc(issueId)
     .update({
@@ -246,6 +251,10 @@ export async function getReturnOrdersByIssueId(issueId) {
  * 计算发料单的回货进度
  */
 export async function calculateIssueProgress(issueId) {
+  if (!issueId) {
+    throw new Error('发料单ID不能为空')
+  }
+  
   // 获取发料单
   const issueOrderRes = await db.collection('issue_orders')
     .doc(issueId)
@@ -261,17 +270,24 @@ export async function calculateIssueProgress(issueId) {
   const returnOrdersRes = await getReturnOrdersByIssueId(issueId)
   const returnOrders = returnOrdersRes.data || []
   
-  // 获取款号信息
-  const styleRes = await db.collection('styles')
-    .doc(issueOrder.styleId)
-    .get()
-  
-  if (!styleRes.data || styleRes.data.deleted) {
-    throw new Error('款号不存在')
+  // 获取款号信息（如果发料单有款号）
+  let yarnUsagePerPiece = 0
+  const styleId = issueOrder.styleId || issueOrder.style_id
+  if (styleId) {
+    try {
+      const styleRes = await db.collection('styles')
+        .doc(styleId)
+        .get()
+      
+      if (styleRes.data && !styleRes.data.deleted) {
+        const style = styleRes.data
+        yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
+      }
+    } catch (e) {
+      // 款号不存在或查询失败，使用默认值0
+      console.warn('获取款号信息失败:', e)
+    }
   }
-  
-  const style = styleRes.data
-  const yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
 
   let totalReturnPieces = 0
   let totalReturnYarn = 0

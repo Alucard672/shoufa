@@ -1,5 +1,5 @@
 /* pages/statistics/style.wxss */
-@import "../../styles/return-detail-layout.wxss";
+@import "/styles/return-detail-layout.wxss";
 
 .page-wrapper {
   padding-bottom: 60rpx;

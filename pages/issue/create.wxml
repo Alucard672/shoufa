@@ -82,9 +82,9 @@
       </view>
 
       <view class="form-item">
-        <text class="form-label">款号 *</text>
+        <text class="form-label">款号</text>
         <search-select 
-          placeholder="请搜索选择款号"
+          placeholder="请搜索选择款号（可选）"
           options="{{styles}}"
           display-key="styleName"
           value-key="_id"
@@ -120,7 +120,7 @@
       </view>
 
       <view class="form-item" wx:if="{{selectedStyleId && selectedFactoryId}}">
-        <text class="form-label">加工单价 (元/打) *</text>
+        <text class="form-label">加工单价 (元/打)</text>
         <input 
           class="form-input" 
           type="digit" 

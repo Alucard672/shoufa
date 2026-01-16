@@ -4,7 +4,7 @@
   <view wx:if="{{!isLoggedIn}}">
     <!-- 用户信息卡片 -->
     <view class="profile-card card-gradient">
-      <view class="role-badge-top" wx:if="{{userInfo.role}}">{{userInfo.role === 'admin' || userInfo.role === 'boss' ? '管理员' : '员工'}}</view>
+      <view class="role-badge-top" wx:if="{{userInfo.role || isTenantOwner}}">{{(userInfo.role === 'admin' || userInfo.role === 'boss' || isTenantOwner) ? '管理员' : '员工'}}</view>
       <view class="profile-content">
         <view class="profile-avatar" bindtap="showLoginModal">
           <image class="avatar-image" src="{{userInfo.avatarUrl}}" mode="aspectFill" wx:if="{{userInfo && userInfo.avatarUrl}}"></image>
@@ -45,7 +45,7 @@
             class="menu-item" 
             bindtap="onMenuItemTap"
             data-path="{{item.path}}"
-            wx:if="{{!item.adminOnly || (item.adminOnly && (userInfo.role === 'admin' || userInfo.role === 'boss'))}}"
+            wx:if="{{!item.adminOnly || (item.adminOnly && (isTenantOwner || (userInfo && (userInfo.role === 'admin' || userInfo.role === 'boss'))))}}"
           >
             <view class="menu-icon-wrapper" style="background: {{item.bgColor}};">
               <image class="menu-icon" src="{{item.icon}}" mode="aspectFit"></image>
@@ -154,7 +154,7 @@
   <view wx:if="{{isLoggedIn}}">
     <!-- 用户信息卡片 -->
     <view class="profile-card card-gradient">
-      <view class="role-badge-top" wx:if="{{userInfo.role}}">{{userInfo.role === 'admin' || userInfo.role === 'boss' ? '管理员' : '员工'}}</view>
+      <view class="role-badge-top" wx:if="{{userInfo.role || isTenantOwner}}">{{(userInfo.role === 'admin' || userInfo.role === 'boss' || isTenantOwner) ? '管理员' : '员工'}}</view>
       <view class="profile-content">
         <view class="profile-avatar" bindtap="showLoginModal">
           <image class="avatar-image" src="{{userInfo.avatarUrl}}" mode="aspectFill" wx:if="{{userInfo && userInfo.avatarUrl}}"></image>
@@ -200,7 +200,7 @@
             class="menu-item" 
             bindtap="onMenuItemTap"
             data-path="{{item.path}}"
-            wx:if="{{!item.adminOnly || (item.adminOnly && (userInfo.role === 'admin' || userInfo.role === 'boss'))}}"
+            wx:if="{{!item.adminOnly || (item.adminOnly && (isTenantOwner || (userInfo && (userInfo.role === 'admin' || userInfo.role === 'boss'))))}}"
           >
             <view class="menu-icon-wrapper" style="background: {{item.bgColor}};">
               <image class="menu-icon" src="{{item.icon}}" mode="aspectFit"></image>

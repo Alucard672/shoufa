@@ -121,7 +121,7 @@ Page({
   onFactoryTap(e) {
     const factoryId = e.currentTarget.dataset.id
     wx.navigateTo({
-      url: `/pages/accounting/detail?id=${factoryId}`
+      url: `/subpages/business/accounting/detail?id=${factoryId}`
     })
   },
 
@@ -129,7 +129,7 @@ Page({
     const factoryId = e.currentTarget.dataset.id
     if (!factoryId) return
     wx.navigateTo({
-      url: `/pages/factory/settlement?factoryId=${factoryId}`
+      url: `/subpages/factory/settlement?factoryId=${factoryId}`
     })
   }
 })

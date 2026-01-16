@@ -24,7 +24,7 @@
     <view class="yarn-card card" wx:for="{{yarnList}}" wx:key="_id">
       <view class="yarn-header">
         <view class="yarn-info">
-          <text class="yarn-name">{{item.yarnName}}</text>
+          <text class="yarn-name">{{item.yarnName || '未命名'}}</text>
           <text class="yarn-color" wx:if="{{item.color}}">{{item.color}}</text>
         </view>
         <view class="yarn-right">

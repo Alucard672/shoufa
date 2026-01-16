@@ -171,22 +171,25 @@ exports.main = async (event, context) => {
       const styleId = issueOrder.styleId || issueOrder.style_id
       const factoryId = issueOrder.factoryId || issueOrder.factory_id
 
-      if (!styleId) {
-        throw new Error('缺少款号ID')
-      }
+      // 款号改为可选，不再强制要求
       if (!factoryId) {
         throw new Error('缺少加工厂ID')
       }
 
-      const style = await transaction.collection('styles').doc(styleId).get()
-      
-      if (!style.data) {
-        throw new Error('款号不存在')
-      }
+      let style = null
+      if (styleId) {
+        const styleDoc = await transaction.collection('styles').doc(styleId).get()
+        
+        if (!styleDoc.data) {
+          throw new Error('款号不存在')
+        }
 
-      // ✅ 停用款号不允许继续发料
-      if (style.data.disabled === true) {
-        throw new Error('该款号已停用，无法发料')
+        // ✅ 停用款号不允许继续发料
+        if (styleDoc.data.disabled === true) {
+          throw new Error('该款号已停用，无法发料')
+        }
+        
+        style = styleDoc.data
       }
 
       // 1.5 获取加工厂信息，校验是否停用
@@ -198,11 +201,11 @@ exports.main = async (event, context) => {
         throw new Error('该加工厂已停用，无法发料')
       }
       
-      const yarnIds = style.data.yarnIds || []
+      const yarnIds = style ? (style.yarnIds || []) : []
       const issueWeight = issueOrder.issueWeight || 0
       
       // 2. 如果有关联的纱线，扣减库存
-      if (yarnIds.length > 0 && issueWeight > 0) {
+      if (style && yarnIds.length > 0 && issueWeight > 0) {
         // 获取所有关联的纱线库存信息
         // 按用户需求：不因“纱线不存在/库存不足”阻断发料单创建，所以这里对单条查询做容错
         const yarnSettled = await Promise.allSettled(
@@ -288,7 +291,7 @@ exports.main = async (event, context) => {
     })
     
     // 保存或更新款号-工厂的加工单价（在事务外执行）
-    if (issueOrder.processingFeePerDozen && issueOrder.styleId && issueOrder.factoryId) {
+    if (issueOrder.processingFeePerDozen && issueOrder.styleId && issueOrder.factoryId && issueOrder.styleId !== '') {
       try {
         // 先查询是否存在
         const existingRes = await db.collection('style_factory_prices')

@@ -1,7 +1,7 @@
 // pages/issue/detail.js
 import { queryByIds, query, getReturnOrdersByIssueId } from '../../utils/db.js'
 import { checkLogin, getTenantId } from '../../utils/auth.js'
-import { formatWeight, formatDate, formatQuantity, formatDateTime } from '../../utils/calc.js'
+import { formatWeight, formatDate, formatQuantity, formatDateTime, calculateReturnPieces } from '../../utils/calc.js'
 import { normalizeImageUrl, getImageUrl } from '../../utils/image.js'
 const app = getApp()
 const db = wx.cloud.database()
@@ -200,7 +200,10 @@ Page({
       let totalReturnYarn = 0
 
       returnOrdersList.forEach(ro => {
-        totalReturnPieces += parseFloat(ro.returnPieces || ro.return_pieces || 0) || 0
+        const rp = parseFloat(ro.returnPieces || ro.return_pieces || 0) || 0
+        const rq = parseFloat(ro.returnQuantity || ro.return_quantity || 0) || 0
+        const pieces = rp > 0 ? rp : (rq > 0 ? calculateReturnPieces(rq) : 0)
+        totalReturnPieces += pieces
         totalReturnYarn += parseFloat(ro.actualYarnUsage || ro.actual_yarn_usage || 0) || 0
       })
 
@@ -211,6 +214,10 @@ Page({
       const issuePieces = yarnUsagePerPiece > 0
         ? Math.floor((issueWeight * 1000) / yarnUsagePerPiece)
         : 0
+
+      // 回货超入提示（不阻止操作，仅做强提醒/高亮）
+      const overReturned = issuePieces > 0 && Math.floor(totalReturnPieces) > issuePieces
+      const overReturnExcess = overReturned ? (Math.floor(totalReturnPieces) - issuePieces) : 0
 
       // 判断状态
       let status = order.status || '未回货'
@@ -236,7 +243,9 @@ Page({
           return dateB - dateA
         })
         .map((ro, index) => {
-          const pieces = Math.floor(parseFloat(ro.returnPieces || ro.return_pieces || 0) || 0)
+          const rp = parseFloat(ro.returnPieces || ro.return_pieces || 0) || 0
+          const rq = parseFloat(ro.returnQuantity || ro.return_quantity || 0) || 0
+          const pieces = Math.floor(rp > 0 ? rp : (rq > 0 ? calculateReturnPieces(rq) : 0))
           const actualYarnUsage = parseFloat(ro.actualYarnUsage || ro.actual_yarn_usage || 0) || 0
           const date = ro.createTime || ro.create_time || ro.returnDate || ro.return_date
           return {
@@ -277,6 +286,8 @@ Page({
           issueWeightFormatted: formatWeight(issueWeight),
           issuePiecesFormatted: formatQuantity(issuePieces),
           yarnUsagePerPieceFormatted: yarnUsagePerPiece ? yarnUsagePerPiece.toFixed(0) : '0',
+          overReturned,
+          overReturnExcess,
           progress: {
             totalReturnYarnFormatted: totalReturnYarn.toFixed(2),
             totalReturnPieces: Math.floor(totalReturnPieces),

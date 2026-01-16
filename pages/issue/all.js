@@ -1,6 +1,6 @@
 // pages/issue/all.js
 import { query, queryByIds, update, count } from '../../utils/db.js'
-import { getTimeRange, formatDate, formatDateTime, formatWeight, formatQuantity } from '../../utils/calc.js'
+import { getTimeRange, formatDate, formatDateTime, formatWeight, formatQuantity, calculateReturnPieces } from '../../utils/calc.js'
 import { checkLogin } from '../../utils/auth.js'
 import { normalizeImageUrl } from '../../utils/image.js'
 import { pickDateHybrid, filterByTimeFilter, pickNumber } from '../../utils/summary.js'
@@ -110,14 +110,14 @@ Page({
       totalWeight += pickNumber(order, ['issueWeight', 'issue_weight'], 0)
     })
 
-    // 2. 获取所有回货单计算回货总量
+    // 2. 获取所有回货单计算回货总量（排除作废/删除）
     const returnRes = await query('return_orders', null, {
       excludeDeleted: true
     })
 
     let totalReturnPieces = 0
     let totalReturnWeight = 0
-    ;(returnRes.data || []).forEach(order => {
+    ;(returnRes.data || []).filter((ro) => !ro?.voided && !ro?.deleted).forEach(order => {
       totalReturnPieces += pickNumber(order, ['returnPieces', 'return_pieces'], 0)
       totalReturnWeight += pickNumber(order, ['actualYarnUsage', 'actual_yarn_usage'], 0)
     })
@@ -161,7 +161,37 @@ Page({
     // 批量查询工厂和款号信息
     const factoryIds = [...new Set(filteredData.map(order => order.factoryId || order.factory_id).filter(Boolean))]
     const styleIds = [...new Set(filteredData.map(order => order.styleId || order.style_id).filter(Boolean))]
-    const issueIds = filteredData.map(order => order._id || order.id)
+    // 构建发料单候选ID（兼容历史数字 id 与 _id）
+    const issueDocIds = filteredData.map(order => String(order._id || order.id || ''))
+    const issueCandidateToDocId = new Map() // candidate(String) -> docId(String)
+    const issueIdQueryValues = []
+    filteredData.forEach((order) => {
+      const docId = String(order._id || order.id || '')
+      if (!docId) return
+      const legacyId = order.id
+      const candidates = []
+      candidates.push(order._id)
+      candidates.push(docId)
+      if (legacyId !== undefined && legacyId !== null && legacyId !== '') {
+        candidates.push(legacyId)
+        candidates.push(String(legacyId))
+        const n = Number(legacyId)
+        if (!Number.isNaN(n)) candidates.push(n)
+      }
+      candidates.forEach((c) => {
+        if (c === undefined || c === null || c === '') return
+        issueIdQueryValues.push(c)
+        issueCandidateToDocId.set(String(c), docId)
+      })
+    })
+    const seenQuery = new Set()
+    const uniqueIssueIdQueryValues = []
+    issueIdQueryValues.forEach((v) => {
+      const k = `${typeof v}:${String(v)}`
+      if (seenQuery.has(k)) return
+      seenQuery.add(k)
+      uniqueIssueIdQueryValues.push(v)
+    })
 
     // 批量查询工厂信息
     const factoriesMap = new Map()
@@ -183,25 +213,29 @@ Page({
 
     // 批量查询所有回货单
     const returnOrdersMap = new Map()
-    if (issueIds.length > 0) {
-      issueIds.forEach(id => {
-        returnOrdersMap.set(id, [])
+    if (issueDocIds.length > 0) {
+      issueDocIds.forEach(id => {
+        returnOrdersMap.set(String(id), [])
       })
 
       try {
         const _ = wx.cloud.database().command
-        const allReturnOrdersRes = await query('return_orders', {
-          issueId: _.in(issueIds)
-        }, {
-          excludeDeleted: true
-        })
-
-        allReturnOrdersRes.data.forEach(order => {
-          const issueId = order.issueId || order.issue_id
-          if (returnOrdersMap.has(issueId)) {
-            returnOrdersMap.get(issueId).push(order)
-          }
-        })
+        // 同时查询 issueId 与 issue_id，并兼容数字/字符串
+        const [r1, r2] = await Promise.all([
+          query('return_orders', { issueId: _.in(uniqueIssueIdQueryValues) }, { excludeDeleted: true }).catch(() => ({ data: [] })),
+          query('return_orders', { issue_id: _.in(uniqueIssueIdQueryValues) }, { excludeDeleted: true }).catch(() => ({ data: [] }))
+        ])
+        const merged = (r1.data || []).concat(r2.data || [])
+        merged
+          .filter((ro) => !ro?.deleted && !ro?.voided)
+          .forEach(order => {
+            const roIssueId = order.issueId || order.issue_id
+            if (roIssueId === undefined || roIssueId === null) return
+            const docId = issueCandidateToDocId.get(String(roIssueId))
+            if (!docId) return
+            if (!returnOrdersMap.has(docId)) returnOrdersMap.set(docId, [])
+            returnOrdersMap.get(docId).push(order)
+          })
       } catch (error) {
         console.error('批量查询回货单失败:', error)
       }
@@ -213,11 +247,11 @@ Page({
         try {
           const factoryId = order.factoryId || order.factory_id
           const styleId = order.styleId || order.style_id
-          const orderId = order.id || order._id
+          const orderId = String(order._id || order.id || '')
           
           const factory = factoriesMap.get(String(factoryId))
           const style = stylesMap.get(String(styleId))
-          const returnOrdersList = returnOrdersMap.get(orderId) || []
+          const returnOrdersList = (returnOrdersMap.get(String(orderId)) || []).filter((ro) => !ro?.deleted && !ro?.voided)
 
           const yarnUsagePerPiece = style?.yarnUsagePerPiece || style?.yarn_usage_per_piece || 0
           const issuePieces = order.issuePieces || order.issue_pieces || 0
@@ -332,10 +366,14 @@ Page({
     let totalReturnYarn = 0
     let totalReturnQuantity = 0
 
-    returnOrdersList.forEach(order => {
-      totalReturnPieces += order.returnPieces || order.return_pieces || 0
-      totalReturnYarn += order.actualYarnUsage || order.actual_yarn_usage || 0
-      totalReturnQuantity += order.returnQuantity || order.return_quantity || 0
+    ;(returnOrdersList || []).filter((ro) => !ro?.deleted && !ro?.voided).forEach(order => {
+      const rp = pickNumber(order, ['returnPieces', 'return_pieces'], 0)
+      const rq = pickNumber(order, ['returnQuantity', 'return_quantity'], 0)
+      const pieces = rp > 0 ? rp : (rq > 0 ? calculateReturnPieces(rq) : 0)
+
+      totalReturnPieces += pieces
+      totalReturnYarn += pickNumber(order, ['actualYarnUsage', 'actual_yarn_usage'], 0)
+      totalReturnQuantity += rq
     })
 
     const issueWeight = issueOrder.issueWeight || issueOrder.issue_weight || 0
@@ -361,14 +399,14 @@ Page({
     }
 
     return {
-      totalReturnPieces,
+      totalReturnPieces: Math.floor(totalReturnPieces),
       totalReturnYarn,
       totalReturnYarnFormatted: totalReturnYarn.toFixed(2),
       totalReturnQuantity,
       totalReturnQuantityFormatted: totalReturnQuantity.toFixed(1),
       remainingYarn,
       remainingYarnFormatted: remainingYarn.toFixed(2),
-      remainingPieces,
+      remainingPieces: Math.floor(remainingPieces),
       remainingQuantity,
       remainingQuantityFormatted: remainingQuantity.toFixed(1),
       status

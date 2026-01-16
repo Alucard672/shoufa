@@ -106,26 +106,26 @@ Page({
     const issueIds = issueOrders.map(order => pickId(order, ['_id', 'id']))
     const _ = wx.cloud.database().command
     let filteredReturnOrders = []
-    
+
     if (issueIds.length > 0) {
       try {
         const [byIssueId, byIssue_id] = await Promise.all([
           query('return_orders', { issueId: _.in(issueIds) }, { excludeDeleted: true }).catch(() => ({ data: [] })),
           query('return_orders', { issue_id: _.in(issueIds) }, { excludeDeleted: true }).catch(() => ({ data: [] }))
         ])
-        
+
         const merged = []
         const seen = new Set()
-        // 排除已作废的回货单
-        ;(byIssueId.data || []).concat(byIssue_id.data || []).forEach(ro => {
-          if (ro.voided) return // 排除已作废的单据
-          const key = pickId(ro, ['_id', 'id'])
-          if (key && !seen.has(key)) {
-            seen.add(key)
-            merged.push(ro)
-          }
-        })
-        
+          // 排除已作废的回货单
+          ; (byIssueId.data || []).concat(byIssue_id.data || []).forEach(ro => {
+            if (ro.voided) return // 排除已作废的单据
+            const key = pickId(ro, ['_id', 'id'])
+            if (key && !seen.has(key)) {
+              seen.add(key)
+              merged.push(ro)
+            }
+          })
+
         // 使用统一 hybrid 筛选口径
         filteredReturnOrders = filterByTimeFilter(merged, this.data.timeFilter, (o) =>
           pickDateHybrid(o, ['returnDate', 'return_date'], ['createTime', 'create_time'])
@@ -278,7 +278,7 @@ Page({
     const factoryId = e.currentTarget.dataset.factoryId
     const factoryName = e.currentTarget.dataset.factoryName || ''
     wx.navigateTo({
-      url: `/pages/statistics/factory-detail?factoryId=${factoryId}&factoryName=${encodeURIComponent(factoryName)}&timeFilter=${encodeURIComponent(this.data.timeFilter)}`
+      url: `/subpages/statistics/factory-detail?factoryId=${factoryId}&factoryName=${encodeURIComponent(factoryName)}&timeFilter=${encodeURIComponent(this.data.timeFilter)}`
     })
   }
 })

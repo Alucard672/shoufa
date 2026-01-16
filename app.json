@@ -4,34 +4,61 @@
     "pages/index/activities",
     "pages/issue/index",
     "pages/issue/all",
-    "pages/return/index",
-    "pages/statistics/index",
-    "pages/statistics/style",
-    "pages/statistics/style-detail",
-    "pages/statistics/factory",
-    "pages/statistics/factory-detail",
-    "pages/mine/index",
     "pages/issue/create",
-    "pages/return/create",
-    "pages/factory/index",
-    "pages/factory/detail",
-    "pages/factory/create",
-    "pages/factory/settlement",
-    "pages/style/index",
-    "pages/style/create",
-    "pages/yarn/index",
-    "pages/yarn/create",
-    "pages/settings/index",
-    "pages/settings/system",
-    "pages/settings/color",
-    "pages/settings/size",
-    "pages/settings/employees",
-    "pages/mine/invite",
-    "pages/mine/payment",
-    "pages/accounting/index",
-    "pages/accounting/detail",
     "pages/issue/detail",
-    "pages/return/detail"
+    "pages/return/index",
+    "pages/return/create",
+    "pages/return/detail",
+    "pages/statistics/index",
+    "pages/mine/index"
+  ],
+  "subPackages": [
+    {
+      "root": "subpages/factory",
+      "pages": [
+        "index",
+        "detail",
+        "create",
+        "settlement"
+      ]
+    },
+    {
+      "root": "subpages/settings",
+      "pages": [
+        "index",
+        "system",
+        "color",
+        "size",
+        "employees"
+      ]
+    },
+    {
+      "root": "subpages/business",
+      "pages": [
+        "style/index",
+        "style/create",
+        "yarn/index",
+        "yarn/create",
+        "accounting/index",
+        "accounting/detail"
+      ]
+    },
+    {
+      "root": "subpages/statistics",
+      "pages": [
+        "style",
+        "style-detail",
+        "factory",
+        "factory-detail"
+      ]
+    },
+    {
+      "root": "subpages/mine",
+      "pages": [
+        "invite",
+        "payment"
+      ]
+    }
   ],
   "window": {
     "navigationBarTitleText": "纱线收发",

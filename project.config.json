@@ -66,6 +66,58 @@
       {
         "type": "file",
         "value": "sync-db-to-dev.sh"
+      },
+      {
+        "type": "folder",
+        "value": "server"
+      },
+      {
+        "type": "folder",
+        "value": "database"
+      },
+      {
+        "type": "folder",
+        "value": "docs"
+      },
+      {
+        "type": "folder",
+        "value": ".vscode"
+      },
+      {
+        "type": "file",
+        "value": "README.md"
+      },
+      {
+        "type": "file",
+        "value": "CHANGELOG.md"
+      },
+      {
+        "type": "file",
+        "value": "COMMIT_GUIDE.md"
+      },
+      {
+        "type": "file",
+        "value": "package.json"
+      },
+      {
+        "type": "file",
+        "value": "cloudbaserc.dev.json"
+      },
+      {
+        "type": "file",
+        "value": "cloudbaserc.prod.json"
+      },
+      {
+        "type": "file",
+        "value": "cloudbaserc.json.bak"
+      },
+      {
+        "type": "file",
+        "value": "云函数超时配置说明.md"
+      },
+      {
+        "type": "file",
+        "value": "纱线收发加工小程序_prd.md"
       }
     ],
     "include": []

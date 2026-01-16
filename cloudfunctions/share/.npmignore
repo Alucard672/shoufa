@@ -1,0 +1,9 @@
+# 排除不必要的文件
+node_modules/typescript/
+node_modules/@types/
+node_modules/protobufjs/cli/
+node_modules/lodash/
+node_modules/@babel/
+*.md
+*.log
+.DS_Store

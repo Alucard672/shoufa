@@ -28,7 +28,7 @@ Page({
     if (!checkLogin()) {
       return
     }
-    
+
     // 检查订阅状态，如果已过期则阻止操作
     const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
     if (checkSubscriptionAndBlock({ showModal: false })) {
@@ -98,19 +98,19 @@ Page({
 
   async loadFactories() {
     const where = {}
-    
+
     // 搜索功能（注意：MySQL需要支持LIKE查询，这里先简单处理）
     // 如果搜索关键词存在，需要在云函数中处理LIKE查询
     const factoriesRes = await query('factories', where, {
       excludeDeleted: true,
       orderBy: { field: 'createTime', direction: 'ASC' }
     })
-    
+
     // 过滤搜索结果（如果有关键词）
     let factories = factoriesRes.data
     if (this.data.searchKeyword) {
       const keyword = this.data.searchKeyword.toLowerCase()
-      factories = factories.filter(f => 
+      factories = factories.filter(f =>
         (f.name || '').toLowerCase().includes(keyword) ||
         (f.contact || '').toLowerCase().includes(keyword) ||
         (f.phone || '').includes(keyword)
@@ -122,7 +122,7 @@ Page({
       factories.map(async (factory) => {
         try {
           const factoryId = factory._id || factory.id
-          
+
           // 查询该工厂的发料单
           const [issueById, issueBy_id] = await Promise.all([
             query('issue_orders', { factoryId: factoryId }, { excludeDeleted: true }).catch(() => ({ data: [] })),
@@ -130,14 +130,14 @@ Page({
           ])
           const issueOrdersData = []
           const issueSeen = new Set()
-          // 排除已作废的发料单
-          ;(issueById.data || []).concat(issueBy_id.data || []).forEach((o) => {
-            if (o.voided) return // 排除已作废的单据
-            const key = String(o._id || o.id || '')
-            if (!key || issueSeen.has(key)) return
-            issueSeen.add(key)
-            issueOrdersData.push(o)
-          })
+            // 排除已作废的发料单
+            ; (issueById.data || []).concat(issueBy_id.data || []).forEach((o) => {
+              if (o.voided) return // 排除已作废的单据
+              const key = String(o._id || o.id || '')
+              if (!key || issueSeen.has(key)) return
+              issueSeen.add(key)
+              issueOrdersData.push(o)
+            })
 
           // 查询该工厂的回货单
           const [retById, retBy_id] = await Promise.all([
@@ -146,14 +146,14 @@ Page({
           ])
           const returnOrdersData = []
           const retSeen = new Set()
-          // 排除已作废的回货单
-          ;(retById.data || []).concat(retBy_id.data || []).forEach((o) => {
-            if (o.voided) return // 排除已作废的单据
-            const key = String(o._id || o.id || '')
-            if (!key || retSeen.has(key)) return
-            retSeen.add(key)
-            returnOrdersData.push(o)
-          })
+            // 排除已作废的回货单
+            ; (retById.data || []).concat(retBy_id.data || []).forEach((o) => {
+              if (o.voided) return // 排除已作废的单据
+              const key = String(o._id || o.id || '')
+              if (!key || retSeen.has(key)) return
+              retSeen.add(key)
+              returnOrdersData.push(o)
+            })
 
           let totalIssueWeight = 0
           let totalUsedYarn = 0
@@ -202,7 +202,7 @@ Page({
     if (!this.data.showDisabled) {
       displayFactories = factoriesWithStats.filter(f => !f.disabled)
     }
-    
+
     // 缓存全部数据用于筛选切换
     this._allFactories = factoriesWithStats
 
@@ -216,12 +216,12 @@ Page({
   onFilterChange(e) {
     const index = e.detail.value
     const showDisabled = this.data.filterOptions[index].value
-    
+
     this.setData({
       filterIndex: index,
       showDisabled: showDisabled
     })
-    
+
     // 如果已有缓存数据，直接过滤；否则重新加载
     if (this._allFactories) {
       let displayFactories = this._allFactories
@@ -250,14 +250,14 @@ Page({
       return
     }
     wx.navigateTo({
-      url: '/pages/factory/create'
+      url: '/subpages/factory/create'
     })
   },
 
   navigateToDetail(e) {
     const factoryId = e.currentTarget.dataset.id
     wx.navigateTo({
-      url: `/pages/factory/detail?id=${factoryId}`
+      url: `/subpages/factory/detail?id=${factoryId}`
     })
   },
 
@@ -276,7 +276,7 @@ Page({
       return
     }
     wx.navigateTo({
-      url: `/pages/factory/settlement?factoryId=${factoryId}`
+      url: `/subpages/factory/settlement?factoryId=${factoryId}`
     })
   },
 
@@ -296,7 +296,7 @@ Page({
     }
     console.log('编辑加工厂，ID:', factoryId)
     wx.navigateTo({
-      url: `/pages/factory/create?id=${factoryId}`
+      url: `/subpages/factory/create?id=${factoryId}`
     })
   },
 

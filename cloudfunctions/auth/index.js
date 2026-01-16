@@ -262,6 +262,19 @@ exports.main = async (event, context) => {
             if (avatarUrl) updateData.avatarUrl = avatarUrl
             if (nickName) updateData.nickName = nickName
             
+            // 确保用户记录有 role 字段（兼容旧数据）
+            // 如果用户没有 role，且是租户创建者（手机号匹配），则设置为 'boss'
+            let userRole = userRecord.role
+            if (!userRole && tenantData.phone === purePhone) {
+                userRole = 'boss' // 租户创建者默认为 boss
+                // 更新数据库中的 role
+                updateData.role = userRole
+            } else if (!userRole) {
+                userRole = 'staff' // 其他用户默认为 staff
+                // 更新数据库中的 role
+                updateData.role = userRole
+            }
+
             await db.collection('users').doc(userRecord._id).update({ data: updateData })
 
             return {
@@ -271,13 +284,77 @@ exports.main = async (event, context) => {
                     tenantId: tenantData._id,
                     openid: wxContext.OPENID,
                     avatarUrl: avatarUrl || userRecord.avatarUrl,
-                    nickName: nickName || userRecord.nickName
+                    nickName: nickName || userRecord.nickName,
+                    role: userRole // 确保返回 role 字段
                 },
                 tenant: tenantData
             }
         } catch (err) {
             console.error('登录异常:', err)
             return { success: false, code: 'LOGIN_ERROR', msg: '登录失败：' + (err.message || '系统错误') }
+        }
+    }
+
+    // 获取用户信息（用于刷新用户信息，包括 role 字段）
+    if (action === 'getUserInfo') {
+        try {
+            const { phoneNumber } = event
+            if (!phoneNumber) {
+                return { success: false, msg: '手机号不能为空' }
+            }
+
+            // 查询用户信息
+            const userRes = await db.collection('users').where({
+                phone: phoneNumber,
+                deleted: false
+            }).limit(1).get()
+
+            if (!userRes.data || userRes.data.length === 0) {
+                return { success: false, msg: '用户不存在' }
+            }
+
+            const userRecord = userRes.data[0]
+            
+            // 查询租户信息
+            let tenantData = null
+            if (userRecord.tenantId) {
+                try {
+                    const tenantRes = await db.collection('tenants').doc(userRecord.tenantId).get()
+                    tenantData = tenantRes.data
+                } catch (e) {
+                    console.warn('查询租户失败:', e)
+                }
+            }
+
+            // 如果用户没有 role，根据是否是租户创建者来设置
+            let userRole = userRecord.role
+            if (!userRole) {
+                if (tenantData && tenantData.phone === phoneNumber) {
+                    userRole = 'boss' // 租户创建者
+                    // 更新数据库
+                    await db.collection('users').doc(userRecord._id).update({
+                        data: { role: 'boss', updateTime: db.serverDate() }
+                    })
+                } else {
+                    userRole = 'staff' // 普通员工
+                    // 更新数据库
+                    await db.collection('users').doc(userRecord._id).update({
+                        data: { role: 'staff', updateTime: db.serverDate() }
+                    })
+                }
+            }
+
+            return {
+                success: true,
+                user: {
+                    ...userRecord,
+                    role: userRole
+                },
+                tenant: tenantData
+            }
+        } catch (err) {
+            console.error('获取用户信息失败:', err)
+            return { success: false, msg: '获取用户信息失败：' + (err.message || '未知错误') }
         }
     }
 

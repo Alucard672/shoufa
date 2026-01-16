@@ -36,7 +36,7 @@ Page({
     const factoryRes = await queryByIds('factories', [this.data.factoryId], {
       excludeDeleted: true
     })
-    
+
     if (!factoryRes.data || factoryRes.data.length === 0) {
       wx.showToast({
         title: '工厂不存在',
@@ -110,10 +110,10 @@ Page({
       ...returnOrdersRes.data.map(o => o.styleId || o.style_id)
     ].filter(Boolean))]
 
-    const stylesRes = styleIds.length > 0 
+    const stylesRes = styleIds.length > 0
       ? await queryByIds('styles', styleIds, { excludeDeleted: true })
       : { data: [] }
-    
+
     const stylesMap = Object.fromEntries(stylesRes.data.map(s => [s._id || s.id, s]))
 
     // 关联查询款号信息
@@ -170,7 +170,7 @@ Page({
 
   navigateToSettlement() {
     wx.navigateTo({
-      url: `/pages/factory/settlement?factoryId=${this.data.factoryId}`
+      url: `/subpages/factory/settlement?factoryId=${this.data.factoryId}`
     })
   }
 })

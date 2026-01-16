@@ -153,14 +153,14 @@ Page({
 
       const merged = []
       const seen = new Set()
-      // 排除已作废的回货单
-      ;(byFactoryId.data || []).concat(byFactory_id.data || []).forEach((o) => {
-        if (o.voided) return // 排除已作废的单据
-        const key = String(o._id || o.id || '')
-        if (!key || seen.has(key)) return
-        seen.add(key)
-        merged.push(o)
-      })
+        // 排除已作废的回货单
+        ; (byFactoryId.data || []).concat(byFactory_id.data || []).forEach((o) => {
+          if (o.voided) return // 排除已作废的单据
+          const key = String(o._id || o.id || '')
+          if (!key || seen.has(key)) return
+          seen.add(key)
+          merged.push(o)
+        })
 
       // 再次确保排除已作废的回货单
       const returnOrders = merged.filter(order => !order.voided)
@@ -168,7 +168,7 @@ Page({
       // 获取所有款号ID和发料单ID
       const styleIds = [...new Set(returnOrders.map(order => order.styleId || order.style_id).filter(Boolean))]
       const issueIds = [...new Set(returnOrders.map(order => order.issueId || order.issue_id).filter(Boolean))]
-      
+
       // 批量查询款号信息
       let stylesMap = {}
       if (styleIds.length > 0) {
@@ -178,13 +178,13 @@ Page({
         stylesMap = Object.fromEntries(
           (stylesRes.data || []).map(style => [String(style._id || style.id), style])
         )
-        
+
         // 批量转换图片URL（cloud:// -> 临时链接）
         try {
           const imageUrls = Object.values(stylesMap)
             .map(style => normalizeImageUrl(style))
             .filter(url => url && url.startsWith('cloud://'))
-          
+
           if (imageUrls.length > 0) {
             const imageUrlMap = await batchGetImageUrls(imageUrls)
             // 更新 stylesMap 中的图片URL
@@ -193,7 +193,7 @@ Page({
               if (originalUrl && originalUrl.startsWith('cloud://')) {
                 // 保存原始URL
                 style.originalImageUrl = originalUrl
-                
+
                 // 只有成功转换的URL才使用（不是cloud://格式）
                 if (imageUrlMap.has(originalUrl)) {
                   const tempUrl = imageUrlMap.get(originalUrl)
@@ -235,7 +235,7 @@ Page({
         const settledAmount = pickNumber(order, ['settledAmount', 'settled_amount'], 0)
         const unpaidAmount = processingFee - settledAmount
         const settlementStatus = order.settlementStatus || order.settlement_status || '未结算'
-        
+
         // 发料重量（发毛数）
         const issueWeight = pickNumber(issueOrder || {}, ['issueWeight', 'issue_weight'], 0)
         // 回货数量
@@ -292,9 +292,9 @@ Page({
         acc.totalReturnPieces += order.returnPieces
         acc.totalReturnWeight += order.returnWeight
         return acc
-      }, { 
-        totalAmount: 0, 
-        settledAmount: 0, 
+      }, {
+        totalAmount: 0,
+        settledAmount: 0,
         unpaidAmount: 0,
         totalIssueWeight: 0,
         totalReturnQuantity: 0,
@@ -515,12 +515,12 @@ Page({
         const footerHeight = 80 // 页脚文字高度
         const canvasWidth = 750
         // 动态计算总高度：如果有数据，计算所有卡片的高度；如果没有数据，使用最小高度
-        const itemsHeight = listItems.length > 0 
+        const itemsHeight = listItems.length > 0
           ? (cardHeight + cardGap) * listItems.length - cardGap // 最后一个卡片不需要间距
           : 0
         // 确保页脚有足够空间：footerSpacing + footerHeight
         const canvasHeight = headerHeight + summaryHeight + titleHeight + itemsHeight + footerSpacing + footerHeight
-        
+
         console.log(`生成长截图: ${listItems.length} 条数据, 画布高度: ${canvasHeight}px`)
 
         // 3. 绘制背景
@@ -544,7 +544,7 @@ Page({
         this.drawRoundedRect(ctx, padding, 60, 96, 96, 24)
         ctx.fill()
         ctx.restore()
-        
+
         ctx.setFillStyle('#FFFFFF')
         ctx.setFontSize(44)
         ctx.setTextAlign('center')
@@ -621,85 +621,85 @@ Page({
           ctx.setTextAlign('left')
         } else {
           listItems.forEach((order, index) => {
-          const x = padding
-          const y = currentY
+            const x = padding
+            const y = currentY
 
-          // 卡片背景
-          ctx.save()
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.03)'
-          ctx.shadowBlur = 8
-          ctx.shadowOffsetY = 2
-          ctx.setFillStyle('#FFFFFF')
-          this.drawRoundedRect(ctx, x, y, canvasWidth - padding * 2, cardHeight, 28)
-          ctx.fill()
-          ctx.restore()
-
-          // 绘制款式图
-          if (localImages[index]) {
+            // 卡片背景
             ctx.save()
-            this.drawRoundedRect(ctx, x + cardPadding, y + 24, 100, 100, 16)
-            ctx.clip()
-            ctx.drawImage(localImages[index], x + cardPadding, y + 24, 100, 100)
-            ctx.restore()
-          } else {
-            ctx.setFillStyle('#F1F5F9')
-            this.drawRoundedRect(ctx, x + cardPadding, y + 24, 100, 100, 16)
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.03)'
+            ctx.shadowBlur = 8
+            ctx.shadowOffsetY = 2
+            ctx.setFillStyle('#FFFFFF')
+            this.drawRoundedRect(ctx, x, y, canvasWidth - padding * 2, cardHeight, 28)
             ctx.fill()
-            ctx.setFillStyle('#94A3B8')
-            ctx.setFontSize(40)
+            ctx.restore()
+
+            // 绘制款式图
+            if (localImages[index]) {
+              ctx.save()
+              this.drawRoundedRect(ctx, x + cardPadding, y + 24, 100, 100, 16)
+              ctx.clip()
+              ctx.drawImage(localImages[index], x + cardPadding, y + 24, 100, 100)
+              ctx.restore()
+            } else {
+              ctx.setFillStyle('#F1F5F9')
+              this.drawRoundedRect(ctx, x + cardPadding, y + 24, 100, 100, 16)
+              ctx.fill()
+              ctx.setFillStyle('#94A3B8')
+              ctx.setFontSize(40)
+              ctx.setTextAlign('center')
+              ctx.fillText('款', x + cardPadding + 50, y + 85)
+              ctx.setTextAlign('left')
+            }
+
+            ctx.setFillStyle('#1E293B')
+            ctx.setFontSize(32)
+            ctx.fillText(order.returnDateFormatted || '未设置', x + cardPadding + 120, y + 68)
+
+            const isSettled = (order.settlementStatus || order.settlement_status || '未结算') === '已结算'
+            ctx.setFillStyle(isSettled ? '#DCFCE7' : '#FFEDD5')
+            this.drawRoundedRect(ctx, canvasWidth - padding - 140, y + 35, 110, 44, 12)
+            ctx.fill()
+            ctx.setFillStyle(isSettled ? '#166534' : '#9A3412')
+            ctx.setFontSize(22)
             ctx.setTextAlign('center')
-            ctx.fillText('款', x + cardPadding + 50, y + 85)
+            ctx.fillText((order.settlementStatus || order.settlement_status || '未结算'), canvasWidth - padding - 85, y + 65)
             ctx.setTextAlign('left')
-          }
-          
-          ctx.setFillStyle('#1E293B')
-          ctx.setFontSize(32)
-          ctx.fillText(order.returnDateFormatted || '未设置', x + cardPadding + 120, y + 68)
 
-          const isSettled = (order.settlementStatus || order.settlement_status || '未结算') === '已结算'
-          ctx.setFillStyle(isSettled ? '#DCFCE7' : '#FFEDD5')
-          this.drawRoundedRect(ctx, canvasWidth - padding - 140, y + 35, 110, 44, 12)
-          ctx.fill()
-          ctx.setFillStyle(isSettled ? '#166534' : '#9A3412')
-          ctx.setFontSize(22)
-          ctx.setTextAlign('center')
-          ctx.fillText((order.settlementStatus || order.settlement_status || '未结算'), canvasWidth - padding - 85, y + 65)
-          ctx.setTextAlign('left')
+            // 操作人 · 款号
+            ctx.setFillStyle('#64748B')
+            ctx.setFontSize(26)
+            const metaText = `${order.employeeName || '系统管理员'}  ·  ${order.styleCode || order.styleName || '未知款号'}`
+            // 文本过长时截断（避免超出画布）
+            const maxTextWidth = canvasWidth - padding * 2 - cardPadding * 2 - 20
+            ctx.fillText(metaText.length > 35 ? metaText.substring(0, 35) + '...' : metaText, x + cardPadding, y + 160)
 
-          // 操作人 · 款号
-          ctx.setFillStyle('#64748B')
-          ctx.setFontSize(26)
-          const metaText = `${order.employeeName || '系统管理员'}  ·  ${order.styleCode || order.styleName || '未知款号'}`
-          // 文本过长时截断（避免超出画布）
-          const maxTextWidth = canvasWidth - padding * 2 - cardPadding * 2 - 20
-          ctx.fillText(metaText.length > 35 ? metaText.substring(0, 35) + '...' : metaText, x + cardPadding, y + 160)
+            // 数据网格 (2x2)
+            const gridBoxY = y + 190
+            const gridBoxW = canvasWidth - padding * 2 - cardPadding * 2
+            ctx.setFillStyle('#F8FAFC')
+            this.drawRoundedRect(ctx, x + cardPadding, gridBoxY, gridBoxW, 130, 16)
+            ctx.fill()
 
-          // 数据网格 (2x2)
-          const gridBoxY = y + 190
-          const gridBoxW = canvasWidth - padding * 2 - cardPadding * 2
-          ctx.setFillStyle('#F8FAFC')
-          this.drawRoundedRect(ctx, x + cardPadding, gridBoxY, gridBoxW, 130, 16)
-          ctx.fill()
+            const colWidth = gridBoxW / 2
+            ctx.setFontSize(22); ctx.setFillStyle('#94A3B8')
+            ctx.fillText('发毛', x + cardPadding + 24, gridBoxY + 45)
+            ctx.fillText('回货重量', x + cardPadding + 24 + colWidth, gridBoxY + 45)
+            ctx.setFillStyle('#1E293B'); ctx.setFontSize(28)
+            ctx.fillText(order.issueWeightFormatted || '0.00', x + cardPadding + 24, gridBoxY + 95)
+            ctx.fillText(order.returnWeightFormatted || '0.00', x + cardPadding + 24 + colWidth, gridBoxY + 95)
 
-          const colWidth = gridBoxW / 2
-          ctx.setFontSize(22); ctx.setFillStyle('#94A3B8')
-          ctx.fillText('发毛', x + cardPadding + 24, gridBoxY + 45)
-          ctx.fillText('回货重量', x + cardPadding + 24 + colWidth, gridBoxY + 45)
-          ctx.setFillStyle('#1E293B'); ctx.setFontSize(28)
-          ctx.fillText(order.issueWeightFormatted || '0.00', x + cardPadding + 24, gridBoxY + 95)
-          ctx.fillText(order.returnWeightFormatted || '0.00', x + cardPadding + 24 + colWidth, gridBoxY + 95)
-
-          currentY += cardHeight + cardGap
+            currentY += cardHeight + cardGap
           })
         }
 
         // 8. 底部信息（确保与正文有足够间距）
         // 页脚位置 = 最后一张卡片底部 + footerSpacing
         // 如果没有数据，使用默认位置
-        const footerY = listItems.length > 0 
+        const footerY = listItems.length > 0
           ? (currentY - cardGap) + footerSpacing // 最后一张卡片底部 + 间距
           : canvasHeight - 80 // 没有数据时，距离底部80px
-        
+
         ctx.setFillStyle('#94A3B8')
         ctx.setFontSize(22)
         ctx.setTextAlign('center')
@@ -749,7 +749,7 @@ Page({
   async onSettle() {
     // 跳转到结算页面
     wx.navigateTo({
-      url: `/pages/factory/settlement?factoryId=${this.data.factoryId}`
+      url: `/subpages/factory/settlement?factoryId=${this.data.factoryId}`
     })
   },
 

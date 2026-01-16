@@ -1,13 +1,27 @@
 // pages/mine/index.js
 import { isLoggedIn } from '../../utils/auth.js'
-import { 
-  formatRemainingDays, 
-  formatExpireDate, 
+import {
+  formatRemainingDays,
+  formatExpireDate,
   getTenantSubscriptionStatus,
   getReminderMessage,
   shouldShowReminder
 } from '../../utils/subscription.js'
 const app = getApp()
+
+function normalizePhone(p) {
+  const digits = String(p || '').replace(/\D/g, '')
+  if (!digits) return ''
+  // 兼容 +86/空格等：取末尾 11 位作为手机号主体（国内手机号）
+  return digits.length > 11 ? digits.slice(-11) : digits
+}
+
+function calcIsTenantOwner(userInfo, tenantInfo) {
+  const u = normalizePhone(userInfo && userInfo.phone)
+  const t = normalizePhone(tenantInfo && (tenantInfo.phone || tenantInfo.contactPhone))
+  if (!u || !t) return false
+  return u === t
+}
 
 // 获取默认版本号（尝试从小程序环境信息获取，失败则使用硬编码值）
 function getDefaultVersion() {
@@ -32,6 +46,7 @@ Page({
     hasAvatar: false, // 是否显示头像图片
     userInfo: null, // 用户信息
     tenantInfo: null, // 租户信息
+    isTenantOwner: false, // 是否为租户老板（手机号与租户手机号匹配）
     avatarText: '用', // 头像文字
     subscriptionStatus: null, // 订阅状态
     remainingDaysText: '', // 剩余天数文本
@@ -52,7 +67,7 @@ Page({
         desc: '管理加工厂信息',
         icon: '/images/icons/factory.png',
         bgColor: '#EFF6FF',
-        path: '/pages/factory/index'
+        path: '/subpages/factory/index'
       },
       {
         id: 'style',
@@ -60,7 +75,7 @@ Page({
         desc: '管理款式信息',
         icon: '/images/icons/shirt.png',
         bgColor: '#FAF5FF',
-        path: '/pages/style/index'
+        path: '/subpages/business/style/index'
       },
       {
         id: 'yarn',
@@ -68,7 +83,7 @@ Page({
         desc: '管理纱线库存',
         icon: '/images/icons/yarn.png',
         bgColor: '#F0FDF4',
-        path: '/pages/yarn/index'
+        path: '/subpages/business/yarn/index'
       },
       {
         id: 'auth',
@@ -76,7 +91,7 @@ Page({
         desc: '员工扫码加入企业',
         icon: '/images/icons/user.svg',
         bgColor: '#FEF2F2',
-        path: '/pages/mine/invite',
+        path: '/subpages/mine/invite',
         adminOnly: true // 标记仅管理员可见
       },
       {
@@ -85,7 +100,7 @@ Page({
         desc: '查看和管理所有员工',
         icon: '/images/icons/user.svg',
         bgColor: '#F0FDF4',
-        path: '/pages/settings/employees',
+        path: '/subpages/settings/employees',
         adminOnly: true // 标记仅管理员可见
       },
       {
@@ -94,7 +109,7 @@ Page({
         desc: '管理颜色、尺码等基础数据',
         icon: '/images/icons/settings.png',
         bgColor: '#FFF7ED',
-        path: '/pages/settings/index'
+        path: '/subpages/settings/index'
       },
       {
         id: 'accounting',
@@ -102,7 +117,7 @@ Page({
         desc: '查看和管理加工账款',
         icon: '/images/icons/user.svg',
         bgColor: '#F0FDF4',
-        path: '/pages/accounting/index'
+        path: '/subpages/business/accounting/index'
       },
       {
         id: 'system',
@@ -110,7 +125,7 @@ Page({
         desc: '管理系统配置参数',
         icon: '/images/icons/settings.png',
         bgColor: '#F5F5F5',
-        path: '/pages/settings/system'
+        path: '/subpages/settings/system'
       }
     ]
   },
@@ -119,6 +134,7 @@ Page({
     this.checkLoginStatus()
     // 判断是否为开发环境
     const accountInfo = wx.getAccountInfoSync()
+
     this.setData({
       isDev: accountInfo.miniProgram.envVersion === 'develop' || accountInfo.miniProgram.envVersion === 'trial',
       enablePayment: app.globalData.enablePayment !== false,
@@ -127,30 +143,33 @@ Page({
       }
     })
   },
-  
+
   async onShow() {
     // 更新版本号
     this.setData({
       'globalData.version': app.globalData.version || getDefaultVersion()
     })
-    
+
     // 先检查登录状态
     this.checkLoginStatus()
-    
-    // 如果已登录，从数据库重新获取最新的租户信息（确保订阅状态是最新的）
+
+    // 如果已登录，强制刷新用户信息和租户信息
     const loggedIn = isLoggedIn()
     if (loggedIn) {
+      // 先刷新用户信息（确保有 role 字段）
+      await this.refreshUserInfo()
+      // 再刷新租户信息
       await this.refreshTenantInfo()
     }
   },
-  
+
   // 从数据库刷新租户信息
   async refreshTenantInfo() {
     const tenantId = wx.getStorageSync('tenantId') || app.globalData.tenantId
     if (!tenantId) {
       return
     }
-    
+
     try {
       // 改为调用云函数获取租户信息，避免前端直接访问 ADMINONLY 集合导致的权限问题
       const res = await wx.cloud.callFunction({
@@ -162,23 +181,28 @@ Page({
           }
         }
       })
-      
+
       // tenants 云函数统一返回 { code, msg, data }
       // 其中 data.get 返回结构为 { tenantId, data: tenantInfo }
       if (res.result && res.result.code === 0 && res.result.data && res.result.data.data) {
         const tenantInfo = res.result.data.data
-        
+
         // 调试：打印原始数据
         console.log('从云函数获取的租户信息:', tenantInfo)
-        
+
         // 更新缓存
         wx.setStorageSync('tenantInfo', tenantInfo)
         // 更新全局数据
         app.globalData.tenantInfo = tenantInfo
-        
+
         // 更新页面数据（包括用户信息）
-        const userInfo = app.globalData.userInfo || wx.getStorageSync('userInfo') || {}
-        
+        const rawUserInfo = app.globalData.userInfo || wx.getStorageSync('userInfo') || {}
+        const isTenantOwner = calcIsTenantOwner(rawUserInfo, tenantInfo)
+        // UI 兜底：如果是老板但 role 缺失，前端显示为 boss（不写回数据库，避免误写）
+        const userInfo = (!rawUserInfo.role && isTenantOwner)
+          ? { ...rawUserInfo, role: 'boss' }
+          : rawUserInfo
+
         // 生成头像文字
         let avatarText = '用'
         if (userInfo.nickName && userInfo.nickName.length > 0) {
@@ -186,22 +210,62 @@ Page({
         } else if (userInfo.phone && userInfo.phone.length > 0) {
           avatarText = userInfo.phone.charAt(userInfo.phone.length - 1)
         }
-        
+
         this.setData({
           tenantInfo: tenantInfo,
           userInfo: userInfo,
+          isTenantOwner: isTenantOwner,
           avatarText: avatarText,
           hasAvatar: !!userInfo.avatarUrl
         })
-        
+
         // 重新加载订阅状态
         this.checkSubscriptionStatus()
       } else {
-        console.warn('从云函数获取租户信息失败:', res?.result)
+        // 租户不存在或获取失败
+        const errorMsg = res?.result?.msg || '未知错误'
+        console.warn('从云函数获取租户信息失败:', errorMsg)
+
+        // 如果明确是租户不存在，清除无效的租户ID，避免重复尝试
+        if (errorMsg.includes('租户信息不存在') || errorMsg.includes('does not exist')) {
+          console.warn('租户不存在，清除无效的租户ID')
+          wx.removeStorageSync('tenantId')
+          wx.removeStorageSync('tenantInfo')
+          app.globalData.tenantId = null
+          app.globalData.tenantInfo = null
+
+          // 跳转到登录页
+          setTimeout(() => {
+            wx.reLaunch({
+              url: '/pages/login/index'
+            })
+          }, 1000)
+          return
+        }
+
+        // 其他错误继续使用缓存数据
         this.checkSubscriptionStatus()
       }
     } catch (err) {
       console.error('刷新租户信息失败:', err)
+
+      // 如果是文档不存在的错误，清除无效的租户ID
+      if (err.message && err.message.includes('does not exist')) {
+        console.warn('租户不存在，清除无效的租户ID')
+        wx.removeStorageSync('tenantId')
+        wx.removeStorageSync('tenantInfo')
+        app.globalData.tenantId = null
+        app.globalData.tenantInfo = null
+
+        // 跳转到登录页
+        setTimeout(() => {
+          wx.reLaunch({
+            url: '/pages/login/index'
+          })
+        }, 1000)
+        return
+      }
+
       // 失败时继续使用缓存数据，但也要检查订阅状态
       this.checkSubscriptionStatus()
     }
@@ -239,9 +303,14 @@ Page({
 
   loadUserInfo() {
     // 从全局数据或本地存储获取用户信息
-    const userInfo = app.globalData.userInfo || wx.getStorageSync('userInfo') || {}
+    const rawUserInfo = app.globalData.userInfo || wx.getStorageSync('userInfo') || {}
     const tenantInfo = app.globalData.tenantInfo || wx.getStorageSync('tenantInfo') || {}
-    
+    const isTenantOwner = calcIsTenantOwner(rawUserInfo, tenantInfo)
+    // UI 兜底：如果是老板但 role 缺失，前端显示为 boss（不写回数据库）
+    const userInfo = (!rawUserInfo.role && isTenantOwner)
+      ? { ...rawUserInfo, role: 'boss' }
+      : rawUserInfo
+
     // 生成头像文字（取昵称第一个字符，如果没有则取"用"）
     let avatarText = '用'
     if (userInfo.nickName && userInfo.nickName.length > 0) {
@@ -249,30 +318,87 @@ Page({
     } else if (userInfo.phone && userInfo.phone.length > 0) {
       avatarText = userInfo.phone.charAt(userInfo.phone.length - 1)
     }
-    
+
     this.setData({
       userInfo: userInfo,
       tenantInfo: tenantInfo,
+      isTenantOwner: isTenantOwner,
       avatarText: avatarText,
       hasAvatar: !!userInfo.avatarUrl
     })
-    
+
     // 注意：不在 loadUserInfo 中调用 checkSubscriptionStatus
     // 让 refreshTenantInfo 来处理订阅状态的更新，确保使用最新的数据
   },
-  
+
+  // 刷新用户信息（通过云函数获取最新的用户信息，包括 role 字段）
+  async refreshUserInfo() {
+    try {
+      const userInfo = app.globalData.userInfo || wx.getStorageSync('userInfo') || {}
+      const phoneNumber = userInfo.phone
+
+      if (!phoneNumber) {
+        console.warn('无法刷新用户信息：缺少手机号')
+        return
+      }
+
+      console.log('开始刷新用户信息，手机号:', phoneNumber)
+
+      // 通过云函数获取用户信息（因为 users 集合权限限制，前端无法直接访问）
+      const res = await wx.cloud.callFunction({
+        name: 'auth',
+        data: {
+          action: 'getUserInfo',
+          phoneNumber: phoneNumber
+        }
+      })
+
+      console.log('getUserInfo 云函数返回:', res.result)
+
+      if (res.result && res.result.success && res.result.user) {
+        const updatedUser = res.result.user
+
+        // 更新本地存储和全局数据
+        wx.setStorageSync('userInfo', updatedUser)
+        app.globalData.userInfo = updatedUser
+
+        // 如果返回了租户信息，也更新
+        if (res.result.tenant) {
+          wx.setStorageSync('tenantInfo', res.result.tenant)
+          app.globalData.tenantInfo = res.result.tenant
+        }
+
+        const tenantInfo = app.globalData.tenantInfo || wx.getStorageSync('tenantInfo') || {}
+        const isTenantOwner = calcIsTenantOwner(updatedUser, tenantInfo)
+        const uiUser = (!updatedUser.role && isTenantOwner)
+          ? { ...updatedUser, role: 'boss' }
+          : updatedUser
+
+        // 更新页面数据
+        this.setData({
+          userInfo: uiUser,
+          isTenantOwner: isTenantOwner
+        })
+      } else {
+        // 保持静默，避免线上噪音；如需排查可临时打开日志
+      }
+    } catch (err) {
+      // 保持静默，避免线上噪音；如需排查可临时打开日志
+    }
+  },
+
   // 检查订阅状态
   checkSubscriptionStatus() {
     const tenantInfo = wx.getStorageSync('tenantInfo') || app.globalData.tenantInfo
     if (!tenantInfo) {
       return
     }
-    
+
     const expireDate = tenantInfo.expireDate || tenantInfo.expire_date
     const subscriptionStatus = getTenantSubscriptionStatus(tenantInfo)
     const remainingDaysText = formatRemainingDays(expireDate)
     const expireDateText = formatExpireDate(expireDate)
-    
+
     // 强制更新数据，确保UI刷新
     this.setData({
       subscriptionStatus: subscriptionStatus,
@@ -286,19 +412,19 @@ Page({
         expireDate: expireDateText
       })
     })
-    
+
     // 检查是否需要提醒
     const reminder = getReminderMessage(tenantInfo.expireDate || tenantInfo.expire_date)
     if (reminder) {
       // 使用防抖，避免频繁提醒
       const lastReminderTime = wx.getStorageSync('lastReminderTime') || 0
       const now = Date.now()
-      
+
       // 已过期时，每次进入都提醒；未过期时，每5分钟最多提醒一次
-      const shouldShow = reminder.isExpired 
-        ? true 
+      const shouldShow = reminder.isExpired
+        ? true
         : (now - lastReminderTime > 5 * 60 * 1000)
-      
+
       if (shouldShow) {
         // 已过期时使用 Modal 提示，更醒目
         if (reminder.isExpired) {
@@ -315,14 +441,14 @@ Page({
             duration: 3000
           })
         }
-        
+
         if (!reminder.isExpired) {
           wx.setStorageSync('lastReminderTime', now)
         }
       }
     }
   },
-  
+
   // 登出功能
   handleLogout() {
     wx.showModal({
@@ -337,12 +463,12 @@ Page({
           wx.removeStorageSync('userInfo')
           wx.removeStorageSync('tenantInfo')
           wx.removeStorageSync('lastReminderTime')
-          
+
           // 清除全局数据
           app.globalData.tenantId = null
           app.globalData.userInfo = null
           app.globalData.tenantInfo = null
-          
+
           // 更新页面状态
           this.setData({
             isLoggedIn: false,
@@ -352,7 +478,7 @@ Page({
             remainingDaysText: '',
             expireDateText: ''
           })
-          
+
           wx.showToast({
             title: '已退出登录',
             icon: 'success'
@@ -368,13 +494,13 @@ Page({
     if (checkSubscriptionAndBlock()) {
       return // 已过期，已阻止操作
     }
-    
+
     const path = e.currentTarget.dataset.path
     wx.navigateTo({
       url: path
     })
   },
-  
+
   // 处理付费
   handlePayment() {
     if (app.globalData.enablePayment === false) {
@@ -387,7 +513,7 @@ Page({
     }
     // 跳转到付费页面
     wx.navigateTo({
-      url: '/pages/mine/payment'
+      url: '/subpages/mine/payment'
     })
   },
 
@@ -559,9 +685,9 @@ Page({
         // employees 云函数返回格式为 { code, msg, data }
         if (res.result.code === 0 && res.result.data.success) {
           const { user, tenant } = res.result.data
-          
+
           wx.removeStorageSync('inviteTenantId')
-          
+
           wx.setStorageSync('userInfo', user)
           wx.setStorageSync('tenantInfo', tenant)
           wx.setStorageSync('tenantId', tenant._id)
@@ -588,7 +714,7 @@ Page({
         }
         return
       }
-      
+
       // 正常登录逻辑，使用 auth 云函数
       const res = await wx.cloud.callFunction({
         name: 'auth',
@@ -613,13 +739,22 @@ Page({
       const { success, user, tenant, msg, code: errCode } = res.result
 
       if (success) {
-        wx.setStorageSync('userInfo', user || { phone: phoneNumber, nickName, avatarUrl: this.data.avatarUrl })
+        // 确保 user 对象包含 role 字段
+        const userWithRole = user || { phone: phoneNumber, nickName, avatarUrl: this.data.avatarUrl }
+
+        wx.setStorageSync('userInfo', userWithRole)
         wx.setStorageSync('tenantInfo', tenant)
         wx.setStorageSync('tenantId', tenant._id)
 
-        app.globalData.userInfo = wx.getStorageSync('userInfo')
+        app.globalData.userInfo = userWithRole
         app.globalData.tenantId = tenant._id
         app.globalData.tenantInfo = tenant
+
+        console.log('登录成功，用户信息:', {
+          phone: userWithRole.phone,
+          role: userWithRole.role,
+          hasRole: !!userWithRole.role
+        })
 
         wx.showToast({
           title: '登录成功',
@@ -627,8 +762,13 @@ Page({
         })
 
         this.setData({
-          showLogin: false
+          showLogin: false,
+          userInfo: userWithRole // 立即更新页面数据
         })
+
+        // 登录后立即刷新用户信息（确保 role 字段是最新的）
+        await this.refreshUserInfo()
+
         this.checkLoginStatus()
       } else {
         if (errCode === 'NOT_REGISTERED' || errCode === 'TENANT_MISSING') {

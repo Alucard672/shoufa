@@ -68,6 +68,20 @@
   <view class="section">
     <view class="card form-section">
     <view class="form-item">
+      <text class="form-label">款号</text>
+      <search-select 
+        placeholder="请搜索选择款号（可选）"
+        options="{{styles}}"
+        display-key="styleName"
+        value-key="_id"
+        format-display="style"
+        selected-values="{{selectedStyle ? [selectedStyle] : []}}"
+        multiple="{{false}}"
+        bindchange="onStyleChange"
+      />
+    </view>
+    
+    <view class="form-item">
       <text class="form-label">颜色 *</text>
       <search-select 
         placeholder="请选择颜色"

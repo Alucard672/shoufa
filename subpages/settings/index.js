@@ -10,7 +10,7 @@ Page({
         desc: '管理颜色选项',
         icon: '🎨',
         bgColor: '#FFF5F5',
-        path: '/pages/settings/color'
+        path: '/subpages/settings/color'
       },
       {
         id: 'size',
@@ -18,7 +18,7 @@ Page({
         desc: '管理尺码选项',
         icon: '📏',
         bgColor: '#F0F9FF',
-        path: '/pages/settings/size'
+        path: '/subpages/settings/size'
       }
     ]
   },
@@ -29,7 +29,7 @@ Page({
       return
     }
   },
-  
+
   onShow() {
     // 检查登录状态
     if (!checkLogin()) {

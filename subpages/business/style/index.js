@@ -16,7 +16,7 @@ Page({
     ],
     filterIndex: 0
   },
-  
+
   _loading: false,  // 加载锁
 
   onLoad() {
@@ -24,7 +24,7 @@ Page({
     if (!checkLogin()) {
       return
     }
-    
+
     // 检查订阅状态，如果已过期则阻止操作
     const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
     if (checkSubscriptionAndBlock({ showModal: false })) {
@@ -32,7 +32,7 @@ Page({
       wx.navigateBack()
       return
     }
-    
+
     this.loadStyles()
   },
 
@@ -54,10 +54,10 @@ Page({
   async onStyleImageError(e) {
     const index = e.currentTarget.dataset.index
     if (index === undefined || index === null) return
-    
+
     const style = this.data.styles[index]
     const originalUrl = e.currentTarget.dataset.originalUrl || style.originalImageUrl
-    
+
     // 如果是 cloud:// URL，尝试重新获取临时URL
     if (originalUrl && originalUrl.startsWith('cloud://')) {
       try {
@@ -75,7 +75,7 @@ Page({
         console.warn('重新获取临时URL失败:', err)
       }
     }
-    
+
     // 清空图片地址，触发占位图显示，避免"空白块"
     const path = `styles[${index}].imageUrl`
     this.setData({
@@ -90,18 +90,18 @@ Page({
       return
     }
     this._loading = true
-    
+
     try {
       const result = await query('styles', {}, {
         excludeDeleted: true,
         orderBy: { field: 'createTime', direction: 'DESC' }
       })
-      
+
       console.log('=== 款号列表查询结果 ===')
       console.log('数据库返回记录数:', result.data.length)
       console.log('记录ID列表:', result.data.map(s => s._id))
       console.log('记录款号列表:', result.data.map(s => s.styleCode || s.style_code))
-      
+
       const styles = { data: result.data }
 
       // 格式化数据
@@ -113,14 +113,14 @@ Page({
         const yarnUsagePerPiece = style.yarnUsagePerPiece || style.yarn_usage_per_piece || 0
         const lossRate = style.lossRate || style.loss_rate || 0
         const processingFeePerDozen = style.processingFeePerDozen || style.processing_fee_per_dozen || 0
-        
+
         const yarnUsageKg = yarnUsagePerPiece / 1000
         const actualUsage = style.actualUsage || style.actual_usage || (yarnUsageKg * (1 + lossRate / 100))
 
         // 处理颜色和尺码
         let availableColors = style.availableColors || style.available_colors || []
         let availableSizes = style.availableSizes || style.available_sizes || []
-        
+
         // 如果是从JSON字段读取的字符串，需要解析
         if (typeof availableColors === 'string') {
           try {
@@ -183,7 +183,7 @@ Page({
       const cloudUrls = formattedStyles
         .map(s => s.imageUrl)
         .filter(url => url && url.startsWith('cloud://'))
-      
+
       if (cloudUrls.length > 0) {
         try {
           const urlMap = await batchGetImageUrls(cloudUrls)
@@ -198,28 +198,28 @@ Page({
       }
 
       // 打印每条款号的停用状态
-      console.log('款号停用状态:', formattedStyles.map(s => ({ 
-        code: s.styleCode, 
-        disabled: s.disabled 
+      console.log('款号停用状态:', formattedStyles.map(s => ({
+        code: s.styleCode,
+        disabled: s.disabled
       })))
-      
+
       // 根据筛选条件过滤
       let displayStyles = formattedStyles
       console.log('当前筛选条件 showDisabled:', this.data.showDisabled)
       if (!this.data.showDisabled) {
         displayStyles = formattedStyles.filter(s => s.disabled !== true)
       }
-      
+
       console.log('过滤后款号数量:', displayStyles.length, '(总数:', formattedStyles.length, ')')
-      
+
       // 缓存全部数据用于筛选切换
       this._allStyles = formattedStyles
-      
+
       this.setData({
         styles: displayStyles,
         styleCount: displayStyles.length
       })
-      
+
       console.log('setData 完成，当前 styles 长度:', this.data.styles.length)
     } catch (error) {
       console.error('加载款号失败:', error)
@@ -243,12 +243,12 @@ Page({
   onFilterChange(e) {
     const index = e.detail.value
     const showDisabled = this.data.filterOptions[index].value
-    
+
     this.setData({
       filterIndex: index,
       showDisabled: showDisabled
     })
-    
+
     // 如果已有缓存数据，直接过滤；否则重新加载
     if (this._allStyles) {
       let displayStyles = this._allStyles
@@ -270,7 +270,7 @@ Page({
       return
     }
     wx.navigateTo({
-      url: '/pages/style/create'
+      url: '/subpages/business/style/create'
     })
   },
 
@@ -290,7 +290,7 @@ Page({
     }
     console.log('编辑款号，ID:', styleId)
     wx.navigateTo({
-      url: `/pages/style/create?id=${styleId}`
+      url: `/subpages/business/style/create?id=${styleId}`
     })
   },
 

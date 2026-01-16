@@ -199,10 +199,11 @@ Page({
     // 2. 款号筛选
     if (this.data.styleKeyword.trim()) {
       const kw = this.data.styleKeyword.trim().toLowerCase()
-      filtered = filtered.filter(o => 
-        o.styleCode.toLowerCase().includes(kw) || 
-        o.styleName.toLowerCase().includes(kw)
-      )
+      filtered = filtered.filter(o => {
+        const styleCode = (o.styleCode || '').toLowerCase()
+        const styleName = (o.styleName || '').toLowerCase()
+        return styleCode.includes(kw) || styleName.includes(kw)
+      })
     }
 
     // 3. 计算汇总

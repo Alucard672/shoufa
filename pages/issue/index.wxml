@@ -77,12 +77,13 @@
           bindtouchmove="onSwipeMove" 
           bindtouchend="onSwipeEnd"
           data-index="{{index}}">
-          <view class="order-card card issue-order-card {{(item.progress && item.progress.status === '已完成') || item.status === '已完成' ? 'issue-card--default' : (item.progress && item.progress.status === '部分回货' ? 'issue-card--info' : 'issue-card--warning')}}" bindtap="navigateToDetail" data-id="{{item._id || item.id}}">
+          <view class="order-card card issue-order-card {{(item.progress && item.progress.status === '已完成') || item.status === '已完成' ? 'issue-card--default' : (item.progress && item.progress.status === '部分回货' ? 'issue-card--info' : 'issue-card--warning')}} {{item.overReturned ? 'issue-card--danger' : ''}}" bindtap="navigateToDetail" data-id="{{item._id || item.id}}">
         <!-- 第一行：单号和状态标签 -->
         <view class="order-header">
           <view class="order-no-row">
             <text class="order-no {{item.voided ? 'voided-text' : ''}}">{{item.issueNo}}</text>
             <view class="voided-badge" wx:if="{{item.voided}}">已作废</view>
+            <view class="overreturn-badge" wx:if="{{item.overReturned}}">超入</view>
           </view>
           <badge type="{{item.status === '未回货' ? 'warning' : (item.status === '已完成' || (item.progress && item.progress.status === '已完成') ? 'success' : 'info')}}" text="{{item.status === '已完成' || (item.progress && item.progress.status === '已完成') ? '已完成' : (item.progress && item.progress.status ? item.progress.status : item.status)}}" />
         </view>
@@ -130,7 +131,8 @@
           <text class="footer-weight">{{item.issueWeightFormatted}}</text>
         </view>
         
-        <view class="order-progress" wx:if="{{item.status !== '未回货' && item.status !== '已完成'}}">
+        <!-- 进度展示以计算后的状态为准，避免 issue_orders.status 历史未更新导致“有回货但不展示/不统计” -->
+        <view class="order-progress" wx:if="{{(item.progress && item.progress.status) ? (item.progress.status !== '未回货' && item.progress.status !== '已完成') : (item.status !== '未回货' && item.status !== '已完成')}}">
           <view class="progress-row">
             <text class="progress-label">回货进度</text>
             <text class="progress-value">{{item.progress.totalReturnPiecesFormatted}} · {{item.progress.totalReturnYarnFormatted}} kg</text>

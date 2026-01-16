@@ -265,6 +265,38 @@
   border-color: #BBF7D0;
 }
 
+/* 超入：红色视觉提示（优先级高于状态底色） */
+.stat-card.stat-card--danger {
+  border-color: #DC2626 !important;
+  background: #FEF2F2 !important;
+  border-width: 2px;
+}
+
+.stat-card.stat-card--danger .stat-no {
+  color: #991B1B;
+}
+
+.stat-head-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.overreturn-pill {
+  background-color: #DC2626;
+  color: #FFFFFF;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  line-height: 16px;
+  flex-shrink: 0;
+}
+
+.stat-value--danger {
+  color: #DC2626 !important;
+  font-weight: 700;
+}
+
 .stat-header {
   display: none;
 }
@@ -396,7 +428,8 @@
   color: #9810FA;
 }
 
-.stat-issue {
+/* 顶部：3列（发料日期 / 最后回货时间 / 发料重量） */
+.stat-top {
   display: flex;
   gap: 8px;
   margin-bottom: 8px;
@@ -407,17 +440,36 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+}
+
+/* 表头：字段名 + 单位 同一行，且不折行 */
+.stat-label-line {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+  line-height: 14px;
 }
 
 .stat-label {
-  font-size: 12px;
+  font-size: 10px;
   color: #6A7282;
+  white-space: nowrap;
+}
+
+.stat-unit-inline {
+  font-size: 10px;
+  color: #99A1AF;
+  white-space: nowrap;
 }
 
 .stat-value {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: #101828;
+  line-height: 18px;
+  white-space: nowrap;
 }
 
 .stat-value.weight {
@@ -428,10 +480,25 @@
   color: #00A63E;
 }
 
-.stat-return {
-  display: flex;
+/* 下面：4列等分 */
+.stat-grid4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   margin-bottom: 8px;
+}
+
+.remaining-label-line {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.remaining-unit {
+  font-size: 10px;
+  color: #99A1AF;
+  line-height: 12px;
 }
 
 .stat-remaining {
@@ -523,9 +590,7 @@
   color: #101828;
 }
 
-.stat-return .stat-value {
-  color: #6A7282;
-}
+/* 旧的 stat-return 样式不再使用（保留其它颜色类：weight/return） */
 
 /* 损耗率样式 */
 .loss-positive {

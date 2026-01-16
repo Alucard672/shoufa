@@ -28,7 +28,7 @@ export function checkLogin(options = {}) {
   } = options
 
   const tenantId = app.globalData.tenantId || wx.getStorageSync('tenantId')
-  
+
   if (!tenantId) {
     if (showModal) {
       wx.showModal({
@@ -89,7 +89,7 @@ export function isSubscriptionExpired() {
   if (!tenantInfo) {
     return true // 没有租户信息，视为已过期
   }
-  
+
   const { isExpired } = require('./subscription.js')
   const expireDate = tenantInfo.expireDate || tenantInfo.expire_date
   return isExpired(expireDate)
@@ -110,7 +110,7 @@ export function checkSubscriptionAndBlock(options = {}) {
     onConfirm,
     showModal = true
   } = options
-  
+
   if (isSubscriptionExpired()) {
     if (showModal) {
       wx.showModal({
@@ -126,7 +126,7 @@ export function checkSubscriptionAndBlock(options = {}) {
             } else {
               // 默认跳转到付费页面
               wx.navigateTo({
-                url: '/pages/mine/payment'
+                url: '/subpages/mine/payment'
               })
             }
           }
@@ -135,7 +135,7 @@ export function checkSubscriptionAndBlock(options = {}) {
     }
     return true // 已过期，已阻止操作
   }
-  
+
   return false // 未过期，可以继续操作
 }
 
@@ -147,12 +147,12 @@ export function logout() {
   wx.removeStorageSync('tenantId')
   wx.removeStorageSync('userInfo')
   wx.removeStorageSync('tenantInfo')
-  
+
   // 清除全局数据
   app.globalData.tenantId = null
   app.globalData.userInfo = null
   app.globalData.tenantInfo = null
-  
+
   // 跳转到"我的"页面，用户可以在那里登录
   wx.switchTab({
     url: '/pages/mine/index'

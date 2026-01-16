@@ -86,60 +86,79 @@
 
   <!-- 统计列表 -->
   <view class="statistics-list">
-    <view class="stat-card stat-card-{{item.status === '未回货' ? 'warn' : (item.status === '部分回货' ? 'info' : 'ok')}}" wx:for="{{statistics}}" wx:key="_id">
+    <view class="stat-card stat-card-{{item.status === '未回货' ? 'warn' : (item.status === '部分回货' ? 'info' : 'ok')}} {{item.overReturned ? 'stat-card--danger' : ''}}" wx:for="{{statistics}}" wx:key="_id">
       <view class="stat-head">
         <text class="stat-no">{{item.issueNo}}</text>
-        <badge type="{{item.status === '未回货' ? 'warning' : item.status === '部分回货' ? 'info' : 'success'}}" text="{{item.status}}" />
+        <view class="stat-head-right">
+          <badge type="{{item.status === '未回货' ? 'warning' : item.status === '部分回货' ? 'info' : 'success'}}" text="{{item.status}}" />
+          <view class="overreturn-pill" wx:if="{{item.overReturned}}">超入</view>
+        </view>
       </view>
       <view class="stat-style-line">
         <text class="style-line-text">{{item.styleCode || ''}}<text wx:if="{{item.styleCode}}"> - </text>{{item.styleName || '未知款号'}}</text>
         <text class="style-line-meta" wx:if="{{item.yarnUsagePerPiece > 0}}">· {{item.yarnUsagePerPiece}}g/件</text>
       </view>
       
-      <view class="stat-issue">
+      <!-- 顶部：发料日期 + 最后回货时间（放在发料日期后面） + 发料重量 -->
+      <view class="stat-top">
         <view class="stat-row">
-          <text class="stat-label">发料日期</text>
+          <view class="stat-label-line">
+            <text class="stat-label">发料日期</text>
+          </view>
           <text class="stat-value">{{item.issueDateFormatted}}</text>
         </view>
         <view class="stat-row">
-          <text class="stat-label">发料重量</text>
+          <view class="stat-label-line">
+            <text class="stat-label">最后回货日期</text>
+          </view>
+          <text class="stat-value">{{item.latestReturnDateFormatted || '-'}}</text>
+        </view>
+        <view class="stat-row">
+          <view class="stat-label-line">
+            <text class="stat-label">发料重量</text>
+            <text class="stat-unit-inline">kg</text>
+          </view>
           <text class="stat-value weight">{{item.issueWeightFormatted}}</text>
         </view>
       </view>
-      
-      <view class="stat-return" wx:if="{{item.status !== '未回货'}}">
+
+      <!-- 下面：4列等分 -->
+      <view class="stat-grid4">
         <view class="stat-row">
-          <text class="stat-label">回货日期</text>
-          <text class="stat-value">{{item.latestReturnDateFormatted}}</text>
+          <view class="stat-label-line">
+            <text class="stat-label">回货重量</text>
+            <text class="stat-unit-inline">kg</text>
+          </view>
+          <text class="stat-value return {{item.overReturned ? 'stat-value--danger' : ''}}">{{item.status !== '未回货' ? item.totalReturnYarnFormatted : '-'}}</text>
         </view>
         <view class="stat-row">
-          <text class="stat-label">回货重量</text>
-          <text class="stat-value return">{{item.totalReturnYarnFormatted}}</text>
+          <view class="stat-label-line">
+            <text class="stat-label">回货数量</text>
+          </view>
+          <text class="stat-value {{item.overReturned ? 'stat-value--danger' : ''}}">{{item.status !== '未回货' ? item.totalReturnPiecesFormatted : '-'}}</text>
         </view>
         <view class="stat-row">
-          <text class="stat-label">回货数量</text>
-          <text class="stat-value">{{item.totalReturnPiecesFormatted}}</text>
+          <view class="stat-label-line">
+            <text class="stat-label">计划用纱</text>
+            <text class="stat-unit-inline">kg</text>
+          </view>
+          <text class="stat-value">{{item.status !== '未回货' ? item.planYarnUsageFormatted : '-'}}</text>
         </view>
-        <view class="stat-row" wx:if="{{item.totalReturnPieces > 0}}">
-          <text class="stat-label">计划用纱</text>
-          <text class="stat-value">{{item.planYarnUsageFormatted}}</text>
-        </view>
-        <view class="stat-row" wx:if="{{item.totalReturnPieces > 0}}">
-          <text class="stat-label">实际用纱</text>
-          <text class="stat-value">{{item.totalReturnYarnFormatted}}</text>
-        </view>
-        <view class="stat-row" wx:if="{{item.totalReturnPieces > 0 && item.lossAmount !== 0}}">
-          <text class="stat-label">损耗量</text>
-          <text class="stat-value {{item.lossAmount > 0 ? 'loss-positive' : 'loss-negative'}}">
-            {{item.lossAmount > 0 ? '+' : ''}}{{item.lossAmountFormatted}}
-          </text>
-          <text class="stat-value loss-rate">({{item.actualLossRateFormatted}})</text>
+        <view class="stat-row">
+          <view class="stat-label-line">
+            <text class="stat-label">实际用纱</text>
+            <text class="stat-unit-inline">kg</text>
+          </view>
+          <text class="stat-value">{{item.status !== '未回货' ? item.totalReturnYarnFormatted : '-'}}</text>
         </view>
       </view>
       
       <view class="stat-remaining" wx:if="{{item.status === '部分回货'}}">
         <view class="remaining-row">
-          <text class="remaining-label">剩余待回</text>
+          <view class="remaining-label-line">
+            <text class="remaining-label">剩余待回</text>
+            <text class="remaining-unit">kg/件</text>
+          </view>
           <text class="remaining-value">{{item.remainingYarnFormatted}}</text>
           <text class="remaining-quantity">{{item.remainingPiecesFormatted}}</text>
         </view>
@@ -147,21 +166,6 @@
       
       <view class="stat-waiting" wx:if="{{item.status === '未回货'}}">
         <text class="waiting-text">等待回货中...</text>
-      </view>
-      
-      <view class="stat-return" wx:if="{{item.status === '未回货'}}">
-        <view class="stat-row">
-          <text class="stat-label">回货日期</text>
-          <text class="stat-value">-</text>
-        </view>
-        <view class="stat-row">
-          <text class="stat-label">回货重量</text>
-          <text class="stat-value">-</text>
-        </view>
-        <view class="stat-row">
-          <text class="stat-label">回货数量</text>
-          <text class="stat-value">-</text>
-        </view>
       </view>
       
       <view class="return-details" wx:if="{{item.returnOrders.length > 1}}">
@@ -172,7 +176,7 @@
               <text class="detail-no">#{{returnOrder.returnOrderIndex}}</text>
               <text class="detail-date">{{returnOrder.returnDateFormatted}}</text>
             </view>
-            <text class="detail-info">{{returnOrder.quantityFormatted}} · {{returnOrder.actualYarnUsageFormatted}}kg</text>
+            <text class="detail-info">{{returnOrder.quantityFormatted}} · {{returnOrder.actualYarnUsageFormatted}}</text>
           </view>
         </view>
       </view>
