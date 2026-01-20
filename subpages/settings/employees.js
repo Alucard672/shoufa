@@ -1,7 +1,7 @@
 // pages/settings/employees.js
-import { checkLogin, getTenantId } from '../../utils/auth.js'
-import { formatDate } from '../../utils/calc.js'
-import { query } from '../../utils/db.js'
+const { checkLogin, getTenantId } = require('./utils/auth.js')
+const { formatDate } = require('./utils/calc.js')
+const { query } = require('./utils/db.js')
 const app = getApp()
 
 Page({
@@ -50,7 +50,7 @@ Page({
     try {
       // 优先尝试使用云函数，如果云函数不存在则降级为直接查询
       let employees = []
-      
+
       try {
         const result = await wx.cloud.callFunction({
           name: 'employees',
@@ -175,7 +175,7 @@ Page({
   async onSave() {
     const phoneNumber = this.data.phoneNumber.trim()
     const name = this.data.addName.trim()
-    
+
     if (!phoneNumber) {
       wx.showToast({
         title: '请输入手机号',
@@ -313,7 +313,7 @@ Page({
 
   async onUpdateEmployee() {
     const { editEmployee, editName, editNickName, editPhone } = this.data
-    
+
     if (!editEmployee || !editEmployee._id) {
       wx.showToast({
         title: '员工信息缺失',

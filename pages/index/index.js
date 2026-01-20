@@ -5,8 +5,11 @@ import { checkLogin } from '../../utils/auth.js'
 import { normalizeImageUrl, batchGetImageUrls } from '../../utils/image.js'
 import { pickNumber } from '../../utils/summary.js'
 const app = getApp()
-const db = wx.cloud.database()
-const _ = db.command
+// 使用延迟初始化，避免在 wx.cloud.init() 之前调用
+let _db = null
+let _cmd = null
+function getDb() { if (!_db) _db = wx.cloud.database(); return _db }
+function getCmd() { if (!_cmd) _cmd = getDb().command; return _cmd }
 
 Page({
   data: {
@@ -24,7 +27,7 @@ Page({
       const i = typeof index === 'number' ? index : parseInt(index, 10)
       if (!Number.isNaN(i) && this.data.displayActivities && this.data.displayActivities[i]) {
         const activity = this.data.displayActivities[i]
-        
+
         // 如果有原始URL且当前URL是临时URL，尝试重新获取临时URL
         if (activity.originalImageUrl && activity.originalImageUrl.startsWith('cloud://')) {
           // 清除缓存，重新获取
@@ -39,7 +42,7 @@ Page({
             console.error('重试获取图片URL失败:', err)
           }
         }
-        
+
         // 重试失败或没有原始URL，清除图片显示
         this.setData({ [`displayActivities[${i}].styleImageUrl`]: '' })
       }
@@ -47,22 +50,22 @@ Page({
   },
 
   onLoad() {
-    // 检查登录状态，如果未登录则跳转到登录页
-    if (!checkLogin({ showModal: false })) {
-      // 检查是否有邀请码，如果有则跳转到登录页
+    // 检查登录状态
+    const loggedIn = checkLogin({ showModal: false })
+
+    // 如果未登录，且有邀请码，则跳转到登录页（邀请场景）
+    if (!loggedIn) {
       const inviteTenantId = wx.getStorageSync('inviteTenantId')
       if (inviteTenantId) {
         wx.redirectTo({
           url: '/pages/login/index'
         })
-      } else {
-        wx.switchTab({
-          url: '/pages/mine/index'
-        })
+        return
       }
+      // 非邀请场景下，未登录允许停留在首页，不加载业务数据
       return
     }
-    
+
     // 检查订阅状态，如果已过期则阻止操作
     const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
     if (checkSubscriptionAndBlock({ showModal: false })) {
@@ -72,11 +75,16 @@ Page({
       })
       return
     }
-    
+
     this.loadData()
   },
 
   onShow() {
+    // 检查登录状态
+    if (!checkLogin({ showModal: false })) {
+      return
+    }
+
     // 检查订阅状态，如果已过期则阻止操作
     const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
     if (checkSubscriptionAndBlock({ showModal: false })) {
@@ -86,7 +94,7 @@ Page({
       })
       return
     }
-    
+
     this.loadData()
   },
 
@@ -230,13 +238,13 @@ Page({
 
       const factoriesMap = Object.fromEntries(factoriesRes.data.map(f => [f._id || f.id, f]))
       const stylesMap = Object.fromEntries(stylesRes.data.map(s => [s._id || s.id, s]))
-      
+
       // 批量转换图片URL（cloud:// -> 临时链接）
       try {
         const imageUrls = stylesRes.data
           .map(style => normalizeImageUrl(style))
           .filter(url => url && url.startsWith('cloud://'))
-        
+
         if (imageUrls.length > 0) {
           const imageUrlMap = await batchGetImageUrls(imageUrls)
           // 更新 stylesMap 中的图片URL
@@ -246,7 +254,7 @@ Page({
             if (stylesMap[id] && originalUrl && originalUrl.startsWith('cloud://')) {
               // 保存原始URL
               stylesMap[id].originalImageUrl = originalUrl
-              
+
               // 只有成功转换的URL才使用（不是cloud://格式）
               if (imageUrlMap.has(originalUrl)) {
                 const tempUrl = imageUrlMap.get(originalUrl)
@@ -278,13 +286,13 @@ Page({
           ? `重量：${issueWeight}kg`
           : `数量：${formatQuantity(returnPieces)}`
 
-        const styleName = style?.styleName || style?.style_name || '未知款号'
+        const styleName = style?.styleName || style?.style_name || ''
         const styleCode = (style?.styleCode || style?.style_code) ? `[${style?.styleCode || style?.style_code}] ` : ''
-        
+
         // 优先使用已转换的临时URL（如果批量转换成功）
         let styleImageUrl = style?.styleImageUrl || ''
         const originalImageUrl = style?.originalImageUrl || normalizeImageUrl(style) || ''
-        
+
         // 如果转换后的URL仍然是cloud://格式，说明转换失败，使用空字符串避免500错误
         if (styleImageUrl && styleImageUrl.startsWith('cloud://')) {
           styleImageUrl = ''
@@ -293,7 +301,7 @@ Page({
         if (!styleImageUrl && originalImageUrl && originalImageUrl.startsWith('cloud://')) {
           styleImageUrl = ''
         }
-        
+
         return {
           ...item,
           factoryName: factory?.name || '未知工厂',

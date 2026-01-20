@@ -24,7 +24,7 @@ Page({
             })
             return
         }
-        
+
         // 检查是否有邀请租户ID
         const inviteTenantId = wx.getStorageSync('inviteTenantId')
         if (inviteTenantId) {
@@ -33,14 +33,14 @@ Page({
                 isInvite: true
             })
         }
-        
+
         // 判断是否为开发环境
         const accountInfo = wx.getAccountInfoSync()
         this.setData({
             isDev: accountInfo.miniProgram.envVersion === 'develop' || accountInfo.miniProgram.envVersion === 'trial'
         })
     },
-    
+
     // 选择头像
     onChooseAvatar(e) {
         const { avatarUrl } = e.detail
@@ -48,7 +48,7 @@ Page({
             avatarUrl: avatarUrl
         })
     },
-    
+
     // 输入昵称
     onNickNameInput(e) {
         const nickName = e.detail.value
@@ -56,7 +56,7 @@ Page({
             nickName: nickName
         })
     },
-    
+
     // 输入手机号
     onPhoneInput(e) {
         const phoneNumber = e.detail.value
@@ -64,7 +64,7 @@ Page({
             phoneNumber: phoneNumber
         })
     },
-    
+
     // 获取微信手机号
     onGetPhoneNumber(e) {
         const { code, errMsg } = e.detail
@@ -113,34 +113,34 @@ Page({
                 app.globalData.userInfo = user
                 app.globalData.tenantId = tenant._id
 
-            wx.showToast({
-                title: '登录成功',
-                icon: 'success'
-            })
-            
-            // 检查订阅状态并显示提醒
-            // 检查订阅状态
-            const { isExpired } = require('../../utils/subscription.js')
-            const expireDate = tenant.expireDate || tenant.expire_date
-            const expired = isExpired(expireDate)
-            
-            if (expired) {
-                // 已过期，跳转到"我的"页面，让用户去付费
-                this.checkSubscriptionReminder(tenant)
-                setTimeout(() => {
-                    wx.switchTab({
-                        url: '/pages/mine/index'
-                    })
-                }, 1500)
-            } else {
-                // 未过期，显示提醒（如果有）并跳转到首页
-                this.checkSubscriptionReminder(tenant)
-                setTimeout(() => {
-                    wx.switchTab({
-                        url: '/pages/index/index'
-                    })
-                }, 1500)
-            }
+                wx.showToast({
+                    title: '登录成功',
+                    icon: 'success'
+                })
+
+                // 检查订阅状态并显示提醒
+                // 检查订阅状态
+                const { isExpired } = require('../../utils/subscription.js')
+                const expireDate = tenant.expireDate || tenant.expire_date
+                const expired = isExpired(expireDate)
+
+                if (expired) {
+                    // 已过期，跳转到"我的"页面，让用户去付费
+                    this.checkSubscriptionReminder(tenant)
+                    setTimeout(() => {
+                        wx.switchTab({
+                            url: '/pages/mine/index'
+                        })
+                    }, 1500)
+                } else {
+                    // 未过期，显示提醒（如果有）并跳转到首页
+                    this.checkSubscriptionReminder(tenant)
+                    setTimeout(() => {
+                        wx.switchTab({
+                            url: '/pages/index/index'
+                        })
+                    }, 1500)
+                }
             } else {
                 wx.showModal({
                     title: '登录失败',
@@ -184,7 +184,7 @@ Page({
         try {
             // 检查是否有邀请租户ID
             const inviteTenantId = wx.getStorageSync('inviteTenantId')
-            
+
             // 如果有邀请ID，调用 employees 云函数的 joinTenant 逻辑
             if (inviteTenantId) {
                 const res = await wx.cloud.callFunction({
@@ -193,8 +193,8 @@ Page({
                         action: 'joinTenant',
                         payload: {
                             tenantId: inviteTenantId,
-                            code: this.data.phoneCode || '', 
-                            phoneNumber: this.data.phoneNumber || '', 
+                            code: this.data.phoneCode || '',
+                            phoneNumber: this.data.phoneNumber || '',
                             avatarUrl: this.data.avatarUrl,
                             nickName: this.data.nickName
                         }
@@ -204,9 +204,9 @@ Page({
                 // employees 云函数返回格式为 { code, msg, data }
                 if (res.result.code === 0 && res.result.data.success) {
                     const { user, tenant } = res.result.data
-                    
+
                     wx.removeStorageSync('inviteTenantId')
-                    
+
                     // 保存用户信息和租户信息
                     wx.setStorageSync('userInfo', user)
                     wx.setStorageSync('tenantInfo', tenant)
@@ -235,14 +235,14 @@ Page({
                 }
                 return
             }
-            
+
             // 正常登录逻辑，继续使用 auth 云函数
             const res = await wx.cloud.callFunction({
                 name: 'auth',
                 data: {
                     action: 'login',
-                    code: this.data.phoneCode || '', 
-                    phoneNumber: this.data.phoneNumber || '', 
+                    code: this.data.phoneCode || '',
+                    phoneNumber: this.data.phoneNumber || '',
                     avatarUrl: this.data.avatarUrl,
                     nickName: this.data.nickName
                 }
@@ -264,7 +264,7 @@ Page({
                 if (inviteTenantId) {
                     wx.removeStorageSync('inviteTenantId')
                 }
-                
+
                 // 保存用户信息和租户信息
                 wx.setStorageSync('userInfo', user)
                 wx.setStorageSync('tenantInfo', tenant)
@@ -320,23 +320,29 @@ Page({
             this.setData({ loading: false })
         }
     },
-    
+
+    goBack() {
+        wx.switchTab({
+            url: '/pages/index/index'
+        })
+    },
+
     // 检查订阅状态并显示提醒
     checkSubscriptionReminder(tenant) {
         if (!tenant) {
             return
         }
-        
+
         const expireDate = tenant.expireDate || tenant.expire_date
         if (!expireDate) {
             return
         }
-        
+
         // 动态导入工具函数（避免循环依赖）
         const { getReminderMessage, isExpired } = require('../../utils/subscription.js')
         const reminder = getReminderMessage(expireDate)
         const expired = isExpired(expireDate)
-        
+
         if (reminder) {
             // 延迟显示，避免与登录成功提示冲突
             setTimeout(() => {
@@ -368,5 +374,5 @@ Page({
             }, 2000)
         }
     },
-    
+
 })

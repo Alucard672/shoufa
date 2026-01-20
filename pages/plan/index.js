@@ -72,7 +72,7 @@ Page({
                 return {
                     ...plan,
                     _id: plan._id || plan.id,
-                    styleName: style?.styleName || style?.style_name || style?.name || '未知款号',
+                    styleName: style?.styleName || style?.style_name || style?.name || '',
                     styleCode: style?.styleCode || style?.style_code || '',
                     factoryName: factory?.name || '未知工厂',
                     planDateFormatted: formatDate(plan.planDate || plan.plan_date),

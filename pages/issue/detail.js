@@ -4,7 +4,10 @@ import { checkLogin, getTenantId } from '../../utils/auth.js'
 import { formatWeight, formatDate, formatQuantity, formatDateTime, calculateReturnPieces } from '../../utils/calc.js'
 import { normalizeImageUrl, getImageUrl } from '../../utils/image.js'
 const app = getApp()
-const db = wx.cloud.database()
+// 延迟初始化，避免在 wx.cloud.init() 之前调用
+let _db = null
+function getDb() { if (!_db) _db = wx.cloud.database(); return _db }
+const db = new Proxy({}, { get(t, p) { return getDb()[p] } })
 
 Page({
   data: {
@@ -105,18 +108,18 @@ Page({
       // 回货单：使用云函数查询，优先使用发料单的 _id
       const tenantId = getTenantId()
       let returnOrdersList = []
-      
+
       try {
         // 使用 createReturnOrder 云函数的查询功能
         const cloudRes = await wx.cloud.callFunction({
           name: 'createReturnOrder',
-          data: { 
+          data: {
             action: 'getReturnOrders', // 指定 action 为查询
             issueId: resolvedIssueId,
             tenantId: tenantId // 传入租户ID，确保数据隔离并提升查询性能
           }
         })
-        
+
         if (cloudRes.result && cloudRes.result.success) {
           returnOrdersList = cloudRes.result.data || []
           console.log('云函数查询成功，找到回货单:', returnOrdersList.length, '条')
@@ -125,14 +128,14 @@ Page({
           console.warn('云函数返回失败，使用客户端查询:', cloudRes.result?.error)
           const returnOrdersRes = await getReturnOrdersByIssueId(resolvedIssueId).catch(() => ({ data: [] }))
           returnOrdersList = returnOrdersRes.data || []
-          
+
           // 如果客户端查询也没找到，尝试不使用 tenantId（可能是租户ID不匹配）
           if (returnOrdersList.length === 0 && tenantId) {
             console.log('尝试不使用 tenantId 查询')
             try {
               const cloudRes2 = await wx.cloud.callFunction({
                 name: 'createReturnOrder',
-                data: { 
+                data: {
                   action: 'getReturnOrders',
                   issueId: resolvedIssueId,
                   tenantId: null // 不传入 tenantId
@@ -156,14 +159,14 @@ Page({
         console.warn('云函数调用失败，使用客户端查询:', cloudError)
         const returnOrdersRes = await getReturnOrdersByIssueId(resolvedIssueId).catch(() => ({ data: [] }))
         returnOrdersList = returnOrdersRes.data || []
-        
+
         // 如果还没找到，尝试使用 order.id 和 rawId
         if (returnOrdersList.length === 0) {
           const candidates = [
             String(order.id || ''),
             String(rawId || '')
           ].filter(Boolean)
-          
+
           if (candidates.length > 0) {
             const roResults = await Promise.all(
               candidates.map((id) => getReturnOrdersByIssueId(id).catch(() => ({ data: [] })))
@@ -171,7 +174,7 @@ Page({
             const merged = []
             const seen = new Set()
             roResults.forEach((r) => {
-              ;(r.data || []).forEach((o) => {
+              ; (r.data || []).forEach((o) => {
                 const key = String(o._id || o.id || '')
                 if (!key || seen.has(key)) return
                 seen.add(key)
@@ -182,7 +185,7 @@ Page({
           }
         }
       }
-      
+
       // 再次确保排除已作废的回货单和当前租户的数据
       returnOrdersList = returnOrdersList.filter(ro => {
         if (ro.voided || ro.deleted) return false
@@ -209,7 +212,7 @@ Page({
 
       const issueWeight = order.issueWeight || order.issue_weight || 0
       const remainingYarn = issueWeight - totalReturnYarn
-      
+
       // 预计发料件数
       const issuePieces = yarnUsagePerPiece > 0
         ? Math.floor((issueWeight * 1000) / yarnUsagePerPiece)
@@ -279,7 +282,7 @@ Page({
           voided: order.voided || false, // 是否已作废
           status: status, // 使用计算出的状态
           factoryName: factory?.name || '未知工厂',
-          styleName: style?.styleName || style?.style_name || '未知款号',
+          styleName: style?.styleName || style?.style_name || '',
           styleCode: style?.styleCode || style?.style_code || '',
           styleImageUrl: styleImageUrl,
           issueDateFormatted: formatDateTime(order.createTime || order.create_time || order.issueDate || order.issue_date),
@@ -374,13 +377,13 @@ Page({
             if (!res2.result || !res2.result.success) {
               throw new Error((res2.result && (res2.result.error || res2.result.msg)) || '操作失败')
             }
-            
+
             wx.hideLoading()
             wx.showToast({
               title: `${action}成功`,
               icon: 'success'
             })
-            
+
             // 重新加载数据
             await this.loadData()
           } catch (error) {
@@ -468,7 +471,7 @@ Page({
         ctx.setGlobalAlpha(0.15); ctx.setFillStyle('#FFFFFF')
         this.drawRoundedRect(ctx, padding, 60, 96, 96, 24)
         ctx.fill(); ctx.restore()
-        
+
         ctx.setFillStyle('#FFFFFF'); ctx.setFontSize(44); ctx.setTextAlign('center')
         ctx.fillText('发', padding + 48, 125)
 
@@ -502,7 +505,7 @@ Page({
 
         ctx.setFillStyle('#1E293B')
         ctx.setFontSize(32)
-        ctx.fillText(issueOrder.styleName || '未知款号', padding + 150, styleCardY + 85)
+        ctx.fillText(issueOrder.styleName || '', padding + 150, styleCardY + 85)
         ctx.setFillStyle('#64748B')
         ctx.setFontSize(26)
         ctx.fillText(`款号: ${issueOrder.styleCode || '-'}  ·  颜色: ${issueOrder.color || '-'}`, padding + 150, styleCardY + 130)
@@ -545,7 +548,7 @@ Page({
 
         // 7. 回货明细（在汇总之后）
         currentY = gridY + 3 * (itemHeight + gap) + 60
-        
+
         if (listItems.length > 0) {
           ctx.setFillStyle('#F59E0B')
           this.drawRoundedRect(ctx, padding, currentY - 28, 8, 36, 4); ctx.fill()
@@ -562,7 +565,7 @@ Page({
 
             ctx.setFillStyle('#1E293B'); ctx.setFontSize(30)
             ctx.fillText(`回货 ${ro.returnDateFormatted}`, x + cardPadding, y + 65)
-            
+
             ctx.setFillStyle('#64748B'); ctx.setFontSize(26)
             ctx.fillText(`操作: ${ro.operatorName || '系统管理员'}`, x + cardPadding, y + 115)
 
@@ -574,7 +577,7 @@ Page({
 
             currentY += cardHeight + cardGap
           })
-          
+
           currentY += 40  // 列表后增加间距
         }
 

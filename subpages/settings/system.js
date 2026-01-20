@@ -1,5 +1,5 @@
 // pages/settings/system.js
-import { query, insert, update } from '../../utils/db.js'
+const { query, insert, update } = require('./utils/db.js')
 const app = getApp()
 
 Page({
@@ -273,7 +273,7 @@ Page({
     if (!tenantId) {
       throw new Error('tenantId 不能为空')
     }
-    
+
     try {
       // 使用云函数创建集合
       const result = await wx.cloud.callFunction({
@@ -418,7 +418,7 @@ Page({
 
       const db = wx.cloud.database()
       const valueToSave = String(tempValue)
-      
+
       try {
         if (param._id && !param._new) {
           // 更新现有参数
@@ -505,10 +505,10 @@ Page({
         wx.setStorageSync('piecesPerDozen', numValue)
         wx.setStorageSync('systemParam_piecesPerDozen', valueToSave)
         // 清除相关缓存，让其他页面重新加载
-        const { clearSystemParamCache } = require('../../utils/systemParams.js')
+        const { clearSystemParamCache } = require('./utils/systemParams.js')
         clearSystemParamCache('piecesPerDozen')
       }
-      
+
       wx.showToast({
         title: '保存成功',
         icon: 'success'

@@ -761,7 +761,7 @@ Page({
       const shareData = {
         ...returnOrder,
         factoryName: factory?.name || '未知工厂',
-        styleName: style?.styleName || style?.style_name || '未知款号',
+        styleName: style?.styleName || style?.style_name || '',
         styleCode: style?.styleCode || style?.style_code || '',
         issueNo: issueOrder?.issueNo || issueOrder?.issue_no || '未知',
         issueDateFormatted: formatDate(issueOrder?.issueDate || issueOrder?.issue_date),
@@ -931,7 +931,7 @@ Page({
 
         ctx.setFillStyle('#1E293B')
         ctx.setFontSize(32)
-        ctx.fillText(returnOrder.styleName || '未知款号', padding + 150, currentY + 70)
+        ctx.fillText(returnOrder.styleName || '', padding + 150, currentY + 70)
         ctx.setFillStyle('#64748B')
         ctx.setFontSize(26)
         ctx.fillText(`款号: ${returnOrder.styleCode || '-'}  ·  颜色: ${returnOrder.color || '-'}`, padding + 150, currentY + 115)

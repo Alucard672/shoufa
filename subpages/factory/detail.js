@@ -1,7 +1,7 @@
 // pages/factory/detail.js
-import { formatDate, formatAmount, formatWeight } from '../../utils/calc.js'
-import { query, queryByIds } from '../../utils/db.js'
-import { checkLogin } from '../../utils/auth.js'
+const { formatDate, formatAmount, formatWeight } = require('./utils/calc.js')
+const { query, queryByIds } = require('./utils/db.js')
+const { checkLogin } = require('./utils/auth.js')
 const app = getApp()
 
 Page({
@@ -121,7 +121,7 @@ Page({
       const style = stylesMap[order.styleId || order.style_id]
       return {
         ...order,
-        styleName: style?.styleName || style?.style_name || '未知款号',
+        styleName: style?.styleName || style?.style_name || '',
         styleCode: style?.styleCode || style?.style_code || '',
         issueDateFormatted: formatDate(order.issueDate || order.issue_date)
       }
@@ -132,7 +132,7 @@ Page({
       return {
         ...order,
         returnPieces: Math.floor(order.returnPieces || order.return_pieces || 0),
-        styleName: style?.styleName || style?.style_name || '未知款号',
+        styleName: style?.styleName || style?.style_name || '',
         styleCode: style?.styleCode || style?.style_code || '',
         returnDateFormatted: formatDate(order.returnDate || order.return_date)
       }

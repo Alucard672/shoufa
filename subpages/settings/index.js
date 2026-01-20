@@ -1,5 +1,5 @@
 // pages/settings/index.js
-import { checkLogin } from '../../utils/auth.js'
+const { checkLogin } = require('./utils/auth.js')
 
 Page({
   data: {

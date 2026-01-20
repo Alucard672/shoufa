@@ -283,7 +283,7 @@ Page({
             ...order,
             _id: order._id || order.id,
             factoryName: factory?.name || '未知工厂',
-            styleName: style?.styleName || style?.style_name || style?.name || '未知款号',
+            styleName: style?.styleName || style?.style_name || style?.name || '',
             styleCode: style?.styleCode || style?.style_code || '',
             styleImageUrl: normalizeImageUrl(style),
             color: order.color || '',

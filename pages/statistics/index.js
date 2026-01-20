@@ -58,7 +58,7 @@ Page({
 
   onLoad() {
     // 检查登录状态
-    if (!checkLogin()) {
+    if (!checkLogin({ showModal: false })) {
       return
     }
     this.loadData()
@@ -66,7 +66,7 @@ Page({
 
   onShow() {
     // 检查登录状态
-    if (!checkLogin()) {
+    if (!checkLogin({ showModal: false })) {
       return
     }
     this.loadData()
@@ -452,7 +452,7 @@ Page({
           ...issueOrder,
           _id: issueOrder._id || issueOrder.id,
           status: displayStatus,
-          styleName: style.styleName || style.style_name || style.name || '未知款号',
+          styleName: style.styleName || style.style_name || style.name || '',
           styleCode: style.styleCode || style.style_code || '',
           styleImageUrl: normalizeImageUrl(style),
           yarnUsagePerPiece: yarnUsagePerPiece,
@@ -621,30 +621,50 @@ Page({
   },
 
   onStyleStatsClick() {
+    // 检查登录状态
+    if (!checkLogin({ title: '需要登录', content: '查看款号统计需要登录，是否现在去登录？' })) {
+      return
+    }
     wx.navigateTo({
       url: '/subpages/statistics/style?timeFilter=' + encodeURIComponent(this.data.timeFilter)
     })
   },
 
   onFactoryStatsClick() {
+    // 检查登录状态
+    if (!checkLogin({ title: '需要登录', content: '查看工厂统计需要登录，是否现在去登录？' })) {
+      return
+    }
     wx.navigateTo({
       url: '/subpages/statistics/factory?timeFilter=' + encodeURIComponent(this.data.timeFilter)
     })
   },
 
   onTotalIssueClick() {
+    // 检查登录状态
+    if (!checkLogin({ title: '需要登录', content: '查看发料统计需要登录，是否现在去登录？' })) {
+      return
+    }
     wx.navigateTo({
       url: `/pages/issue/all?timeFilter=${encodeURIComponent(this.data.timeFilter)}`
     })
   },
 
   onTotalReturnClick() {
+    // 检查登录状态
+    if (!checkLogin({ title: '需要登录', content: '查看回货统计需要登录，是否现在去登录？' })) {
+      return
+    }
     wx.navigateTo({
       url: `/pages/return/index?timeFilter=${encodeURIComponent(this.data.timeFilter)}`
     })
   },
 
   onReturnedIssueClick() {
+    // 检查登录状态
+    if (!checkLogin({ title: '需要登录', content: '查看已回货统计需要登录，是否现在去登录？' })) {
+      return
+    }
     wx.navigateTo({
       url: `/pages/issue/all?timeFilter=${encodeURIComponent(this.data.timeFilter)}&statusFilter=${encodeURIComponent('部分回货')}`
     })

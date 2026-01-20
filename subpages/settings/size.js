@@ -1,5 +1,5 @@
 // pages/settings/size.js
-import { query, insert, update, remove } from '../../utils/db.js'
+const { query, insert, update, remove } = require('./utils/db.js')
 const app = getApp()
 
 Page({

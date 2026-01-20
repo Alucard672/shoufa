@@ -1,9 +1,9 @@
 // pages/statistics/style.js
-import { query, queryByIds, getStyleById, getFactories, getStyles } from '../../utils/db.js'
-import { getTimeRange, formatWeight, formatQuantity } from '../../utils/calc.js'
-import { checkLogin } from '../../utils/auth.js'
-import { normalizeImageUrl } from '../../utils/image.js'
-import { pickDateHybrid, filterByTimeFilter, pickNumber, pickId } from '../../utils/summary.js'
+const { query, queryByIds, getStyleById, getFactories, getStyles } = require('./utils/db.js')
+const { getTimeRange, formatWeight, formatQuantity } = require('./utils/calc.js')
+const { checkLogin } = require('./utils/auth.js')
+const { normalizeImageUrl } = require('./utils/image.js')
+const { pickDateHybrid, filterByTimeFilter, pickNumber, pickId } = require('./utils/summary.js')
 const app = getApp()
 
 Page({

@@ -1,9 +1,9 @@
 // pages/statistics/factory-detail.js
-import { query, queryByIds } from '../../utils/db.js'
-import { getTimeRange, formatWeight, formatQuantity, formatDateTime } from '../../utils/calc.js'
-import { checkLogin } from '../../utils/auth.js'
-import { normalizeImageUrl } from '../../utils/image.js'
-import { pickDateHybrid, filterByTimeFilter, pickNumber, pickId, pickFirst } from '../../utils/summary.js'
+const { query, queryByIds } = require('./utils/db.js')
+const { getTimeRange, formatWeight, formatQuantity, formatDateTime } = require('./utils/calc.js')
+const { checkLogin } = require('./utils/auth.js')
+const { normalizeImageUrl } = require('./utils/image.js')
+const { pickDateHybrid, filterByTimeFilter, pickNumber, pickId, pickFirst } = require('./utils/summary.js')
 
 Page({
   data: {
@@ -75,7 +75,7 @@ Page({
       excludeDeleted: true,
       orderBy: { field: 'createTime', direction: 'DESC' }
     })
-    
+
     // 排除已作废的发料单
     let issueOrders = (ordersRes.data || []).filter(order => !order.voided)
 
@@ -88,12 +88,12 @@ Page({
     // 3. 批量查询回货单
     const issueIds = issueOrders.map(order => pickId(order, ['_id', 'id']))
     const _ = wx.cloud.database().command
-    
+
     // 获取该工厂下的所有回货单
     const allReturnOrdersRes = await query('return_orders', {
       factoryId: this.data.factoryId
     }, { excludeDeleted: true })
-    
+
     // 排除已作废的回货单
     const allReturnOrders = (allReturnOrdersRes.data || []).filter(order => !order.voided)
     const issueIdsStrSet = new Set(issueIds.map(id => String(id)))
@@ -102,7 +102,7 @@ Page({
     allReturnOrders.forEach(ro => {
       const roIssueId = pickId(ro, ['issueId', 'issue_id'])
       if (!roIssueId) return
-      
+
       if (issueIdsStrSet.has(roIssueId)) {
         if (!returnOrdersMap.has(roIssueId)) returnOrdersMap.set(roIssueId, [])
         returnOrdersMap.get(roIssueId).push(ro)
@@ -114,7 +114,7 @@ Page({
       const orderIdStr = pickId(order, ['_id', 'id'])
       const style = stylesMap.get(pickId(order, ['styleId', 'style_id']))
       const returnOrders = returnOrdersMap.get(orderIdStr) || []
-      
+
       let totalReturnPieces = 0
       let totalReturnWeight = 0
       let latestReturnDate = null
@@ -128,7 +128,7 @@ Page({
 
       const issueWeight = pickNumber(order, ['issueWeight', 'issue_weight'], 0)
       const remainingYarn = issueWeight - totalReturnWeight
-      
+
       // 状态逻辑
       let status = order.status || '未回货'
       if (status !== '已完成') {
@@ -142,7 +142,7 @@ Page({
       return {
         ...order,
         styleCode: pickFirst(style, ['styleCode', 'style_code']) || '',
-        styleName: pickFirst(style, ['styleName', 'style_name', 'name']) || '未知款号',
+        styleName: pickFirst(style, ['styleName', 'style_name', 'name']) || '',
         styleImageUrl: normalizeImageUrl(style),
         status,
         totalReturnPieces,

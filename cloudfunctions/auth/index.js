@@ -168,9 +168,10 @@ exports.main = async (event, context) => {
                     const matchedTenant = tenantMatchRes.data[0]
                     console.log('成功匹配到企业租户:', matchedTenant.name)
                     
-                    if (matchedTenant.stopFlag === 1 || matchedTenant.stopFlag === true) {
-                        return { success: false, code: 'TENANT_DISABLED', msg: '该企业已停用' }
-                    }
+                    // 已注释：限制登录功能 - 企业停用检查
+                    // if (matchedTenant.stopFlag === 1 || matchedTenant.stopFlag === true) {
+                    //     return { success: false, code: 'TENANT_DISABLED', msg: '该企业已停用' }
+                    // }
 
                     // 自动创建绑定记录
                     const newUser = {
@@ -222,9 +223,10 @@ exports.main = async (event, context) => {
 
                 if (tenantMatchRes2.data && tenantMatchRes2.data.length > 0) {
                     const matchedTenant = tenantMatchRes2.data[0]
-                    if (matchedTenant.stopFlag === 1 || matchedTenant.stopFlag === true) {
-                        return { success: false, code: 'TENANT_DISABLED', msg: '该企业已停用' }
-                    }
+                    // 已注释：限制登录功能 - 企业停用检查
+                    // if (matchedTenant.stopFlag === 1 || matchedTenant.stopFlag === true) {
+                    //     return { success: false, code: 'TENANT_DISABLED', msg: '该企业已停用' }
+                    // }
                     // 修复 user 绑定关系
                     try {
                         await db.collection('users').doc(userRecord._id).update({
@@ -248,10 +250,10 @@ exports.main = async (event, context) => {
                 }
             }
 
-            // 再次校验企业停用状态（兼容历史数据）
-            if (tenantData && (tenantData.stopFlag === 1 || tenantData.stopFlag === true)) {
-                return { success: false, code: 'TENANT_DISABLED', msg: '该企业已停用' }
-            }
+            // 已注释：限制登录功能 - 再次校验企业停用状态（兼容历史数据）
+            // if (tenantData && (tenantData.stopFlag === 1 || tenantData.stopFlag === true)) {
+            //     return { success: false, code: 'TENANT_DISABLED', msg: '该企业已停用' }
+            // }
 
             // 4. 更新登录状态
             const updateData = {

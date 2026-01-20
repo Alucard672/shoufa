@@ -1,8 +1,8 @@
 // pages/statistics/factory.js
-import { query, queryByIds } from '../../utils/db.js'
-import { formatWeight, formatQuantity } from '../../utils/calc.js'
-import { checkLogin } from '../../utils/auth.js'
-import { pickDateHybrid, filterByTimeFilter, pickNumber, pickId, pickFirst } from '../../utils/summary.js'
+const { query, queryByIds } = require('./utils/db.js')
+const { formatWeight, formatQuantity } = require('./utils/calc.js')
+const { checkLogin } = require('./utils/auth.js')
+const { pickDateHybrid, filterByTimeFilter, pickNumber, pickId, pickFirst } = require('./utils/summary.js')
 const app = getApp()
 
 Page({

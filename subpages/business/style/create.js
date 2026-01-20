@@ -1,7 +1,7 @@
 // pages/style/create.js
-import { query, getStyleById, insert, update } from '../../utils/db.js'
-import { checkLogin } from '../../utils/auth.js'
-import { getImageUrl } from '../../utils/image.js'
+const { query, getStyleById, insert, update } = require('../utils/db.js')
+const { checkLogin } = require('../utils/auth.js')
+const { getImageUrl } = require('../utils/image.js')
 const app = getApp()
 
 Page({
@@ -357,7 +357,7 @@ Page({
           actualUsage: (styleData.actualUsage || styleData.actual_usage) ? (styleData.actualUsage || styleData.actual_usage).toString() : '',
           processingFeePerDozen: (styleData.processingFeePerDozen || styleData.processing_fee_per_dozen) ? (styleData.processingFeePerDozen || styleData.processing_fee_per_dozen).toString() : '',
           processingFeePerPiece: (() => {
-            const { getPiecesPerDozenSync } = require('../../utils/systemParams.js')
+            const { getPiecesPerDozenSync } = require('../utils/systemParams.js')
             const piecesPerDozen = getPiecesPerDozenSync()
             return (styleData.processingFeePerDozen || styleData.processing_fee_per_dozen) ? ((parseFloat(styleData.processingFeePerDozen || styleData.processing_fee_per_dozen) / piecesPerDozen).toFixed(2)) : '0.00'
           })(),
@@ -379,7 +379,7 @@ Page({
         this.setData(formData)
 
         this.calculateActualUsage()
-        
+
         wx.hideLoading()
         wx.showToast({
           title: '加载成功',
@@ -484,7 +484,7 @@ Page({
   },
 
   onProcessingFeeInput(e) {
-    const { getPiecesPerDozenSync } = require('../../utils/systemParams.js')
+    const { getPiecesPerDozenSync } = require('../utils/systemParams.js')
     const piecesPerDozen = getPiecesPerDozenSync()
     const value = e.detail.value
     const feePerDozen = parseFloat(value) || 0
@@ -751,10 +751,10 @@ Page({
 
     try {
       // 检查款号是否重复
-      const existingStyles = await query('styles', { 
-        styleCode: this.data.styleCode.trim() 
+      const existingStyles = await query('styles', {
+        styleCode: this.data.styleCode.trim()
       }, { excludeDeleted: true })
-      
+
       // 新增模式：不能有同名款号
       // 编辑模式：不能有同名款号（排除自己）
       const duplicates = existingStyles.data.filter(s => {
@@ -763,7 +763,7 @@ Page({
         }
         return true
       })
-      
+
       if (duplicates.length > 0) {
         wx.showToast({
           title: '款号已存在，请使用其他款号',
@@ -880,16 +880,15 @@ Page({
   async onToggleDisabled() {
     const newStatus = !this.data.disabled
     const action = newStatus ? '停用' : '启用'
-    
+
     // 如果要停用，先检查是否有未完成的发料单
     if (newStatus) {
       try {
         wx.showLoading({ title: '检查中...' })
-        
-        const { query } = await import('../../utils/db.js')
+
         const db = wx.cloud.database()
         const _ = db.command
-        
+
         // 查询该款号下所有未完成的发料单（未删除、未作废、状态不是"已完成"）
         const issueOrdersRes = await db.collection('issue_orders')
           .where({
@@ -899,16 +898,16 @@ Page({
             status: _.neq('已完成')
           })
           .get()
-        
+
         const incompleteOrders = (issueOrdersRes.data || []).filter(order => {
           // 双重检查：确保不是已完成、未删除、未作废
-          return order.status !== '已完成' && 
-                 order.deleted !== true && 
-                 order.voided !== true
+          return order.status !== '已完成' &&
+            order.deleted !== true &&
+            order.voided !== true
         })
-        
+
         wx.hideLoading()
-        
+
         if (incompleteOrders.length > 0) {
           wx.showModal({
             title: '无法停用',
@@ -936,7 +935,7 @@ Page({
         return
       }
     }
-    
+
     wx.showModal({
       title: '确认' + action,
       content: `确定要${action}款号 "${this.data.styleCode}" 吗？${newStatus ? '停用后该款号将不会出现在选择列表中。' : ''}`,
@@ -944,9 +943,9 @@ Page({
         if (res.confirm) {
           try {
             wx.showLoading({ title: '处理中...' })
-            
+
             console.log('开始' + action + '款号:', this.data.styleId)
-            
+
             // 直接使用云数据库操作，强制设置属性
             const db = wx.cloud.database()
             const result = await db.collection('styles')
@@ -957,20 +956,20 @@ Page({
                   updateTime: db.serverDate()
                 }
               })
-            
+
             console.log('停用操作数据库返回:', result)
-            
+
             // 确认更新成功
             if (result.stats.updated === 0) {
               throw new Error('权限不足或记录不存在，请检查数据库权限设置')
             }
-            
+
             wx.hideLoading()
             wx.showToast({
               title: action + '成功',
               icon: 'success'
             })
-            
+
             // 延迟返回列表
             setTimeout(() => {
               wx.navigateBack()
@@ -1048,7 +1047,7 @@ Page({
 
       // 获取文件ID
       const fileID = uploadResult.fileID
-      
+
       // 保存原始 fileID 用于数据库存储，同时获取临时URL用于显示
       let displayUrl = fileID
       try {

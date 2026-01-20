@@ -1,12 +1,16 @@
 // pages/accounting/detail.js
-import { queryByIds } from '../../utils/db.js'
-import { checkLogin, getTenantId } from '../../utils/auth.js'
-import { formatAmount, formatDate, formatQuantity, formatWeight, formatDateTime } from '../../utils/calc.js'
-import { normalizeImageUrl, batchGetImageUrls } from '../../utils/image.js'
-import { pickNumber, pickId } from '../../utils/summary.js'
+const { queryByIds } = require('../utils/db.js')
+const { checkLogin, getTenantId } = require('../utils/auth.js')
+const { formatAmount, formatDate, formatQuantity, formatWeight, formatDateTime } = require('../utils/calc.js')
+const { normalizeImageUrl, batchGetImageUrls } = require('../utils/image.js')
+const { pickNumber, pickId } = require('../utils/summary.js')
 const app = getApp()
-const db = wx.cloud.database()
-const _ = db.command
+// 延迟初始化
+let _db = null, _cmd = null
+function getDb() { if (!_db) _db = wx.cloud.database(); return _db }
+function getCmd() { if (!_cmd) _cmd = getDb().command; return _cmd }
+const db = new Proxy({}, { get(t, p) { return getDb()[p] } })
+const _ = new Proxy({}, { get(t, p) { return getCmd()[p] } })
 
 Page({
   data: {
@@ -260,7 +264,7 @@ Page({
         return {
           ...order,
           settlementStatus: settlementStatus,
-          styleName: style?.styleName || style?.style_name || '未知款号',
+          styleName: style?.styleName || style?.style_name || '',
           styleCode: style?.styleCode || style?.style_code || '',
           styleImageUrl: styleImageUrl,
           employeeName: order.employeeName || order.operatorName || '系统管理员',
@@ -669,7 +673,7 @@ Page({
             // 操作人 · 款号
             ctx.setFillStyle('#64748B')
             ctx.setFontSize(26)
-            const metaText = `${order.employeeName || '系统管理员'}  ·  ${order.styleCode || order.styleName || '未知款号'}`
+            const metaText = `${order.employeeName || '系统管理员'}  ·  ${order.styleCode || order.styleName || ''}`
             // 文本过长时截断（避免超出画布）
             const maxTextWidth = canvasWidth - padding * 2 - cardPadding * 2 - 20
             ctx.fillText(metaText.length > 35 ? metaText.substring(0, 35) + '...' : metaText, x + cardPadding, y + 160)

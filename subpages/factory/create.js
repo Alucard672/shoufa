@@ -1,7 +1,7 @@
 // pages/factory/create.js
-import { formatAmount } from '../../utils/calc.js'
-import { queryByIds, insert, update } from '../../utils/db.js'
-import { checkLogin } from '../../utils/auth.js'
+const { formatAmount } = require('./utils/calc.js')
+const { queryByIds, insert, update } = require('./utils/db.js')
+const { checkLogin } = require('./utils/auth.js')
 const app = getApp()
 Page({
   data: {
@@ -64,7 +64,7 @@ Page({
       if (result.data && result.data.length > 0) {
         const factoryData = result.data[0]
         console.log('加工厂原始数据:', factoryData)
-        
+
         // 验证租户权限
         if (factoryData.tenantId && factoryData.tenantId !== app.globalData.tenantId) {
           throw new Error('无权访问该加工厂')
@@ -89,7 +89,7 @@ Page({
 
         console.log('设置表单数据:', formData)
         this.setData(formData)
-        
+
         wx.hideLoading()
         wx.showToast({
           title: '加载成功',
@@ -211,15 +211,15 @@ Page({
   async onToggleDisabled() {
     const newStatus = !this.data.disabled
     const action = newStatus ? '停用' : '启用'
-    
+
     // 如果要停用，先检查是否有未完成的发料单
     if (newStatus) {
       try {
         wx.showLoading({ title: '检查中...' })
-        
+
         const db = wx.cloud.database()
         const _ = db.command
-        
+
         // 查询该加工厂下所有未完成的发料单（未删除、未作废、状态不是"已完成"）
         const issueOrdersRes = await db.collection('issue_orders')
           .where({
@@ -229,16 +229,16 @@ Page({
             status: _.neq('已完成')
           })
           .get()
-        
+
         const incompleteOrders = (issueOrdersRes.data || []).filter(order => {
           // 双重检查：确保不是已完成、未删除、未作废
-          return order.status !== '已完成' && 
-                 order.deleted !== true && 
-                 order.voided !== true
+          return order.status !== '已完成' &&
+            order.deleted !== true &&
+            order.voided !== true
         })
-        
+
         wx.hideLoading()
-        
+
         if (incompleteOrders.length > 0) {
           wx.showModal({
             title: '无法停用',
@@ -266,7 +266,7 @@ Page({
         return
       }
     }
-    
+
     wx.showModal({
       title: '确认' + action,
       content: `确定要${action}加工厂 "${this.data.name}" 吗？${newStatus ? '停用后该加工厂将不会出现在选择列表中。' : ''}`,
@@ -274,9 +274,9 @@ Page({
         if (res.confirm) {
           try {
             wx.showLoading({ title: '处理中...' })
-            
+
             console.log('开始' + action + '加工厂:', this.data.factoryId)
-            
+
             const db = wx.cloud.database()
             const result = await db.collection('factories')
               .doc(this.data.factoryId)
@@ -286,19 +286,19 @@ Page({
                   updateTime: db.serverDate()
                 }
               })
-            
+
             console.log(action + '结果:', result)
-            
+
             if (result.stats.updated === 0) {
               throw new Error('权限不足或记录不存在，请检查数据库权限设置')
             }
-            
+
             wx.hideLoading()
             wx.showToast({
               title: action + '成功',
               icon: 'success'
             })
-            
+
             // 延迟返回列表
             setTimeout(() => {
               wx.navigateBack()

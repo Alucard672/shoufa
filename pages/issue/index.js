@@ -118,7 +118,7 @@ Page({
 
   onLoad() {
     // 检查登录状态
-    if (!checkLogin()) {
+    if (!checkLogin({ showModal: false })) {
       return
     }
     this.loadData()
@@ -126,7 +126,7 @@ Page({
 
   onShow() {
     // 检查登录状态
-    if (!checkLogin()) {
+    if (!checkLogin({ showModal: false })) {
       return
     }
     this.loadData()
@@ -163,17 +163,17 @@ Page({
     let totalReturnYarn = 0
     let totalReturnQuantity = 0
 
-    // 排除作废/删除回货单（与后端口径一致）
-    ;(returnOrdersList || []).filter((ro) => !ro?.voided && !ro?.deleted).forEach(order => {
-      // 兼容老数据：有的回货单只存 returnQuantity(打数)，没有 returnPieces(件数)
-      const rp = pickNumber(order, ['returnPieces', 'return_pieces'], 0)
-      const rq = pickNumber(order, ['returnQuantity', 'return_quantity'], 0)
-      const pieces = rp > 0 ? rp : (rq > 0 ? calculateReturnPieces(rq) : 0)
+      // 排除作废/删除回货单（与后端口径一致）
+      ; (returnOrdersList || []).filter((ro) => !ro?.voided && !ro?.deleted).forEach(order => {
+        // 兼容老数据：有的回货单只存 returnQuantity(打数)，没有 returnPieces(件数)
+        const rp = pickNumber(order, ['returnPieces', 'return_pieces'], 0)
+        const rq = pickNumber(order, ['returnQuantity', 'return_quantity'], 0)
+        const pieces = rp > 0 ? rp : (rq > 0 ? calculateReturnPieces(rq) : 0)
 
-      totalReturnPieces += pieces
-      totalReturnYarn += pickNumber(order, ['actualYarnUsage', 'actual_yarn_usage'], 0)
-      totalReturnQuantity += rq
-    })
+        totalReturnPieces += pieces
+        totalReturnYarn += pickNumber(order, ['actualYarnUsage', 'actual_yarn_usage'], 0)
+        totalReturnQuantity += rq
+      })
 
     const issueWeight = issueOrder.issueWeight || issueOrder.issue_weight || 0
     const issuePieces = yarnUsagePerPiece > 0 ? Math.floor((issueWeight * 1000) / yarnUsagePerPiece) : 0
@@ -221,7 +221,7 @@ Page({
     })
 
     let orders = result.data || []
-    
+
     // 客户端进行时间筛选（hybrid：issueDate 优先，缺失用 createTime 兜底）
     orders = filterByTimeFilter(orders, this.data.timeFilter, (o) =>
       pickDateHybrid(o, ['issueDate', 'issue_date'], ['createTime', 'create_time'])
@@ -369,13 +369,13 @@ Page({
         const id = style._id || style.id
         stylesMap.set(String(id), style)
       })
-      
+
       // 批量转换图片URL（cloud:// -> 临时链接）
       try {
         const imageUrls = Array.from(stylesMap.values())
           .map(style => normalizeImageUrl(style))
           .filter(url => url && url.startsWith('cloud://'))
-        
+
         if (imageUrls.length > 0) {
           const imageUrlMap = await batchGetImageUrls(imageUrls)
           // 更新 stylesMap 中的图片URL
@@ -384,7 +384,7 @@ Page({
             if (originalUrl && originalUrl.startsWith('cloud://')) {
               // 保存原始URL
               style.originalImageUrl = originalUrl
-              
+
               // 只有成功转换的URL才使用（不是cloud://格式）
               if (imageUrlMap.has(originalUrl)) {
                 const tempUrl = imageUrlMap.get(originalUrl)
@@ -438,13 +438,13 @@ Page({
 
         const merged = []
         const seen = new Set()
-        ;(byIssueId.data || []).concat(byIssue_id.data || []).forEach(ro => {
-          const key = String(ro._id || ro.id || `${ro.issueId || ro.issue_id}-${ro.createTime || ro.create_time || ''}`)
-          if (!seen.has(key)) {
-            seen.add(key)
-            merged.push(ro)
-          }
-        })
+          ; (byIssueId.data || []).concat(byIssue_id.data || []).forEach(ro => {
+            const key = String(ro._id || ro.id || `${ro.issueId || ro.issue_id}-${ro.createTime || ro.create_time || ''}`)
+            if (!seen.has(key)) {
+              seen.add(key)
+              merged.push(ro)
+            }
+          })
 
         // 如果仍然为空，用内存匹配兜底（同时兼容数字 id）
         let allReturnOrders = merged
@@ -490,7 +490,7 @@ Page({
           const factoryId = order.factoryId || order.factory_id
           const styleId = order.styleId || order.style_id
           const orderId = order._id || order.id
-          
+
           const factory = factoriesMap.get(String(factoryId))
           const style = stylesMap.get(String(styleId))
           // 兼容 string 和 number 类型的 key
@@ -564,16 +564,16 @@ Page({
           if (imageUrl && imageUrl.startsWith('cloud://')) {
             imageUrl = ''
           }
-          
+
           // 获取损耗率
           const lossRate = style?.lossRate || style?.loss_rate || 0
-          
+
           return {
             ...order,
             _id: orderId,
             voided: order.voided || false, // 是否已作废
             factoryName: factory?.name || '未知工厂',
-            styleName: style?.styleName || style?.style_name || '未知款号',
+            styleName: style?.styleName || style?.style_name || '',
             styleCode: style?.styleCode || style?.style_code || '',
             styleImageUrl: imageUrl,
             color: order.color || '',
@@ -630,7 +630,7 @@ Page({
 
     // 应用状态筛选
     let finalOrders = ordersAfterSearch || []
-    
+
     if (this.data.statusFilter === '已作废') {
       // 只显示已作废的单据
       finalOrders = ordersAfterSearch.filter(order => order.voided)
@@ -723,7 +723,7 @@ Page({
   navigateToDetail(e) {
     const id = e.currentTarget.dataset.id
     const index = e.currentTarget.dataset.index
-    
+
     // 如果当前项已展开，点击卡片时先收回
     if (this.data.currentSwipeIndex === index) {
       const displayOrders = this.data.displayOrders
@@ -734,7 +734,7 @@ Page({
       })
       return
     }
-    
+
     // 如果有其他项展开，先收回
     if (this.data.currentSwipeIndex >= 0 && this.data.currentSwipeIndex !== index) {
       const displayOrders = this.data.displayOrders
@@ -744,9 +744,19 @@ Page({
         currentSwipeIndex: -1
       })
     }
-    
+
     wx.navigateTo({
       url: `/pages/issue/detail?id=${id}`
+    })
+  },
+
+  navigateToCreate() {
+    // 检查登录状态
+    if (!checkLogin({ title: '需要登录', content: '创建发料单需要登录，是否现在去登录？' })) {
+      return
+    }
+    wx.navigateTo({
+      url: '/pages/issue/create'
     })
   },
 
@@ -758,7 +768,7 @@ Page({
       console.warn('onSwipeStart: 无效的索引或元素不存在', { index, displayOrdersLength: this.data.displayOrders?.length })
       return
     }
-    
+
     const touch = e.touches[0]
     const currentOffset = this.data.displayOrders[index].swipeOffset || 0
     this.setData({
@@ -774,17 +784,17 @@ Page({
     if (isNaN(index) || !this.data.displayOrders || !this.data.displayOrders[index]) {
       return
     }
-    
+
     const touch = e.touches[0]
     const deltaX = touch.clientX - this.data.swipeStartX
     const startOffset = this.data.swipeStartOffset || 0
-    
+
     // 计算新的偏移量
     let newOffset = startOffset + deltaX
-    
+
     // 限制在 -140 到 0 之间（两个按钮各 70px）
     newOffset = Math.max(-140, Math.min(0, newOffset))
-    
+
     const displayOrders = this.data.displayOrders
     // 再次检查元素是否存在（防止在移动过程中数据被更新）
     if (displayOrders[index]) {
@@ -802,10 +812,10 @@ Page({
       console.warn('onSwipeEnd: 无效的索引或元素不存在', { index, displayOrdersLength: this.data.displayOrders?.length })
       return
     }
-    
+
     const displayOrders = this.data.displayOrders
     const currentOffset = displayOrders[index].swipeOffset || 0
-    
+
     // 如果滑动超过一半，则完全展开，否则收回
     let finalOffset = 0
     if (currentOffset < -70) {
@@ -813,14 +823,14 @@ Page({
     } else if (currentOffset < 0) {
       finalOffset = 0 // 收回
     }
-    
+
     // 如果其他项已展开，先收回（需要检查元素是否存在）
     if (this.data.currentSwipeIndex >= 0 && this.data.currentSwipeIndex !== index) {
       if (displayOrders[this.data.currentSwipeIndex]) {
         displayOrders[this.data.currentSwipeIndex].swipeOffset = 0
       }
     }
-    
+
     // 再次检查元素是否存在（防止在滑动过程中数据被更新）
     if (displayOrders[index]) {
       displayOrders[index].swipeOffset = finalOffset
@@ -835,7 +845,7 @@ Page({
   onEditIssue(e) {
     const id = e.currentTarget.dataset.id
     const index = e.currentTarget.dataset.index
-    
+
     // 收回滑动
     const displayOrders = this.data.displayOrders
     displayOrders[index].swipeOffset = 0
@@ -843,7 +853,7 @@ Page({
       displayOrders: displayOrders,
       currentSwipeIndex: -1
     })
-    
+
     wx.navigateTo({
       url: `/pages/issue/create?id=${id}`
     })
@@ -853,7 +863,7 @@ Page({
   async onVoidIssue(e) {
     const id = e.currentTarget.dataset.id
     const index = parseInt(e.currentTarget.dataset.index, 10)
-    
+
     // 安全检查：确保索引有效且元素存在
     if (isNaN(index) || !this.data.displayOrders || !this.data.displayOrders[index]) {
       console.warn('onVoidIssue: 无效的索引或元素不存在', { index, displayOrdersLength: this.data.displayOrders?.length })
@@ -863,11 +873,11 @@ Page({
       })
       return
     }
-    
+
     const item = this.data.displayOrders[index]
     const isVoided = item.voided || false
     const action = isVoided ? '恢复' : '作废'
-    
+
     // 收回滑动
     const displayOrders = this.data.displayOrders
     if (displayOrders[index]) {
@@ -877,7 +887,7 @@ Page({
         currentSwipeIndex: -1
       })
     }
-    
+
     wx.showModal({
       title: `确认${action}`,
       content: `确定要${action}发料单 "${item.issueNo || ''}" 吗？`,
@@ -900,13 +910,13 @@ Page({
             if (!res2.result || !res2.result.success) {
               throw new Error((res2.result && (res2.result.error || res2.result.msg)) || '操作失败')
             }
-            
+
             wx.hideLoading()
             wx.showToast({
               title: `${action}成功`,
               icon: 'success'
             })
-            
+
             // 重新加载数据
             await this.loadIssueOrders()
           } catch (error) {
@@ -928,13 +938,13 @@ Page({
     if (!checkLogin()) {
       return
     }
-    
+
     // 检查订阅状态，如果已过期则阻止操作
     const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
     if (checkSubscriptionAndBlock()) {
       return // 已过期，已阻止操作
     }
-    
+
     wx.navigateTo({
       url: '/pages/issue/create'
     })
@@ -956,7 +966,7 @@ Page({
     if (!checkLogin()) {
       return
     }
-    
+
     const issueId = e.currentTarget.dataset.id
 
     wx.showModal({
@@ -1038,14 +1048,14 @@ Page({
     const issueOrderId = e.currentTarget.dataset.id
     console.log('分享发料单，ID:', issueOrderId)
     console.log('当前 issueOrders 数量:', this.data.issueOrders.length)
-    
+
     const issueOrder = this.data.issueOrders.find(order => {
       const orderId = order._id || order.id
       return orderId === issueOrderId || String(orderId) === String(issueOrderId)
     })
-    
+
     console.log('找到的发料单:', issueOrder)
-    
+
     if (!issueOrder) {
       wx.showToast({
         title: '发料单不存在',
@@ -1064,7 +1074,7 @@ Page({
       })
 
       const imagePath = await this.generateShareImage()
-      
+
       this.setData({
         shareImagePath: imagePath,
         showShareModal: true
@@ -1157,7 +1167,7 @@ Page({
         this.drawRoundedRect(ctx, padding, 60, 96, 96, 24)
         ctx.fill()
         ctx.restore()
-        
+
         ctx.setFillStyle('#FFFFFF')
         ctx.setFontSize(44)
         ctx.setTextAlign('center')
@@ -1196,7 +1206,7 @@ Page({
 
         ctx.setFillStyle('#1E293B')
         ctx.setFontSize(32)
-        ctx.fillText(issueOrder.styleName || '未知款号', padding + 150, styleCardY + 85)
+        ctx.fillText(issueOrder.styleName || '', padding + 150, styleCardY + 85)
         ctx.setFillStyle('#64748B')
         ctx.setFontSize(26)
         ctx.fillText(`款号: ${issueOrder.styleCode || '-'}  ·  颜色: ${issueOrder.color || '-'}`, padding + 150, styleCardY + 130)
@@ -1266,7 +1276,7 @@ Page({
             ctx.setFillStyle('#1E293B')
             ctx.setFontSize(30)
             ctx.fillText(ro.returnDateFormatted, x + cardPadding, y + 60)
-            
+
             ctx.setFillStyle('#10B981')
             ctx.setFontSize(32)
             ctx.setTextAlign('right')

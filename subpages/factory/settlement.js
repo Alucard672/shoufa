@@ -1,9 +1,13 @@
-import { formatDate, formatAmount, formatQuantity } from '../../utils/calc.js'
-import { query, queryByIds, insert, update } from '../../utils/db.js'
-import { checkLogin } from '../../utils/auth.js'
+const { formatDate, formatAmount, formatQuantity } = require('./utils/calc.js')
+const { query, queryByIds, insert, update } = require('./utils/db.js')
+const { checkLogin } = require('./utils/auth.js')
 const app = getApp()
-const db = wx.cloud.database()
-const _ = db.command
+// 延迟初始化
+let _db = null, _cmd = null
+function getDb() { if (!_db) _db = wx.cloud.database(); return _db }
+function getCmd() { if (!_cmd) _cmd = getDb().command; return _cmd }
+const db = new Proxy({}, { get(t, p) { return getDb()[p] } })
+const _ = new Proxy({}, { get(t, p) { return getCmd()[p] } })
 
 Page({
   data: {
@@ -100,13 +104,13 @@ Page({
     // 合并并去重
     const merged = []
     const seen = new Set()
-    ;(byFactoryId.data || []).concat(byFactory_id.data || []).forEach(order => {
-      const key = String(order._id || order.id || '')
-      if (key && !seen.has(key)) {
-        seen.add(key)
-        merged.push(order)
-      }
-    })
+      ; (byFactoryId.data || []).concat(byFactory_id.data || []).forEach(order => {
+        const key = String(order._id || order.id || '')
+        if (key && !seen.has(key)) {
+          seen.add(key)
+          merged.push(order)
+        }
+      })
 
     // 在客户端过滤：只显示未结算和部分结算的回货单
     // 兼容 settlementStatus 和 settlement_status 字段
@@ -203,7 +207,7 @@ Page({
 
         return {
           ...order,
-          styleName: style?.styleName || style?.style_name || '未知款号',
+          styleName: style?.styleName || style?.style_name || '',
           styleCode: style?.styleCode || style?.style_code || '',
           issueNo: issueOrder?.issueNo || issueOrder?.issue_no || '未知',
           returnDateFormatted: formatDate(order.returnDate || order.return_date),
@@ -399,7 +403,7 @@ Page({
       const updatePromises = selectedOrders.map(order => {
         const orderId = order._id || order.id
         const id = typeof orderId === 'string' && /^\d+$/.test(orderId) ? parseInt(orderId) : orderId
-        
+
         const newSettledAmount = (order.settledAmount || order.settled_amount || 0) + order.settlementAmount
         const processingFee = order.processingFee || order.processing_fee || 0
 

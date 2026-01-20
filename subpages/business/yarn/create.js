@@ -1,6 +1,6 @@
 // pages/yarn/create.js
-import { query, insert, update } from '../../utils/db.js'
-import { checkLogin } from '../../utils/auth.js'
+const { query, insert, update } = require('../utils/db.js')
+const { checkLogin } = require('../utils/auth.js')
 const app = getApp()
 
 Page({

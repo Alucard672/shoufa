@@ -2,7 +2,7 @@
 // 付费页面
 
 const app = getApp()
-const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
+const { checkSubscriptionAndBlock } = require('./utils/auth.js')
 
 Page({
   data: {
@@ -67,7 +67,7 @@ Page({
     }
     this.loadSubscriptionStatus()
   },
-  
+
   onShow() {
     // 每次显示时检查订阅状态
     this.loadSubscriptionStatus()
@@ -88,16 +88,16 @@ Page({
       return
     }
 
-    const { 
-      getTenantSubscriptionStatus, 
-      formatRemainingDays, 
-      formatExpireDate 
-    } = require('../../utils/subscription.js')
-    
+    const {
+      getTenantSubscriptionStatus,
+      formatRemainingDays,
+      formatExpireDate
+    } = require('./utils/subscription.js')
+
     const subscriptionStatus = getTenantSubscriptionStatus(tenantInfo)
     const remainingDaysText = formatRemainingDays(tenantInfo.expireDate || tenantInfo.expire_date)
     const expireDateText = formatExpireDate(tenantInfo.expireDate || tenantInfo.expire_date)
-    
+
     this.setData({
       subscriptionStatus: subscriptionStatus,
       remainingDaysText: remainingDaysText,
@@ -109,7 +109,7 @@ Page({
   onSelectPackage(e) {
     const packageId = e.currentTarget.dataset.id
     const selectedPackage = this.data.packages.find(pkg => pkg.id === packageId)
-    
+
     this.setData({
       selectedPackage: selectedPackage
     })
@@ -163,7 +163,7 @@ Page({
 
       if (res.result && res.result.success) {
         const { paymentParams, outTradeNo } = res.result
-        
+
         // 调用微信支付
         wx.requestPayment({
           ...paymentParams,
@@ -172,7 +172,7 @@ Page({
               title: '确认支付结果...',
               mask: true
             })
-            
+
             try {
               // 支付成功，调用云函数确认并更新状态
               const confirmRes = await wx.cloud.callFunction({
@@ -182,15 +182,15 @@ Page({
                   outTradeNo: outTradeNo
                 }
               })
-              
+
               wx.hideLoading()
-              
+
               if (confirmRes.result && confirmRes.result.success) {
                 wx.showToast({
                   title: '支付成功',
                   icon: 'success'
                 })
-                
+
                 // 刷新订阅状态
                 setTimeout(() => {
                   this.loadSubscriptionStatus()

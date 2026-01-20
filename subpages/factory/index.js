@@ -1,12 +1,16 @@
 // pages/factory/index.js
-import { getFactories } from '../../utils/db.js'
-import { formatAmount, formatWeight } from '../../utils/calc.js'
-import { count, query } from '../../utils/db.js'
-import { checkLogin } from '../../utils/auth.js'
-import { pickNumber } from '../../utils/summary.js'
+const { getFactories } = require('./utils/db.js')
+const { formatAmount, formatWeight } = require('./utils/calc.js')
+const { count, query } = require('./utils/db.js')
+const { checkLogin } = require('./utils/auth.js')
+const { pickNumber } = require('./utils/summary.js')
 const app = getApp()
-const db = wx.cloud.database()
-const _ = db.command
+// 延迟初始化
+let _db = null, _cmd = null
+function getDb() { if (!_db) _db = wx.cloud.database(); return _db }
+function getCmd() { if (!_cmd) _cmd = getDb().command; return _cmd }
+const db = new Proxy({}, { get(t, p) { return getDb()[p] } })
+const _ = new Proxy({}, { get(t, p) { return getCmd()[p] } })
 
 Page({
   data: {
@@ -30,7 +34,7 @@ Page({
     }
 
     // 检查订阅状态，如果已过期则阻止操作
-    const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
+    const { checkSubscriptionAndBlock } = require('./utils/auth.js')
     if (checkSubscriptionAndBlock({ showModal: false })) {
       // 已过期，返回上一页
       wx.navigateBack()

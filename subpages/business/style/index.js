@@ -1,7 +1,7 @@
 // pages/style/index.js
-import { query } from '../../utils/db.js'
-import { checkLogin } from '../../utils/auth.js'
-import { normalizeImageUrl, batchGetImageUrls } from '../../utils/image.js'
+const { query } = require('../utils/db.js')
+const { checkLogin } = require('../utils/auth.js')
+const { normalizeImageUrl, batchGetImageUrls } = require('../utils/image.js')
 const app = getApp()
 
 Page({
@@ -26,7 +26,7 @@ Page({
     }
 
     // 检查订阅状态，如果已过期则阻止操作
-    const { checkSubscriptionAndBlock } = require('../../utils/auth.js')
+    const { checkSubscriptionAndBlock } = require('../utils/auth.js')
     if (checkSubscriptionAndBlock({ showModal: false })) {
       // 已过期，返回上一页
       wx.navigateBack()

@@ -78,6 +78,11 @@
     >
       <text>开发环境直接登录</text>
     </button>
+
+    <!-- 返回首页按钮 -->
+    <button class="back-link-btn" bindtap="goBack">
+      <text>返回首页，先随便看看</text>
+    </button>
     
     <view class="login-tip">
       <text>登录即代表您同意并遵守</text>

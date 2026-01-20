@@ -34,13 +34,16 @@ export function checkLogin(options = {}) {
       wx.showModal({
         title: title,
         content: content,
-        showCancel: false,
+        showCancel: true,
+        cancelText: '取消',
         confirmText: '去登录',
-        success: () => {
-          // 跳转到"我的"页面，用户可以在那里点击头像登录
-          wx.switchTab({
-            url: '/pages/mine/index'
-          })
+        success: (res) => {
+          if (res.confirm) {
+            // 跳转到"我的"页面，用户可以在那里点击头像登录
+            wx.switchTab({
+              url: '/pages/mine/index'
+            })
+          }
         }
       })
     } else {

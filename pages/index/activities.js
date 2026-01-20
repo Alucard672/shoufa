@@ -157,7 +157,7 @@ Page({
         const style = sMap[String(o.styleId || o.style_id)]
         
         const fName = factory?.name || '未知厂家'
-        const sName = style?.styleName || style?.style_name || '未知款号'
+        const sName = style?.styleName || style?.style_name || ''
         const sCode = style?.styleCode || style?.style_code || ''
         const sDisplay = `${sCode ? '['+sCode+'] ' : ''}${sName}`
         

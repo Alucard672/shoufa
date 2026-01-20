@@ -4,7 +4,10 @@ import { checkLogin } from '../../utils/auth.js'
 import { formatAmount, formatDate, formatQuantity, formatWeight, formatDateTime } from '../../utils/calc.js'
 import { normalizeImageUrl, getImageUrl } from '../../utils/image.js'
 const app = getApp()
-const db = wx.cloud.database()
+// 延迟初始化，避免在 wx.cloud.init() 之前调用
+let _db = null
+function getDb() { if (!_db) _db = wx.cloud.database(); return _db }
+const db = new Proxy({}, { get(t, p) { return getDb()[p] } })
 
 Page({
   data: {
@@ -109,7 +112,7 @@ Page({
           _id: order._id || this.data.returnId,
           voided: order.voided || false, // 是否已作废
           factoryName: factory?.name || '未知工厂',
-          styleName: style?.styleName || style?.style_name || '未知款号',
+          styleName: style?.styleName || style?.style_name || '',
           styleCode: style?.styleCode || style?.style_code || '',
           styleImageUrl: styleImageUrl,
           issueNo: issueOrder?.issueNo || issueOrder?.issue_no || '未知',
@@ -201,13 +204,13 @@ Page({
             if (!res2.result || !res2.result.success) {
               throw new Error((res2.result && (res2.result.error || res2.result.msg)) || '操作失败')
             }
-            
+
             wx.hideLoading()
             wx.showToast({
               title: `${action}成功`,
               icon: 'success'
             })
-            
+
             // 重新加载数据
             await this.loadData()
           } catch (error) {
@@ -276,7 +279,7 @@ Page({
         ctx.setGlobalAlpha(0.15); ctx.setFillStyle('#FFFFFF')
         this.drawRoundedRect(ctx, padding, 60, 96, 96, 24)
         ctx.fill(); ctx.restore()
-        
+
         ctx.setFillStyle('#FFFFFF'); ctx.setFontSize(44); ctx.setTextAlign('center')
         ctx.fillText('回', padding + 48, 125)
 
@@ -317,7 +320,7 @@ Page({
 
           ctx.setFillStyle('#64748B'); ctx.setFontSize(24)
           ctx.fillText(item.label, x + cardPadding, y + 54)
-          
+
           const isHighlight = item.label === '加工费总额'
           ctx.setFillStyle(isHighlight ? '#10B981' : '#1E293B')
           ctx.setFontSize(isHighlight ? 40 : 34)

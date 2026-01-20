@@ -1,11 +1,15 @@
 // pages/accounting/index.js
-import { query } from '../../utils/db.js'
-import { checkLogin, getTenantId } from '../../utils/auth.js'
-import { formatAmount } from '../../utils/calc.js'
-import { pickNumber } from '../../utils/summary.js'
+const { query } = require('../utils/db.js')
+const { checkLogin, getTenantId } = require('../utils/auth.js')
+const { formatAmount } = require('../utils/calc.js')
+const { pickNumber } = require('../utils/summary.js')
 const app = getApp()
-const db = wx.cloud.database()
-const _ = db.command
+// 延迟初始化
+let _db = null, _cmd = null
+function getDb() { if (!_db) _db = wx.cloud.database(); return _db }
+function getCmd() { if (!_cmd) _cmd = getDb().command; return _cmd }
+const db = new Proxy({}, { get(t, p) { return getDb()[p] } })
+const _ = new Proxy({}, { get(t, p) { return getCmd()[p] } })
 
 Page({
   data: {

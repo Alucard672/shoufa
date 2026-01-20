@@ -89,6 +89,22 @@
   border: none;
 }
 
+.back-link-btn {
+  width: auto !important;
+  background: transparent;
+  padding: 8px 16px;
+  color: #6A7282;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 20px;
+  border: none;
+  text-decoration: underline;
+}
+
+.back-link-btn::after {
+  border: none;
+}
+
 .wx-icon {
   width: 24px;
   height: 24px;

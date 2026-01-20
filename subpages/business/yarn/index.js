@@ -1,6 +1,6 @@
 // pages/yarn/index.js
-import { query } from '../../utils/db.js'
-import { checkLogin } from '../../utils/auth.js'
+const { query } = require('../utils/db.js')
+const { checkLogin } = require('../utils/auth.js')
 const app = getApp()
 
 Page({
